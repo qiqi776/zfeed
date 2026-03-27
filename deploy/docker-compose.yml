@@ -1,0 +1,106 @@
+version: "3.9"
+
+services:
+  etcd:
+    image: ${ETCD_IMAGE}
+    ports:
+      - "${ETCD_CLIENT_PORT}:2379"
+      - "${ETCD_PEER_PORT}:2380"
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_NAME=etcd
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
+      - ETCD_INITIAL_CLUSTER=etcd=http://etcd:2380
+      - ETCDCTL_API=3
+    volumes:
+      - etcd-data:/bitnami/etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks:
+      - zfeed-net
+
+  redis:
+    image: ${REDIS_IMAGE}
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - zfeed-net
+
+  mysql:
+    image: ${MYSQL_IMAGE}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    volumes:
+      - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./mysql/mysql-reseed.sh:/usr/local/bin/mysql-reseed.sh:ro
+      - ../script/sql:/seed-sql:ro
+      - mysql-data:/var/lib/mysql
+    entrypoint: ["/bin/bash", "/usr/local/bin/mysql-reseed.sh"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - zfeed-net
+
+  kafka:
+    image: ${KAFKA_IMAGE}
+    ports:
+      - "${KAFKA_PORT}:${KAFKA_PORT}"
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:${KAFKA_PORT},CONTROLLER://0.0.0.0:${KAFKA_CONTROLLER_PORT}
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:${KAFKA_PORT}
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:${KAFKA_CONTROLLER_PORT}
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
+      - KAFKA_KRAFT_CLUSTER_ID=${KAFKA_CLUSTER_ID}
+      - ALLOW_PLAINTEXT_LISTENER=yes
+    volumes:
+      - kafka-data:/bitnami/kafka
+    networks:
+      - zfeed-net
+
+  canal:
+    image: ${CANAL_IMAGE}
+    ports:
+      - "${CANAL_PORT}:11111"
+    command: ["/bin/sh", "-lc", "/usr/local/bin/canal-reset-and-start.sh"]
+    volumes:
+      - ./canal/conf/canal.properties:/home/admin/canal-server/conf/canal.properties
+      - ./canal/conf/count:/home/admin/canal-server/conf/count
+      - ./canal/reset-and-start.sh:/usr/local/bin/canal-reset-and-start.sh:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - zfeed-net
+
+networks:
+  zfeed-net:
+    driver: bridge
+
+volumes:
+  etcd-data:
+  redis-data:
+  mysql-data:
+  kafka-data:
