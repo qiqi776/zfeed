@@ -1,0 +1,78 @@
+Name: zfeed-front-api
+Host: 0.0.0.0
+Port: 5000
+MaxBytes: 20971520
+Timeout: 100000
+
+Telemetry:
+  Name: zfeed-front-api-server
+  Endpoint: otel-collector:4317
+  Batcher: otlpgrpc
+  Sampler: 1.0
+
+Log:
+  ServiceName: "zfeed-front-api"
+  Mode: "file"
+  Encoding: "json"
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+  Path: /var/log/zfeed
+  Level: "info"
+  MaxContentLength: 0
+  Compress: false
+  Stat: true
+  KeepDays: 1
+  StackCooldownMillis: 100
+  MaxBackups: 0
+  MaxSize: 0
+  Rotation: "daily"
+  FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
+
+Prometheus:
+  Host: 0.0.0.0
+  Port: 9290
+  Path: /metrics
+
+RedisConfig:
+  Host: ${REDIS_HOST}:6379
+  Type: node
+  Pass: ""
+
+ContentRpcClientConf:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}:2379
+    Key: content.rpc
+  NonBlock: true
+
+InteractionRpcClientConf:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}:2379
+    Key: interaction.rpc
+  NonBlock: true
+
+UserRpcClientConf:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}:2379
+    Key: user.rpc
+  NonBlock: true
+
+CountRpcClientConf:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}:2379
+    Key: count.rpc
+  NonBlock: true
+
+Oss:
+  Provider: ""
+  Region: ""
+  BucketName: ""
+  AccessKeyId: ""
+  AccessKeySecret: ""
+  Endpoint: ""
+  UploadDir: ""
+  PublicHost: ""
+
+SessionTTL: 86400
