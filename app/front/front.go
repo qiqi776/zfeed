@@ -7,10 +7,12 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/zeromicro/go-zero/core/conf"
 	"zfeed/app/front/internal/config"
 	"zfeed/app/front/internal/handler"
 	"zfeed/app/front/internal/svc"
+	"zfeed/pkg/envx"
+
+	"github.com/zeromicro/go-zero/core/conf"
 
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -19,6 +21,7 @@ var configFile = flag.String("f", "etc/front-api.yaml", "the config file")
 
 func main() {
 	flag.Parse()
+	envx.Load()
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c, conf.UseEnv())

@@ -4,9 +4,11 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
+
 	"zfeed/app/front/internal/config"
 )
 
@@ -24,10 +26,20 @@ func NewOptionalLoginMiddleware(rds *redis.Redis, cfg config.Config) *OptionalLo
 
 func (m *OptionalLoginMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Login probing will be implemented later. Keep the skeleton dependency-aware
-		// so ServiceContext already wires Redis and config into the middleware.
-		_ = m.redis
-		_ = m.config
-		next(w, r)
+		token, ok := extractToken(r.Header.Get(headerAuthorization))
+		if !ok {
+			next(w, r)
+			return
+		}
+
+		userID, err := verifyAndRenewSession(r.Context(), m.redis, token, parseSessionTTL(m.config))
+		if err != nil {
+			next(w, r)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), ctxKeyUserID, userID)
+		ctx = context.WithValue(ctx, ctxKeyToken, token)
+		next(w, r.WithContext(ctx))
 	}
 }

@@ -4,10 +4,14 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
+	"github.com/zeromicro/go-zero/rest/httpx"
+
 	"zfeed/app/front/internal/config"
+	"zfeed/pkg/errorx"
 )
 
 type UserLoginStatusAuthMiddleware struct {
@@ -24,10 +28,20 @@ func NewUserLoginStatusAuthMiddleware(rds *redis.Redis, cfg config.Config) *User
 
 func (m *UserLoginStatusAuthMiddleware) Handle(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Auth validation will be implemented later. Keep the skeleton dependency-aware
-		// so middleware construction matches the real runtime wiring.
-		_ = m.redis
-		_ = m.config
-		next(w, r)
+		token, ok := extractToken(r.Header.Get(headerAuthorization))
+		if !ok {
+			httpx.ErrorCtx(r.Context(), w, errorx.NewMsg("用户未登录"))
+			return
+		}
+
+		userID, err := verifyAndRenewSession(r.Context(), m.redis, token, parseSessionTTL(m.config))
+		if err != nil {
+			httpx.ErrorCtx(r.Context(), w, errorx.NewMsg("用户未登录"))
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), ctxKeyUserID, userID)
+		ctx = context.WithValue(ctx, ctxKeyToken, token)
+		next(w, r.WithContext(ctx))
 	}
 }

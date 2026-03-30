@@ -6,10 +6,13 @@ package user
 import (
 	"context"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
+	"zfeed/app/rpc/user/user"
+	"zfeed/pkg/errorx"
+	"zfeed/pkg/utils"
 )
 
 type LogoutLogic struct {
@@ -27,7 +30,24 @@ func NewLogoutLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LogoutLogi
 }
 
 func (l *LogoutLogic) Logout() (resp *types.LogoutRes, err error) {
-	// todo: add your logic here and delete this line
+	userID, err := utils.GetContextUserId(l.ctx)
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+	}
 
-	return
+	tokenVal := l.ctx.Value("token")
+	token, ok := tokenVal.(string)
+	if !ok || token == "" {
+		return nil, errorx.NewMsg("token缺失")
+	}
+
+	_, err = l.svcCtx.UserRpc.Logout(l.ctx, &user.LogoutReq{
+		UserId: userID,
+		Token:  token,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.LogoutRes{}, nil
 }

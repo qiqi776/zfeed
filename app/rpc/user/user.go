@@ -4,17 +4,17 @@ import (
 	"flag"
 	"fmt"
 
-	"zfeed/app/rpc/user/internal/config"
-	"zfeed/app/rpc/user/internal/server"
-	"zfeed/app/rpc/user/internal/svc"
-	"zfeed/app/rpc/user/user"
-	"zfeed/pkg/envx"
-
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"zfeed/app/rpc/user/internal/config"
+	"zfeed/app/rpc/user/internal/server"
+	"zfeed/app/rpc/user/internal/svc"
+	"zfeed/app/rpc/user/user"
+	"zfeed/pkg/envx"
 )
 
 var configFile = flag.String("f", "etc/user.yaml", "the config file")

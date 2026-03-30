@@ -6,47 +6,47 @@ Etcd:
     - ${ETCD_HOST}:2379
   Key: user.rpc
 
-Telemetry:
-  Name: user.rpc-server
-  Endpoint: otel-collector:4317
-  Batcher: otlpgrpc
-  Sampler: 1.0
+# Telemetry:
+#   Name: user.rpc-server
+#   Endpoint: otel-collector:4317
+#   Batcher: otlpgrpc
+#   Sampler: 1.0
 
-Prometheus:
-  Host: 0.0.0.0
-  Port: 9294
-  Path: /metrics
+# Prometheus:
+#   Host: 0.0.0.0
+#   Port: 9294
+#   Path: /metrics
 
-Log:
-  ServiceName: "user.rpc"
-  Mode: "file"
-  Encoding: "json"
-  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
-  Path: /var/log/zfeed
-  Level: "info"
-  MaxContentLength: 0
-  Compress: false
-  Stat: true
-  KeepDays: 1
-  StackCooldownMillis: 100
-  MaxBackups: 0
-  MaxSize: 0
-  Rotation: "daily"
-  FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
+# Log:
+#   ServiceName: "user.rpc"
+#   Mode: "file"
+#   Encoding: "json"
+#   TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+#   Path: /var/log/zfeed
+#   Level: "info"
+#   MaxContentLength: 0
+#   Compress: false
+#   Stat: true
+#   KeepDays: 1
+#   StackCooldownMillis: 100
+#   MaxBackups: 0
+#   MaxSize: 0
+#   Rotation: "daily"
+#   FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
 
-InteractionRpcClientConf:
-  Etcd:
-    Hosts:
-      - ${ETCD_HOST}:2379
-    Key: interaction.rpc
-  NonBlock: true
+# InteractionRpcClientConf:
+#   Etcd:
+#     Hosts:
+#       - ${ETCD_HOST}:2379
+#     Key: interaction.rpc
+#   NonBlock: true
 
-CountRpcClientConf:
-  Etcd:
-    Hosts:
-      - ${ETCD_HOST}:2379
-    Key: count.rpc
-  NonBlock: true
+# CountRpcClientConf:
+#   Etcd:
+#     Hosts:
+#       - ${ETCD_HOST}:2379
+#     Key: count.rpc
+#   NonBlock: true
 
 RedisConfig:
   Host: ${REDIS_HOST}:6379
@@ -58,12 +58,12 @@ MySQL:
 
 SessionTTL: 86400
 
-Oss:
-  Provider: ""
-  Region: ""
-  BucketName: ""
-  AccessKeyId: ""
-  AccessKeySecret: ""
-  Endpoint: ""
-  UploadDir: ""
-  PublicHost: ""
+# Oss:
+#   Provider: ""
+#   Region: ""
+#   BucketName: ""
+#   AccessKeyId: ""
+#   AccessKeySecret: ""
+#   Endpoint: ""
+#   UploadDir: ""
+#   PublicHost: ""

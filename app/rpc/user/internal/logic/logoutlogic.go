@@ -3,10 +3,12 @@ package logic
 import (
 	"context"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
+	"zfeed/app/rpc/user/internal/common/utils/session"
 	"zfeed/app/rpc/user/internal/svc"
 	"zfeed/app/rpc/user/user"
-
-	"github.com/zeromicro/go-zero/core/logx"
+	"zfeed/pkg/errorx"
 )
 
 type LogoutLogic struct {
@@ -24,7 +26,13 @@ func NewLogoutLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LogoutLogi
 }
 
 func (l *LogoutLogic) Logout(in *user.LogoutReq) (*user.LogoutRes, error) {
-	// todo: add your logic here and delete this line
+	if in == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
+
+	if err := session.RemoveSession(l.ctx, l.svcCtx.Redis, in.GetUserId(), in.GetToken()); err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("退出登录失败"))
+	}
 
 	return &user.LogoutRes{}, nil
 }

@@ -6,10 +6,12 @@ package user
 import (
 	"context"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
+	"zfeed/app/rpc/user/user"
+	"zfeed/pkg/errorx"
 )
 
 type LoginLogic struct {
@@ -27,7 +29,23 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 }
 
 func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.Mobile == nil || req.Password == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	rpcResp, err := l.svcCtx.UserRpc.Login(l.ctx, &user.LoginReq{
+		Mobile:   *req.Mobile,
+		Password: *req.Password,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.LoginRes{
+		UserId:    rpcResp.UserId,
+		Token:     rpcResp.Token,
+		ExpiredAt: rpcResp.ExpiredAt,
+		Nickname:  rpcResp.Nickname,
+		Avatar:    rpcResp.Avatar,
+	}, nil
 }
