@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS `zfeed_user` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `username` VARCHAR(64) NOT NULL DEFAULT '',
+  `nickname` VARCHAR(64) NOT NULL DEFAULT '',
+  `avatar` VARCHAR(512) NOT NULL DEFAULT '',
+  `bio` VARCHAR(255) NOT NULL DEFAULT '',
+  `mobile` VARCHAR(32) NOT NULL DEFAULT '',
+  `email` VARCHAR(128) NOT NULL DEFAULT '',
+  `password_hash` VARCHAR(255) NOT NULL DEFAULT '',
+  `password_salt` VARCHAR(64) NOT NULL DEFAULT '',
+  `gender` TINYINT NOT NULL DEFAULT 0,
+  `birthday` DATE DEFAULT NULL,
+  `status` INT NOT NULL DEFAULT 10,
+  `is_deleted` TINYINT NOT NULL DEFAULT 0,
+  `created_by` BIGINT NOT NULL DEFAULT 0,
+  `updated_by` BIGINT NOT NULL DEFAULT 0,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_mobile` (`mobile`),
+  UNIQUE KEY `uk_email` (`email`),
+  KEY `idx_status_deleted` (`status`, `is_deleted`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -3,6 +3,7 @@ module zfeed
 go 1.25.5
 
 require (
+	github.com/alicebob/miniredis/v2 v2.36.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/zeromicro/go-zero v1.10.0
@@ -59,6 +60,7 @@ require (
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/redis/go-redis/v9 v9.17.3 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.15 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.15 // indirect
 	go.etcd.io/etcd/client/v3 v3.5.15 // indirect

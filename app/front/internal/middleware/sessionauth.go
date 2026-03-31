@@ -21,6 +21,7 @@ const (
 	redisUserKeyPrefix  = "user:session:user"
 
 	defaultSessionTTL = 7 * 24 * time.Hour
+	renewRatio        = 1.0 / 3.0
 )
 
 func parseSessionTTL(cfg config.Config) time.Duration {
@@ -41,6 +42,9 @@ func extractToken(authHeader string) (string, bool) {
 		token := strings.TrimSpace(parts[1])
 		return token, token != ""
 	}
+	if strings.EqualFold(authorization, "Bearer") {
+		return "", false
+	}
 
 	return authorization, true
 }
@@ -54,29 +58,34 @@ func verifyAndRenewSession(ctx context.Context, rds *redis.Redis, token string, 
 	if ttlSeconds <= 0 {
 		ttlSeconds = int(defaultSessionTTL.Seconds())
 	}
+	threshold := int(float64(ttlSeconds) * renewRatio)
+	if threshold <= 0 {
+		threshold = 1
+	}
 
 	tokenKey := redisTokenKeyPrefix + ":" + token
-	userIDStr, err := rds.GetCtx(ctx, tokenKey)
-	if err != nil || strings.TrimSpace(userIDStr) == "" {
+	resp, err := rds.EvalCtx(ctx, VerifyAndRenewSessionScript, []string{tokenKey}, token, redisUserKeyPrefix, ttlSeconds, threshold)
+	if err != nil {
+		return 0, err
+	}
+
+	var userIDStr string
+	switch v := resp.(type) {
+	case string:
+		userIDStr = v
+	case []byte:
+		userIDStr = string(v)
+	default:
+		userIDStr = ""
+	}
+	userIDStr = strings.TrimSpace(userIDStr)
+	if userIDStr == "" {
 		return 0, errorx.NewMsg("用户未登录")
 	}
 
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil || userID <= 0 {
 		return 0, errorx.NewMsg("用户未登录")
-	}
-
-	userKey := redisUserKeyPrefix + ":" + strconv.FormatInt(userID, 10)
-	savedToken, err := rds.GetCtx(ctx, userKey)
-	if err != nil || savedToken != token {
-		return 0, errorx.NewMsg("用户未登录")
-	}
-
-	if err = rds.ExpireCtx(ctx, tokenKey, ttlSeconds); err != nil {
-		return 0, err
-	}
-	if err = rds.ExpireCtx(ctx, userKey, ttlSeconds); err != nil {
-		return 0, err
 	}
 
 	return userID, nil

@@ -8,6 +8,9 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	"zfeed/app/rpc/user/user"
+	"zfeed/pkg/errorx"
+	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +30,32 @@ func NewGetMeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetMeLogic 
 }
 
 func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
-	// todo: add your logic here and delete this line
+	userID, err := utils.GetContextUserId(l.ctx)
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+	}
 
-	return
+	rpcResp, err := l.svcCtx.UserRpc.GetMe(l.ctx, &user.GetMeReq{UserId: userID})
+	if err != nil {
+		return nil, err
+	}
+	if rpcResp.GetUserInfo() == nil {
+		return nil, errorx.NewMsg("用户不存在")
+	}
+
+	return &types.GetMeRes{
+		UserInfo: types.UserInfo{
+			UserId:   rpcResp.GetUserInfo().GetUserId(),
+			Mobile:   rpcResp.GetUserInfo().GetMobile(),
+			Nickname: rpcResp.GetUserInfo().GetNickname(),
+			Avatar:   rpcResp.GetUserInfo().GetAvatar(),
+			Bio:      rpcResp.GetUserInfo().GetBio(),
+			Gender:   int32(rpcResp.GetUserInfo().GetGender()),
+			Status:   int32(rpcResp.GetUserInfo().GetStatus()),
+		},
+		FolloweeCount:         rpcResp.GetFolloweeCount(),
+		FollowerCount:         rpcResp.GetFollowerCount(),
+		LikeReceivedCount:     rpcResp.GetLikeReceivedCount(),
+		FavoriteReceivedCount: rpcResp.GetFavoriteReceivedCount(),
+	}, nil
 }

@@ -8,6 +8,8 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	"zfeed/app/rpc/user/user"
+	"zfeed/pkg/errorx"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +29,31 @@ func NewQueryUserProfileLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq) (resp *types.QueryUserProfileRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.UserId <= 0 {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	rpcResp, err := l.svcCtx.UserRpc.GetUserProfile(l.ctx, &user.GetUserProfileReq{
+		UserId: req.UserId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if rpcResp.GetUserProfile() == nil {
+		return nil, errorx.NewMsg("用户不存在")
+	}
+
+	return &types.QueryUserProfileRes{
+		UserProfileInfo: types.UserProfileInfo{
+			UserId:   rpcResp.GetUserProfile().GetUserId(),
+			Nickname: rpcResp.GetUserProfile().GetNickname(),
+			Avatar:   rpcResp.GetUserProfile().GetAvatar(),
+			Bio:      rpcResp.GetUserProfile().GetBio(),
+			Gender:   int32(rpcResp.GetUserProfile().GetGender()),
+		},
+		UserProfileCounts: types.UserProfileCounts{},
+		ViewerProfileState: types.ViewerProfileState{
+			IsFollowing: false,
+		},
+	}, nil
 }

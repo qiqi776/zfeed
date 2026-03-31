@@ -271,7 +271,7 @@ type QueryReplyCommentListRes struct {
 }
 
 type QueryUserProfileReq struct {
-	UserId int64 `json:"user_id,optional" validate:"required"`
+	UserId int64 `path:"userId"`
 }
 
 type QueryUserProfileRes struct {
