@@ -43,6 +43,7 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 		return nil, errorx.NewMsg("用户不存在")
 	}
 
+	// Profile counts and viewer relation are placeholders until interaction/count services exist.
 	return &types.QueryUserProfileRes{
 		UserProfileInfo: types.UserProfileInfo{
 			UserId:   rpcResp.GetUserProfile().GetUserId(),

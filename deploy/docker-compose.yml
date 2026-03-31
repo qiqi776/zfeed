@@ -60,7 +60,7 @@ services:
   kafka:
     image: ${KAFKA_IMAGE}
     ports:
-      - "${KAFKA_PORT}:${KAFKA_PORT}"
+      - "${KAFKA_HOST_PORT}:${KAFKA_PORT}"
     environment:
       - KAFKA_CFG_NODE_ID=1
       - KAFKA_CFG_PROCESS_ROLES=broker,controller

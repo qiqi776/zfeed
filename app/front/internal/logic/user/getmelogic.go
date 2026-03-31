@@ -43,6 +43,7 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 		return nil, errorx.NewMsg("用户不存在")
 	}
 
+	// user-rpc currently returns zero-value counters until follow/count services exist.
 	return &types.GetMeRes{
 		UserInfo: types.UserInfo{
 			UserId:   rpcResp.GetUserInfo().GetUserId(),

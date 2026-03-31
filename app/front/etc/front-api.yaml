@@ -1,21 +1,21 @@
 Name: zfeed-front-api
-Host: 0.0.0.0
+Host: ${FRONT_API_HOST}
 Port: 5000
 MaxBytes: 20971520
 Timeout: 100000
 
-Telemetry:
-  Name: zfeed-front-api-server
-  Endpoint: otel-collector:4317
-  Batcher: otlpgrpc
-  Sampler: 1.0
+# Telemetry:
+#   Name: zfeed-front-api-server
+#   Endpoint: ${OTEL_ENDPOINT}
+#   Batcher: otlpgrpc
+#   Sampler: 1.0
 
 Log:
   ServiceName: "zfeed-front-api"
   Mode: "file"
   Encoding: "json"
   TimeFormat: "2006-01-02T15:04:05.000Z07:00"
-  Path: /var/log/zfeed
+  Path: ${LOG_PATH}
   Level: "info"
   MaxContentLength: 0
   Compress: false
@@ -28,7 +28,7 @@ Log:
   FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
 
 Prometheus:
-  Host: 0.0.0.0
+  Host: ${PROM_HOST}
   Port: 9290
   Path: /metrics
 

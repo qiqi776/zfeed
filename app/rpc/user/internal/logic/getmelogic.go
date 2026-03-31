@@ -40,6 +40,7 @@ func (l *GetMeLogic) GetMe(in *user.GetMeReq) (*user.GetMeRes, error) {
 		return nil, errorx.NewMsg("用户不存在")
 	}
 
+	// Count fields stay at zero until follow/count services are wired in.
 	return &user.GetMeRes{
 		UserInfo: &user.UserInfo{
 			UserId:   userDO.ID,
