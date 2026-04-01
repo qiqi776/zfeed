@@ -8,6 +8,7 @@ import (
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
 
+	contentservice "zfeed/app/rpc/content/contentservice"
 	"zfeed/app/front/internal/config"
 	"zfeed/app/front/internal/middleware"
 	"zfeed/app/rpc/user/client/userservice"
@@ -16,7 +17,7 @@ import (
 type ServiceContext struct {
 	Config                        config.Config
 	Redis                         *redis.Redis
-	ContentRpc                    zrpc.Client
+	ContentRpc                    contentservice.ContentService
 	InteractionRpc                zrpc.Client
 	UserRpc                       userservice.UserService
 	CountRpc                      zrpc.Client
@@ -26,7 +27,7 @@ type ServiceContext struct {
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	rds := redis.MustNewRedis(c.RedisConfig)
-	contentRpc := zrpc.MustNewClient(c.ContentRpcClientConf)
+	contentRpc := contentservice.NewContentService(zrpc.MustNewClient(c.ContentRpcClientConf))
 	interactionRpc := zrpc.MustNewClient(c.InteractionRpcClientConf)
 	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf)
 	countRpc := zrpc.MustNewClient(c.CountRpcClientConf)

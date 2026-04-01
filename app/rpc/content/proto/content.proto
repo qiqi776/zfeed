@@ -1,0 +1,58 @@
+
+syntax = "proto3";
+
+package content;
+
+option go_package = "./content";
+
+enum ContentType {
+  CONTENT_TYPE_UNKNOWN = 0;
+  CONTENT_TYPE_ARTICLE = 10;
+  CONTENT_TYPE_VIDEO = 20;
+}
+
+enum ContentStatus {
+  CONTENT_STATUS_UNKNOWN = 0;
+  CONTENT_STATUS_DRAFT = 10;
+  CONTENT_STATUS_PROCESSING = 20;
+  CONTENT_STATUS_PUBLISHED = 30;
+  CONTENT_STATUS_FAILED = 40;
+}
+
+enum Visibility {
+  VISIBILITY_UNKNOWN = 0;
+  VISIBILITY_PUBLIC = 10;
+  VISIBILITY_PRIVATE = 20;
+}
+
+message ArticlePublishReq {
+  int64 user_id = 1;
+  string title = 2;
+  optional string description = 3;
+  string cover = 4;
+  string content = 5;
+  Visibility visibility = 6;
+}
+
+message ArticlePublishRes {
+  int64 content_id = 1;
+}
+
+message VideoPublishReq {
+  int64 user_id = 1;
+  string title = 2;
+  optional string description = 3;
+  string origin_url = 4;
+  string cover_url = 5;
+  int32 duration = 6;
+  Visibility visibility = 7;
+}
+
+message VideoPublishRes {
+  int64 content_id = 1;
+}
+
+service ContentService {
+  rpc PublishArticle(ArticlePublishReq) returns (ArticlePublishRes);
+  rpc PublishVideo(VideoPublishReq) returns (VideoPublishRes);
+}

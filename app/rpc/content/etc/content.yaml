@@ -1,0 +1,15 @@
+Name: content.rpc
+ListenOn: ${CONTENT_RPC_LISTEN_ON}
+
+Etcd:
+  Hosts:
+    - ${ETCD_HOST}:2379
+  Key: content.rpc
+
+RedisConfig:
+  Host: ${REDIS_HOST}:6379
+  Type: node
+  Pass: ""
+
+MySQL:
+  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai

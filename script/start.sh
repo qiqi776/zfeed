@@ -7,9 +7,13 @@ ENV_FILE_PATH="$ROOT_DIR/.env.local"
 ENV_TEMPLATE_PATH="$ROOT_DIR/.env.local.example"
 LOG_DIR="$ROOT_DIR/logs"
 RUNTIME_DIR="$LOG_DIR/runtime"
+
 USER_RPC_PID_FILE="$RUNTIME_DIR/user-rpc.pid"
+CONTENT_RPC_PID_FILE="$RUNTIME_DIR/content-rpc.pid"
 FRONT_API_PID_FILE="$RUNTIME_DIR/front-api.pid"
+
 USER_RPC_LOG="$LOG_DIR/user-rpc.log"
+CONTENT_RPC_LOG="$LOG_DIR/content-rpc.log"
 FRONT_API_LOG="$LOG_DIR/front-api.log"
 
 fct_require_env_file() {
@@ -103,10 +107,16 @@ fct_wait_for_port 6379 "redis"
 fct_wait_for_port 33306 "mysql"
 
 fct_stop_pid_file "$USER_RPC_PID_FILE"
+fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
 fct_stop_pid_file "$FRONT_API_PID_FILE"
 
 if fct_port_busy 5003; then
   echo "Port 5003 is already in use. Stop the existing process before starting user-rpc." >&2
+  exit 1
+fi
+
+if fct_port_busy 5001; then
+  echo "Port 5001 is already in use. Stop the existing process before starting content-rpc." >&2
   exit 1
 fi
 
@@ -123,6 +133,14 @@ if ! fct_wait_for_port 5003 "user-rpc"; then
   exit 1
 fi
 
+echo "Starting content-rpc locally..."
+nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/content -f app/rpc/content/etc/content.yaml >"$CONTENT_RPC_LOG" 2>&1 &
+echo $! >"$CONTENT_RPC_PID_FILE"
+if ! fct_wait_for_port 5001 "content-rpc"; then
+  tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
+  exit 1
+fi
+
 echo "Starting front-api locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/front -f app/front/etc/front-api.yaml >"$FRONT_API_LOG" 2>&1 &
 echo $! >"$FRONT_API_PID_FILE"
@@ -134,5 +152,6 @@ fi
 echo "zfeed local stack is ready."
 echo "  ENV_FILE: $ENV_FILE"
 echo "  user-rpc log: $USER_RPC_LOG"
+echo "  content-rpc log: $CONTENT_RPC_LOG"
 echo "  front-api log: $FRONT_API_LOG"
 echo "  stop command: $ROOT_DIR/script/stop.sh"

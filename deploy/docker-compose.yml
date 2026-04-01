@@ -18,7 +18,14 @@ services:
     volumes:
       - etcd-data:/bitnami/etcd
     healthcheck:
-      test: ["CMD", "etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
+      test:
+        [
+          "CMD",
+          "etcdctl",
+          "--endpoints=http://127.0.0.1:2379",
+          "endpoint",
+          "health",
+        ]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -50,7 +57,15 @@ services:
       - mysql-data:/var/lib/mysql
     entrypoint: ["/bin/bash", "/usr/local/bin/mysql-reseed.sh"]
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-p${MYSQL_ROOT_PASSWORD}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-p${MYSQL_ROOT_PASSWORD}",
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -92,6 +107,29 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+    networks:
+      - zfeed-net
+
+  content-rpc:
+    image: golang:1.25
+    working_dir: /app
+    command:
+      - /bin/sh
+      - -lc
+      - ENV_FILE=/app/deploy/.env go run ./app/rpc/content -f app/rpc/content/etc/content.yaml
+    volumes:
+      - ..:/app
+    env_file:
+      - ./.env
+    ports:
+      - "5001:5001"
+    depends_on:
+      etcd:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
     networks:
       - zfeed-net
 
