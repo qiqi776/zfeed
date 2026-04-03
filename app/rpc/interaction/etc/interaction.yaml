@@ -1,6 +1,31 @@
 Name: interaction.rpc
-ListenOn: 0.0.0.0:8080
+ListenOn: ${INTERACTION_RPC_LISTEN_ON}
+
 Etcd:
   Hosts:
-  - 127.0.0.1:2379
+    - ${ETCD_HOST}:${ETCD_PORT}
   Key: interaction.rpc
+
+RedisConfig:
+  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Type: node
+  Pass: ""
+
+KqProducerConf:
+  Brokers:
+    - ${KAFKA_BROKERS}
+  Topic: zfeed-like
+  MaxRetries: 3
+
+KqConsumerConf:
+  Name: interaction-like-consumer
+  Brokers:
+    - ${KAFKA_BROKERS}
+  Group: zfeed-like-consumer
+  Topic: zfeed-like
+  Offset: last
+  Consumers: 8
+  Processors: 8
+
+MySQL:
+  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai

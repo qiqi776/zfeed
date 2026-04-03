@@ -4,13 +4,13 @@ services:
   etcd:
     image: ${ETCD_IMAGE}
     ports:
-      - "${ETCD_CLIENT_PORT}:2379"
-      - "${ETCD_PEER_PORT}:2380"
+      - "${ETCD_HOST_PORT}:${ETCD_PORT}"
+      - "${ETCD_PEER_HOST_PORT}:${ETCD_PEER_PORT}"
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
       - ETCD_NAME=etcd
-      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
-      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:2379
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:${ETCD_PORT}
+      - ETCD_ADVERTISE_CLIENT_URLS=http://etcd:${ETCD_PORT}
       - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
       - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd:2380
       - ETCD_INITIAL_CLUSTER=etcd=http://etcd:2380
@@ -22,7 +22,7 @@ services:
         [
           "CMD",
           "etcdctl",
-          "--endpoints=http://127.0.0.1:2379",
+          "--endpoints=http://127.0.0.1:${ETCD_PORT}",
           "endpoint",
           "health",
         ]
@@ -35,7 +35,7 @@ services:
   redis:
     image: ${REDIS_IMAGE}
     ports:
-      - "${REDIS_PORT}:6379"
+      - "${REDIS_HOST_PORT}:${REDIS_PORT}"
     volumes:
       - redis-data:/data
     networks:
@@ -75,16 +75,16 @@ services:
   kafka:
     image: ${KAFKA_IMAGE}
     ports:
-      - "${KAFKA_HOST_PORT}:${KAFKA_PORT}"
+      - "${KAFKA_HOST_PORT}:${KAFKA_HOST_PORT}"
     environment:
       - KAFKA_CFG_NODE_ID=1
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://0.0.0.0:${KAFKA_PORT},CONTROLLER://0.0.0.0:${KAFKA_CONTROLLER_PORT}
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:${KAFKA_PORT}
+      - KAFKA_CFG_LISTENERS=INTERNAL://0.0.0.0:${KAFKA_PORT},EXTERNAL://0.0.0.0:${KAFKA_HOST_PORT},CONTROLLER://0.0.0.0:${KAFKA_CONTROLLER_PORT}
+      - KAFKA_CFG_ADVERTISED_LISTENERS=INTERNAL://kafka:${KAFKA_PORT},EXTERNAL://127.0.0.1:${KAFKA_HOST_PORT}
       - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:${KAFKA_CONTROLLER_PORT}
       - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=INTERNAL
       - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_KRAFT_CLUSTER_ID=${KAFKA_CLUSTER_ID}
       - ALLOW_PLAINTEXT_LISTENER=yes
@@ -130,6 +130,31 @@ services:
         condition: service_started
       mysql:
         condition: service_healthy
+    networks:
+      - zfeed-net
+
+  interaction-rpc:
+    image: golang:1.25
+    working_dir: /app
+    command:
+      - /bin/sh
+      - -lc
+      - ENV_FILE=/app/deploy/.env go run ./app/rpc/interaction -f app/rpc/interaction/etc/interaction.yaml
+    volumes:
+      - ..:/app
+    env_file:
+      - ./.env
+    ports:
+      - "5002:5002"
+    depends_on:
+      etcd:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     networks:
       - zfeed-net
 

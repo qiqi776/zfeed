@@ -3,7 +3,7 @@ ListenOn: ${USER_RPC_LISTEN_ON}
 
 Etcd:
   Hosts:
-    - ${ETCD_HOST}:2379
+    - ${ETCD_HOST}:${ETCD_PORT}
   Key: user.rpc
 
 # Telemetry:
@@ -37,19 +37,19 @@ Etcd:
 # InteractionRpcClientConf:
 #   Etcd:
 #     Hosts:
-#       - ${ETCD_HOST}:2379
+#       - ${ETCD_HOST}:${ETCD_PORT}
 #     Key: interaction.rpc
 #   NonBlock: true
 
 # CountRpcClientConf:
 #   Etcd:
 #     Hosts:
-#       - ${ETCD_HOST}:2379
+#       - ${ETCD_HOST}:${ETCD_PORT}
 #     Key: count.rpc
 #   NonBlock: true
 
 RedisConfig:
-  Host: ${REDIS_HOST}:6379
+  Host: ${REDIS_HOST}:${REDIS_PORT}
   Type: node
   Pass: ""
 

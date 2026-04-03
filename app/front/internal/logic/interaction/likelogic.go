@@ -8,6 +8,9 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	"zfeed/app/rpc/interaction/interaction"
+	"zfeed/pkg/errorx"
+	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +30,28 @@ func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 }
 
 func (l *LikeLogic) Like(req *types.LikeReq) (resp *types.LikeRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.ContentId == nil || req.ContentUserId == nil || req.Scene == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	userID, err := utils.GetContextUserId(l.ctx)
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+	}
+
+	scene, err := parseScene(*req.Scene)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = l.svcCtx.LikeRpc.Like(l.ctx, &interaction.LikeReq{
+		UserId:        userID,
+		ContentId:     *req.ContentId,
+		ContentUserId: *req.ContentUserId,
+		Scene:         scene,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &types.LikeRes{}, nil
 }

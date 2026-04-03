@@ -10,24 +10,41 @@ RUNTIME_DIR="$LOG_DIR/runtime"
 
 USER_RPC_PID_FILE="$RUNTIME_DIR/user-rpc.pid"
 CONTENT_RPC_PID_FILE="$RUNTIME_DIR/content-rpc.pid"
+INTERACTION_RPC_PID_FILE="$RUNTIME_DIR/interaction-rpc.pid"
 FRONT_API_PID_FILE="$RUNTIME_DIR/front-api.pid"
 
 USER_RPC_LOG="$LOG_DIR/user-rpc.log"
 CONTENT_RPC_LOG="$LOG_DIR/content-rpc.log"
+INTERACTION_RPC_LOG="$LOG_DIR/interaction-rpc.log"
 FRONT_API_LOG="$LOG_DIR/front-api.log"
 
 fct_require_env_file() {
   if [ -f "$ENV_FILE_PATH" ]; then
-    return 0
+    :
+  else
+    if [ ! -f "$ENV_TEMPLATE_PATH" ]; then
+      echo "Missing env template: $ENV_TEMPLATE_PATH" >&2
+      exit 1
+    fi
+
+    cp "$ENV_TEMPLATE_PATH" "$ENV_FILE_PATH"
+    echo "Created $ENV_FILE_PATH from template. Review values if your local ports differ."
   fi
 
-  if [ ! -f "$ENV_TEMPLATE_PATH" ]; then
-    echo "Missing env template: $ENV_TEMPLATE_PATH" >&2
-    exit 1
-  fi
+  local line
+  local key
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ""|\#*)
+        continue
+        ;;
+    esac
 
-  cp "$ENV_TEMPLATE_PATH" "$ENV_FILE_PATH"
-  echo "Created $ENV_FILE_PATH from template. Review values if your local ports differ."
+    key=${line%%=*}
+    if ! grep -q "^${key}=" "$ENV_FILE_PATH"; then
+      printf '%s\n' "$line" >>"$ENV_FILE_PATH"
+    fi
+  done <"$ENV_TEMPLATE_PATH"
 }
 
 fct_docker_compose() {
@@ -59,6 +76,11 @@ fct_docker_compose() {
 fct_port_busy() {
   local port="$1"
   lsof -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
+}
+
+fct_port_from_listen_on() {
+  local listen_on="$1"
+  printf '%s\n' "${listen_on##*:}"
 }
 
 fct_wait_for_port() {
@@ -94,7 +116,15 @@ fct_stop_pid_file() {
 
 mkdir -p "$LOG_DIR" "$RUNTIME_DIR"
 fct_require_env_file
+set -a
+. "$ENV_FILE_PATH"
+set +a
 export ENV_FILE="$ENV_FILE_PATH"
+
+USER_RPC_PORT=$(fct_port_from_listen_on "$USER_RPC_LISTEN_ON")
+CONTENT_RPC_PORT=$(fct_port_from_listen_on "$CONTENT_RPC_LISTEN_ON")
+INTERACTION_RPC_PORT=$(fct_port_from_listen_on "$INTERACTION_RPC_LISTEN_ON")
+KAFKA_PORT=$(fct_port_from_listen_on "$KAFKA_BROKERS")
 
 cd "$ROOT_DIR"
 
@@ -102,33 +132,40 @@ echo "Starting infrastructure via Docker Compose..."
 fct_docker_compose up -d etcd redis mysql kafka canal
 
 echo "Waiting for infrastructure ports..."
-fct_wait_for_port 2379 "etcd"
-fct_wait_for_port 6379 "redis"
-fct_wait_for_port 33306 "mysql"
+fct_wait_for_port "$ETCD_PORT" "etcd"
+fct_wait_for_port "$REDIS_PORT" "redis"
+fct_wait_for_port "$MYSQL_APP_PORT" "mysql"
+fct_wait_for_port "$KAFKA_PORT" "kafka"
 
 fct_stop_pid_file "$USER_RPC_PID_FILE"
 fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
+fct_stop_pid_file "$INTERACTION_RPC_PID_FILE"
 fct_stop_pid_file "$FRONT_API_PID_FILE"
 
-if fct_port_busy 5003; then
-  echo "Port 5003 is already in use. Stop the existing process before starting user-rpc." >&2
+if fct_port_busy "$USER_RPC_PORT"; then
+  echo "Port $USER_RPC_PORT is already in use. Stop the existing process before starting user-rpc." >&2
   exit 1
 fi
 
-if fct_port_busy 5001; then
-  echo "Port 5001 is already in use. Stop the existing process before starting content-rpc." >&2
+if fct_port_busy "$CONTENT_RPC_PORT"; then
+  echo "Port $CONTENT_RPC_PORT is already in use. Stop the existing process before starting content-rpc." >&2
   exit 1
 fi
 
-if fct_port_busy 5000; then
-  echo "Port 5000 is already in use. Stop the existing process before starting front-api." >&2
+if fct_port_busy "$FRONT_API_PORT"; then
+  echo "Port $FRONT_API_PORT is already in use. Stop the existing process before starting front-api." >&2
+  exit 1
+fi
+
+if fct_port_busy "$INTERACTION_RPC_PORT"; then
+  echo "Port $INTERACTION_RPC_PORT is already in use. Stop the existing process before starting interaction-rpc." >&2
   exit 1
 fi
 
 echo "Starting user-rpc locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/user -f app/rpc/user/etc/user.yaml >"$USER_RPC_LOG" 2>&1 &
 echo $! >"$USER_RPC_PID_FILE"
-if ! fct_wait_for_port 5003 "user-rpc"; then
+if ! fct_wait_for_port "$USER_RPC_PORT" "user-rpc"; then
   tail -n 50 "$USER_RPC_LOG" >&2 || true
   exit 1
 fi
@@ -136,15 +173,23 @@ fi
 echo "Starting content-rpc locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/content -f app/rpc/content/etc/content.yaml >"$CONTENT_RPC_LOG" 2>&1 &
 echo $! >"$CONTENT_RPC_PID_FILE"
-if ! fct_wait_for_port 5001 "content-rpc"; then
+if ! fct_wait_for_port "$CONTENT_RPC_PORT" "content-rpc"; then
   tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
+  exit 1
+fi
+
+echo "Starting interaction-rpc locally..."
+nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/interaction -f app/rpc/interaction/etc/interaction.yaml >"$INTERACTION_RPC_LOG" 2>&1 &
+echo $! >"$INTERACTION_RPC_PID_FILE"
+if ! fct_wait_for_port "$INTERACTION_RPC_PORT" "interaction-rpc"; then
+  tail -n 50 "$INTERACTION_RPC_LOG" >&2 || true
   exit 1
 fi
 
 echo "Starting front-api locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/front -f app/front/etc/front-api.yaml >"$FRONT_API_LOG" 2>&1 &
 echo $! >"$FRONT_API_PID_FILE"
-if ! fct_wait_for_port 5000 "front-api"; then
+if ! fct_wait_for_port "$FRONT_API_PORT" "front-api"; then
   tail -n 50 "$FRONT_API_LOG" >&2 || true
   exit 1
 fi
@@ -153,5 +198,6 @@ echo "zfeed local stack is ready."
 echo "  ENV_FILE: $ENV_FILE"
 echo "  user-rpc log: $USER_RPC_LOG"
 echo "  content-rpc log: $CONTENT_RPC_LOG"
+echo "  interaction-rpc log: $INTERACTION_RPC_LOG"
 echo "  front-api log: $FRONT_API_LOG"
 echo "  stop command: $ROOT_DIR/script/stop.sh"

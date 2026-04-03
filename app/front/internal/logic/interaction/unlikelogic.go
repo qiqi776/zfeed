@@ -6,10 +6,13 @@ package interaction
 import (
 	"context"
 
+	"github.com/zeromicro/go-zero/core/logx"
+
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
-
-	"github.com/zeromicro/go-zero/core/logx"
+	interactionpb "zfeed/app/rpc/interaction/interaction"
+	"zfeed/pkg/errorx"
+	"zfeed/pkg/utils"
 )
 
 type UnlikeLogic struct {
@@ -27,7 +30,28 @@ func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogi
 }
 
 func (l *UnlikeLogic) Unlike(req *types.UnlikeReq) (resp *types.UnlikeRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.ContentId == nil || req.Scene == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	userID, err := utils.GetContextUserId(l.ctx)
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+	}
+
+	scene, err := parseScene(*req.Scene)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = l.svcCtx.LikeRpc.Unlike(l.ctx, &interactionpb.UnlikeReq{
+		UserId:    userID,
+		ContentId: *req.ContentId,
+		Scene:     scene,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.UnlikeRes{}, nil
 }

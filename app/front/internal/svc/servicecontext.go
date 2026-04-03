@@ -11,6 +11,7 @@ import (
 	contentservice "zfeed/app/rpc/content/contentservice"
 	"zfeed/app/front/internal/config"
 	"zfeed/app/front/internal/middleware"
+	"zfeed/app/rpc/interaction/client/likeservice"
 	"zfeed/app/rpc/user/client/userservice"
 )
 
@@ -18,7 +19,7 @@ type ServiceContext struct {
 	Config                        config.Config
 	Redis                         *redis.Redis
 	ContentRpc                    contentservice.ContentService
-	InteractionRpc                zrpc.Client
+	LikeRpc                       likeservice.LikeService
 	UserRpc                       userservice.UserService
 	CountRpc                      zrpc.Client
 	UserLoginStatusAuthMiddleware rest.Middleware
@@ -28,7 +29,7 @@ type ServiceContext struct {
 func NewServiceContext(c config.Config) *ServiceContext {
 	rds := redis.MustNewRedis(c.RedisConfig)
 	contentRpc := contentservice.NewContentService(zrpc.MustNewClient(c.ContentRpcClientConf))
-	interactionRpc := zrpc.MustNewClient(c.InteractionRpcClientConf)
+	likeRpc := likeservice.NewLikeService(zrpc.MustNewClient(c.InteractionRpcClientConf))
 	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf)
 	countRpc := zrpc.MustNewClient(c.CountRpcClientConf)
 
@@ -36,7 +37,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Config:                        c,
 		Redis:                         rds,
 		ContentRpc:                    contentRpc,
-		InteractionRpc:                interactionRpc,
+		LikeRpc:                       likeRpc,
 		UserRpc:                       userservice.NewUserService(userRpcClient),
 		CountRpc:                      countRpc,
 		UserLoginStatusAuthMiddleware: middleware.NewUserLoginStatusAuthMiddleware(rds, c).Handle,
