@@ -79,7 +79,7 @@ type DeleteCommentReq struct {
 	ContentId *int64  `json:"content_id,string,optional" validate:"required"`
 	RootId    *int64  `json:"root_id,string,optional"`
 	ParentId  *int64  `json:"parent_id,string,optional"`
-	Scene     *string `json:"scene,optional"`
+	Scene     *string `json:"scene,optional" validate:"required"`
 }
 
 type DeleteCommentRes struct {
@@ -224,8 +224,8 @@ type PublishVideoRes struct {
 type QueryCommentListReq struct {
 	ContentId *int64  `json:"content_id,string,optional" validate:"required"`
 	Scene     *string `json:"scene,optional" validate:"required"`
-	Cursor    *int64  `json:"cursor,optional" validate:"required,max=50"`
-	PageSize  *uint32 `json:"page_size,optional" validate:"required,max=50"`
+	Cursor    *int64  `json:"cursor,optional" validate:"required"`
+	PageSize  *uint32 `json:"page_size,optional" validate:"required,min=1,max=50"`
 }
 
 type QueryCommentListRes struct {
@@ -261,7 +261,7 @@ type QueryLikeInfoRes struct {
 type QueryReplyCommentListReq struct {
 	CommentId *int64  `json:"comment_id,string,optional" validate:"required"`
 	Cursor    *int64  `json:"cursor,optional" validate:"required"`
-	PageSize  *uint32 `json:"page_size,optional" validate:"required"`
+	PageSize  *uint32 `json:"page_size,optional" validate:"required,min=1,max=50"`
 }
 
 type QueryReplyCommentListRes struct {

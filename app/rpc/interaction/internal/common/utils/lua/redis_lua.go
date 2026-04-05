@@ -7,3 +7,9 @@ var LikeUserHashScript string
 
 //go:embed cancel_like_user_hash.lua
 var CancelLikeUserHashScript string
+
+//go:embed update_comment_cache.lua
+var UpdateCommentCacheScript string
+
+//go:embed batch_get_comment_objs.lua
+var BatchGetCommentObjsScript string

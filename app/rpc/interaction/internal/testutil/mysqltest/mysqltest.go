@@ -109,6 +109,71 @@ func EnsureLikeTables(db *gorm.DB) error {
 	return nil
 }
 
+func EnsureCommentTables(db *gorm.DB) error {
+	if db == nil {
+		return fmt.Errorf("nil db")
+	}
+
+	for _, ddl := range []string{
+		createContentTableDDL,
+		createCommentTableDDL,
+	} {
+		if err := db.Exec(ddl).Error; err != nil {
+			return err
+		}
+	}
+
+	for _, ensure := range []struct {
+		columnName string
+		alterDDL   string
+	}{
+		{
+			columnName: "content_user_id",
+			alterDDL:   "ALTER TABLE zfeed_comment ADD COLUMN content_user_id BIGINT NOT NULL DEFAULT 0 AFTER content_id",
+		},
+		{
+			columnName: "version",
+			alterDDL:   "ALTER TABLE zfeed_comment ADD COLUMN version INT NOT NULL DEFAULT 1 AFTER status",
+		},
+	} {
+		if err := ensureColumn(db, "zfeed_comment", ensure.columnName, ensure.alterDDL); err != nil {
+			return err
+		}
+	}
+
+	for _, ensure := range []struct {
+		indexName string
+		createDDL string
+	}{
+		{
+			indexName: "idx_content_root_list",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_content_root_list (content_id, root_id, is_deleted, id)",
+		},
+		{
+			indexName: "idx_root_reply_list",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_root_reply_list (root_id, is_deleted, id)",
+		},
+		{
+			indexName: "idx_parent_list",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_parent_list (parent_id, is_deleted, id)",
+		},
+		{
+			indexName: "idx_content_user",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_content_user (content_user_id)",
+		},
+		{
+			indexName: "idx_user_comment_list",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_user_comment_list (user_id, is_deleted, id)",
+		},
+	} {
+		if err := ensureIndex(db, "zfeed_comment", ensure.indexName, ensure.createDDL); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func CleanupLikeRowsByRange(db *gorm.DB, minID, maxID int64) error {
 	if db == nil {
 		return fmt.Errorf("nil db")
@@ -140,7 +205,75 @@ func CleanupDedupRows(db *gorm.DB, consumer, eventPrefix string) error {
 	).Error
 }
 
+func CleanupCommentRowsByRange(db *gorm.DB, minID, maxID int64) error {
+	if db == nil {
+		return fmt.Errorf("nil db")
+	}
+
+	return db.Exec(
+		`DELETE FROM zfeed_comment
+WHERE (content_id BETWEEN ? AND ?)
+   OR (user_id BETWEEN ? AND ?)
+   OR (reply_to_user_id BETWEEN ? AND ?)
+   OR (created_by BETWEEN ? AND ?)
+   OR (updated_by BETWEEN ? AND ?)`,
+		minID,
+		maxID,
+		minID,
+		maxID,
+		minID,
+		maxID,
+		minID,
+		maxID,
+		minID,
+		maxID,
+	).Error
+}
+
+func CleanupContentRowsByRange(db *gorm.DB, minID, maxID int64) error {
+	if db == nil {
+		return fmt.Errorf("nil db")
+	}
+
+	return db.Exec(
+		`DELETE FROM zfeed_content
+WHERE (id BETWEEN ? AND ?)
+   OR (user_id BETWEEN ? AND ?)
+   OR (created_by BETWEEN ? AND ?)
+   OR (updated_by BETWEEN ? AND ?)`,
+		minID,
+		maxID,
+		minID,
+		maxID,
+		minID,
+		maxID,
+		minID,
+		maxID,
+	).Error
+}
+
 func ensureUniqueIndex(db *gorm.DB, tableName, indexName, createDDL string) error {
+	var count int64
+	if err := db.Raw(
+		`SELECT COUNT(1)
+FROM information_schema.statistics
+WHERE table_schema = DATABASE()
+  AND table_name = ?
+  AND index_name = ?`,
+		tableName,
+		indexName,
+	).Scan(&count).Error; err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return nil
+	}
+
+	return db.Exec(createDDL).Error
+}
+
+func ensureIndex(db *gorm.DB, tableName, indexName, createDDL string) error {
 	var count int64
 	if err := db.Raw(
 		`SELECT COUNT(1)
@@ -279,5 +412,54 @@ CREATE TABLE IF NOT EXISTS zfeed_like (
   KEY idx_content (content_id),
   KEY idx_content_user (content_user_id),
   KEY idx_user_status (user_id, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`
+
+const createContentTableDDL = `
+CREATE TABLE IF NOT EXISTS zfeed_content (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  user_id BIGINT NOT NULL DEFAULT 0,
+  content_type INT NOT NULL DEFAULT 0,
+  status INT NOT NULL DEFAULT 0,
+  visibility INT NOT NULL DEFAULT 0,
+  like_count BIGINT NOT NULL DEFAULT 0,
+  favorite_count BIGINT NOT NULL DEFAULT 0,
+  comment_count BIGINT NOT NULL DEFAULT 0,
+  published_at DATETIME DEFAULT NULL,
+  is_deleted TINYINT NOT NULL DEFAULT 0,
+  created_by BIGINT NOT NULL DEFAULT 0,
+  updated_by BIGINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_user_publish_list (user_id, status, visibility, is_deleted, id),
+  KEY idx_user_publish_time (user_id, status, visibility, is_deleted, published_at, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`
+
+const createCommentTableDDL = `
+CREATE TABLE IF NOT EXISTS zfeed_comment (
+  id BIGINT NOT NULL AUTO_INCREMENT,
+  content_id BIGINT NOT NULL DEFAULT 0,
+  content_user_id BIGINT NOT NULL DEFAULT 0,
+  user_id BIGINT NOT NULL DEFAULT 0,
+  reply_to_user_id BIGINT NOT NULL DEFAULT 0,
+  parent_id BIGINT NOT NULL DEFAULT 0,
+  root_id BIGINT NOT NULL DEFAULT 0,
+  comment VARCHAR(255) NOT NULL DEFAULT '',
+  status TINYINT NOT NULL DEFAULT 10,
+  version INT NOT NULL DEFAULT 1,
+  reply_count BIGINT NOT NULL DEFAULT 0,
+  is_deleted TINYINT NOT NULL DEFAULT 0,
+  created_by BIGINT NOT NULL DEFAULT 0,
+  updated_by BIGINT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_content_root_list (content_id, root_id, is_deleted, id),
+  KEY idx_root_reply_list (root_id, is_deleted, id),
+  KEY idx_parent_list (parent_id, is_deleted, id),
+  KEY idx_content_user (content_user_id),
+  KEY idx_user_comment_list (user_id, is_deleted, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `

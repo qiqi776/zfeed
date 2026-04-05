@@ -6,3 +6,14 @@ GRANT ALL PRIVILEGES ON `zfeed`.* TO 'zfeed'@'%';
 GRANT ALL PRIVILEGES ON `xxl_job`.* TO 'zfeed'@'%';
 GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'zfeed'@'%';
 FLUSH PRIVILEGES;
+
+USE `zfeed`;
+
+SOURCE script/sql/zfeed_user.sql;
+SOURCE script/sql/zfeed_content.sql;
+SOURCE script/sql/zfeed_article.sql;
+SOURCE script/sql/zfeed_video.sql;
+SOURCE script/sql/zfeed_like.sql;
+SOURCE script/sql/zfeed_mq_consume_dedup.sql;
+SOURCE script/sql/zfeed_comment.sql;
+SOURCE script/sql/zfeed_comment_migrate.sql;

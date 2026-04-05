@@ -8,6 +8,8 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	commentservicepb "zfeed/app/rpc/interaction/client/commentservice"
+	"zfeed/pkg/errorx"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +29,22 @@ func NewQueryReplyCommentListLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *QueryReplyCommentListLogic) QueryReplyCommentList(req *types.QueryReplyCommentListReq) (resp *types.QueryReplyCommentListRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.CommentId == nil || req.Cursor == nil || req.PageSize == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	res, err := l.svcCtx.CommentRpc.QueryReplyList(l.ctx, &commentservicepb.QueryReplyListReq{
+		RootId:   *req.CommentId,
+		Cursor:   *req.Cursor,
+		PageSize: *req.PageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryReplyCommentListRes{
+		Comments:   commentItemsFromRPC(res.GetReplies()),
+		NextCursor: res.GetNextCursor(),
+		HasMore:    res.GetHasMore(),
+	}, nil
 }
