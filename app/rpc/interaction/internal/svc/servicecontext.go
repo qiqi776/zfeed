@@ -7,6 +7,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	contentservice "zfeed/app/rpc/content/contentservice"
 	"zfeed/app/rpc/interaction/internal/config"
 	"zfeed/app/rpc/interaction/internal/mq/producer"
 	"zfeed/app/rpc/user/client/userservice"
@@ -19,6 +20,7 @@ type ServiceContext struct {
 	LikeProducer producer.EventProducer
 	MysqlDb      *gorm.DB
 	UserRpc      userservice.UserService
+	ContentRpc   contentservice.ContentService
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -33,6 +35,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		maxRetries = 3
 	}
 	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf)
+	contentRpcClient := zrpc.MustNewClient(c.ContentRpcClientConf)
 
 	return &ServiceContext{
 		Config:       c,
@@ -41,5 +44,6 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		LikeProducer: producer.NewLikeProducer(kqPusher, maxRetries),
 		MysqlDb:      db,
 		UserRpc:      userservice.NewUserService(userRpcClient),
+		ContentRpc:   contentservice.NewContentService(contentRpcClient),
 	}
 }

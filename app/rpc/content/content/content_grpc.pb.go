@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ContentService_PublishArticle_FullMethodName = "/content.ContentService/PublishArticle"
-	ContentService_PublishVideo_FullMethodName   = "/content.ContentService/PublishVideo"
+	ContentService_PublishArticle_FullMethodName      = "/content.ContentService/PublishArticle"
+	ContentService_PublishVideo_FullMethodName        = "/content.ContentService/PublishVideo"
+	ContentService_BackfillFollowInbox_FullMethodName = "/content.ContentService/BackfillFollowInbox"
 )
 
 // ContentServiceClient is the client API for ContentService service.
@@ -29,6 +30,7 @@ const (
 type ContentServiceClient interface {
 	PublishArticle(ctx context.Context, in *ArticlePublishReq, opts ...grpc.CallOption) (*ArticlePublishRes, error)
 	PublishVideo(ctx context.Context, in *VideoPublishReq, opts ...grpc.CallOption) (*VideoPublishRes, error)
+	BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error)
 }
 
 type contentServiceClient struct {
@@ -59,12 +61,23 @@ func (c *contentServiceClient) PublishVideo(ctx context.Context, in *VideoPublis
 	return out, nil
 }
 
+func (c *contentServiceClient) BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BackfillFollowInboxRes)
+	err := c.cc.Invoke(ctx, ContentService_BackfillFollowInbox_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ContentServiceServer is the server API for ContentService service.
 // All implementations must embed UnimplementedContentServiceServer
 // for forward compatibility.
 type ContentServiceServer interface {
 	PublishArticle(context.Context, *ArticlePublishReq) (*ArticlePublishRes, error)
 	PublishVideo(context.Context, *VideoPublishReq) (*VideoPublishRes, error)
+	BackfillFollowInbox(context.Context, *BackfillFollowInboxReq) (*BackfillFollowInboxRes, error)
 	mustEmbedUnimplementedContentServiceServer()
 }
 
@@ -80,6 +93,9 @@ func (UnimplementedContentServiceServer) PublishArticle(context.Context, *Articl
 }
 func (UnimplementedContentServiceServer) PublishVideo(context.Context, *VideoPublishReq) (*VideoPublishRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method PublishVideo not implemented")
+}
+func (UnimplementedContentServiceServer) BackfillFollowInbox(context.Context, *BackfillFollowInboxReq) (*BackfillFollowInboxRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method BackfillFollowInbox not implemented")
 }
 func (UnimplementedContentServiceServer) mustEmbedUnimplementedContentServiceServer() {}
 func (UnimplementedContentServiceServer) testEmbeddedByValue()                        {}
@@ -138,6 +154,24 @@ func _ContentService_PublishVideo_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ContentService_BackfillFollowInbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BackfillFollowInboxReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).BackfillFollowInbox(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_BackfillFollowInbox_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).BackfillFollowInbox(ctx, req.(*BackfillFollowInboxReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ContentService_ServiceDesc is the grpc.ServiceDesc for ContentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -152,6 +186,10 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PublishVideo",
 			Handler:    _ContentService_PublishVideo_Handler,
+		},
+		{
+			MethodName: "BackfillFollowInbox",
+			Handler:    _ContentService_BackfillFollowInbox_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

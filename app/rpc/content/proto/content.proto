@@ -52,7 +52,18 @@ message VideoPublishRes {
   int64 content_id = 1;
 }
 
+message BackfillFollowInboxReq {
+  int64 follower_id = 1;
+  int64 followee_id = 2;
+  uint32 limit = 3;
+}
+
+message BackfillFollowInboxRes {
+  int32 added_count = 1;
+}
+
 service ContentService {
   rpc PublishArticle(ArticlePublishReq) returns (ArticlePublishRes);
   rpc PublishVideo(VideoPublishReq) returns (VideoPublishRes);
+  rpc BackfillFollowInbox(BackfillFollowInboxReq) returns (BackfillFollowInboxRes);
 }

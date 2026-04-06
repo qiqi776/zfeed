@@ -12,6 +12,8 @@ import (
 	"zfeed/app/front/internal/middleware"
 	contentservice "zfeed/app/rpc/content/contentservice"
 	"zfeed/app/rpc/interaction/client/commentservice"
+	"zfeed/app/rpc/interaction/client/favoriteservice"
+	"zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/interaction/client/likeservice"
 	"zfeed/app/rpc/user/client/userservice"
 )
@@ -21,6 +23,8 @@ type ServiceContext struct {
 	Redis                         *redis.Redis
 	ContentRpc                    contentservice.ContentService
 	CommentRpc                    commentservice.CommentService
+	FavoriteRpc                   favoriteservice.FavoriteService
+	FollowRpc                     followservice.FollowService
 	LikeRpc                       likeservice.LikeService
 	UserRpc                       userservice.UserService
 	CountRpc                      zrpc.Client
@@ -34,6 +38,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	interactionRpcClient := zrpc.MustNewClient(c.InteractionRpcClientConf)
 	likeRpc := likeservice.NewLikeService(interactionRpcClient)
 	commentRpc := commentservice.NewCommentService(interactionRpcClient)
+	favoriteRpc := favoriteservice.NewFavoriteService(interactionRpcClient)
+	followRpc := followservice.NewFollowService(interactionRpcClient)
 	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf)
 	countRpc := zrpc.MustNewClient(c.CountRpcClientConf)
 
@@ -42,6 +48,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Redis:                         rds,
 		ContentRpc:                    contentRpc,
 		CommentRpc:                    commentRpc,
+		FavoriteRpc:                   favoriteRpc,
+		FollowRpc:                     followRpc,
 		LikeRpc:                       likeRpc,
 		UserRpc:                       userservice.NewUserService(userRpcClient),
 		CountRpc:                      countRpc,

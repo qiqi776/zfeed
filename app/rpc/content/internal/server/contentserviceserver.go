@@ -32,3 +32,8 @@ func (s *ContentServiceServer) PublishVideo(ctx context.Context, in *content.Vid
 	l := logic.NewPublishVideoLogic(ctx, s.svcCtx)
 	return l.PublishVideo(in)
 }
+
+func (s *ContentServiceServer) BackfillFollowInbox(ctx context.Context, in *content.BackfillFollowInboxReq) (*content.BackfillFollowInboxRes, error) {
+	l := logic.NewBackfillFollowInboxLogic(ctx, s.svcCtx)
+	return l.BackfillFollowInbox(in)
+}

@@ -8,11 +8,12 @@ import (
 
 type Config struct {
 	zrpc.RpcServerConf
-	UserRpcClientConf zrpc.RpcClientConf
-	RedisConfig       redis.RedisConf
-	KqProducerConf    KqProducerConf
-	KqConsumerConf    kq.KqConf
-	MySQL             MySQLConf
+	UserRpcClientConf    zrpc.RpcClientConf
+	ContentRpcClientConf zrpc.RpcClientConf
+	RedisConfig          redis.RedisConf
+	KqProducerConf       KqProducerConf
+	KqConsumerConf       kq.KqConf
+	MySQL                MySQLConf
 }
 
 type KqProducerConf struct {

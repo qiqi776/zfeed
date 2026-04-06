@@ -14,14 +14,17 @@ import (
 )
 
 type (
-	ArticlePublishReq = content.ArticlePublishReq
-	ArticlePublishRes = content.ArticlePublishRes
-	VideoPublishReq   = content.VideoPublishReq
-	VideoPublishRes   = content.VideoPublishRes
+	ArticlePublishReq      = content.ArticlePublishReq
+	ArticlePublishRes      = content.ArticlePublishRes
+	BackfillFollowInboxReq = content.BackfillFollowInboxReq
+	BackfillFollowInboxRes = content.BackfillFollowInboxRes
+	VideoPublishReq        = content.VideoPublishReq
+	VideoPublishRes        = content.VideoPublishRes
 
 	ContentService interface {
 		PublishArticle(ctx context.Context, in *ArticlePublishReq, opts ...grpc.CallOption) (*ArticlePublishRes, error)
 		PublishVideo(ctx context.Context, in *VideoPublishReq, opts ...grpc.CallOption) (*VideoPublishRes, error)
+		BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error)
 	}
 
 	defaultContentService struct {
@@ -43,4 +46,9 @@ func (m *defaultContentService) PublishArticle(ctx context.Context, in *ArticleP
 func (m *defaultContentService) PublishVideo(ctx context.Context, in *VideoPublishReq, opts ...grpc.CallOption) (*VideoPublishRes, error) {
 	client := content.NewContentServiceClient(m.cli.Conn())
 	return client.PublishVideo(ctx, in, opts...)
+}
+
+func (m *defaultContentService) BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error) {
+	client := content.NewContentServiceClient(m.cli.Conn())
+	return client.BackfillFollowInbox(ctx, in, opts...)
 }

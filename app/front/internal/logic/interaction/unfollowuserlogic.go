@@ -8,6 +8,9 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	"zfeed/app/rpc/interaction/interaction"
+	"zfeed/pkg/errorx"
+	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +30,22 @@ func NewUnFollowUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnFo
 }
 
 func (l *UnFollowUserLogic) UnFollowUser(req *types.UnFollowUserReq) (resp *types.UnFollowUserRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.TargetUserId == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	userID, err := utils.GetContextUserId(l.ctx)
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+	}
+
+	rpcResp, err := l.svcCtx.FollowRpc.UnfollowUser(l.ctx, &interaction.UnfollowUserReq{
+		UserId:       userID,
+		FollowUserId: *req.TargetUserId,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.UnFollowUserRes{IsFollowed: rpcResp.GetIsFollowed()}, nil
 }

@@ -438,6 +438,110 @@ func (x *VideoPublishRes) GetContentId() int64 {
 	return 0
 }
 
+type BackfillFollowInboxReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FollowerId    int64                  `protobuf:"varint,1,opt,name=follower_id,json=followerId,proto3" json:"follower_id,omitempty"`
+	FolloweeId    int64                  `protobuf:"varint,2,opt,name=followee_id,json=followeeId,proto3" json:"followee_id,omitempty"`
+	Limit         uint32                 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackfillFollowInboxReq) Reset() {
+	*x = BackfillFollowInboxReq{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackfillFollowInboxReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackfillFollowInboxReq) ProtoMessage() {}
+
+func (x *BackfillFollowInboxReq) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackfillFollowInboxReq.ProtoReflect.Descriptor instead.
+func (*BackfillFollowInboxReq) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *BackfillFollowInboxReq) GetFollowerId() int64 {
+	if x != nil {
+		return x.FollowerId
+	}
+	return 0
+}
+
+func (x *BackfillFollowInboxReq) GetFolloweeId() int64 {
+	if x != nil {
+		return x.FolloweeId
+	}
+	return 0
+}
+
+func (x *BackfillFollowInboxReq) GetLimit() uint32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+type BackfillFollowInboxRes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AddedCount    int32                  `protobuf:"varint,1,opt,name=added_count,json=addedCount,proto3" json:"added_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BackfillFollowInboxRes) Reset() {
+	*x = BackfillFollowInboxRes{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BackfillFollowInboxRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BackfillFollowInboxRes) ProtoMessage() {}
+
+func (x *BackfillFollowInboxRes) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BackfillFollowInboxRes.ProtoReflect.Descriptor instead.
+func (*BackfillFollowInboxRes) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *BackfillFollowInboxRes) GetAddedCount() int32 {
+	if x != nil {
+		return x.AddedCount
+	}
+	return 0
+}
+
 var File_app_rpc_content_proto_content_proto protoreflect.FileDescriptor
 
 const file_app_rpc_content_proto_content_proto_rawDesc = "" +
@@ -470,7 +574,16 @@ const file_app_rpc_content_proto_content_proto_rawDesc = "" +
 	"\f_description\"0\n" +
 	"\x0fVideoPublishRes\x12\x1d\n" +
 	"\n" +
-	"content_id\x18\x01 \x01(\x03R\tcontentId*Y\n" +
+	"content_id\x18\x01 \x01(\x03R\tcontentId\"p\n" +
+	"\x16BackfillFollowInboxReq\x12\x1f\n" +
+	"\vfollower_id\x18\x01 \x01(\x03R\n" +
+	"followerId\x12\x1f\n" +
+	"\vfollowee_id\x18\x02 \x01(\x03R\n" +
+	"followeeId\x12\x14\n" +
+	"\x05limit\x18\x03 \x01(\rR\x05limit\"9\n" +
+	"\x16BackfillFollowInboxRes\x12\x1f\n" +
+	"\vadded_count\x18\x01 \x01(\x05R\n" +
+	"addedCount*Y\n" +
 	"\vContentType\x12\x18\n" +
 	"\x14CONTENT_TYPE_UNKNOWN\x10\x00\x12\x18\n" +
 	"\x14CONTENT_TYPE_ARTICLE\x10\n" +
@@ -488,10 +601,11 @@ const file_app_rpc_content_proto_content_proto_rawDesc = "" +
 	"\x12VISIBILITY_UNKNOWN\x10\x00\x12\x15\n" +
 	"\x11VISIBILITY_PUBLIC\x10\n" +
 	"\x12\x16\n" +
-	"\x12VISIBILITY_PRIVATE\x10\x142\x9e\x01\n" +
+	"\x12VISIBILITY_PRIVATE\x10\x142\xf7\x01\n" +
 	"\x0eContentService\x12H\n" +
 	"\x0ePublishArticle\x12\x1a.content.ArticlePublishReq\x1a\x1a.content.ArticlePublishRes\x12B\n" +
-	"\fPublishVideo\x12\x18.content.VideoPublishReq\x1a\x18.content.VideoPublishResB\vZ\t./contentb\x06proto3"
+	"\fPublishVideo\x12\x18.content.VideoPublishReq\x1a\x18.content.VideoPublishRes\x12W\n" +
+	"\x13BackfillFollowInbox\x12\x1f.content.BackfillFollowInboxReq\x1a\x1f.content.BackfillFollowInboxResB\vZ\t./contentb\x06proto3"
 
 var (
 	file_app_rpc_content_proto_content_proto_rawDescOnce sync.Once
@@ -506,25 +620,29 @@ func file_app_rpc_content_proto_content_proto_rawDescGZIP() []byte {
 }
 
 var file_app_rpc_content_proto_content_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_app_rpc_content_proto_content_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_app_rpc_content_proto_content_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_app_rpc_content_proto_content_proto_goTypes = []any{
-	(ContentType)(0),          // 0: content.ContentType
-	(ContentStatus)(0),        // 1: content.ContentStatus
-	(Visibility)(0),           // 2: content.Visibility
-	(*ArticlePublishReq)(nil), // 3: content.ArticlePublishReq
-	(*ArticlePublishRes)(nil), // 4: content.ArticlePublishRes
-	(*VideoPublishReq)(nil),   // 5: content.VideoPublishReq
-	(*VideoPublishRes)(nil),   // 6: content.VideoPublishRes
+	(ContentType)(0),               // 0: content.ContentType
+	(ContentStatus)(0),             // 1: content.ContentStatus
+	(Visibility)(0),                // 2: content.Visibility
+	(*ArticlePublishReq)(nil),      // 3: content.ArticlePublishReq
+	(*ArticlePublishRes)(nil),      // 4: content.ArticlePublishRes
+	(*VideoPublishReq)(nil),        // 5: content.VideoPublishReq
+	(*VideoPublishRes)(nil),        // 6: content.VideoPublishRes
+	(*BackfillFollowInboxReq)(nil), // 7: content.BackfillFollowInboxReq
+	(*BackfillFollowInboxRes)(nil), // 8: content.BackfillFollowInboxRes
 }
 var file_app_rpc_content_proto_content_proto_depIdxs = []int32{
 	2, // 0: content.ArticlePublishReq.visibility:type_name -> content.Visibility
 	2, // 1: content.VideoPublishReq.visibility:type_name -> content.Visibility
 	3, // 2: content.ContentService.PublishArticle:input_type -> content.ArticlePublishReq
 	5, // 3: content.ContentService.PublishVideo:input_type -> content.VideoPublishReq
-	4, // 4: content.ContentService.PublishArticle:output_type -> content.ArticlePublishRes
-	6, // 5: content.ContentService.PublishVideo:output_type -> content.VideoPublishRes
-	4, // [4:6] is the sub-list for method output_type
-	2, // [2:4] is the sub-list for method input_type
+	7, // 4: content.ContentService.BackfillFollowInbox:input_type -> content.BackfillFollowInboxReq
+	4, // 5: content.ContentService.PublishArticle:output_type -> content.ArticlePublishRes
+	6, // 6: content.ContentService.PublishVideo:output_type -> content.VideoPublishRes
+	8, // 7: content.ContentService.BackfillFollowInbox:output_type -> content.BackfillFollowInboxRes
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
 	2, // [2:2] is the sub-list for extension extendee
 	0, // [0:2] is the sub-list for field type_name
@@ -543,7 +661,7 @@ func file_app_rpc_content_proto_content_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_rpc_content_proto_content_proto_rawDesc), len(file_app_rpc_content_proto_content_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   4,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

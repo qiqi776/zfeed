@@ -7,10 +7,10 @@ import (
 
 	"google.golang.org/grpc"
 
-	contentpb "zfeed/app/rpc/content/content"
-	contentservice "zfeed/app/rpc/content/contentservice"
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	contentpb "zfeed/app/rpc/content/content"
+	contentservice "zfeed/app/rpc/content/contentservice"
 )
 
 var _ contentservice.ContentService = (*fakeContentService)(nil)
@@ -18,6 +18,7 @@ var _ contentservice.ContentService = (*fakeContentService)(nil)
 type fakeContentService struct {
 	publishArticleFunc func(ctx context.Context, in *contentpb.ArticlePublishReq, opts ...grpc.CallOption) (*contentpb.ArticlePublishRes, error)
 	publishVideoFunc   func(ctx context.Context, in *contentpb.VideoPublishReq, opts ...grpc.CallOption) (*contentpb.VideoPublishRes, error)
+	backfillInboxFunc  func(ctx context.Context, in *contentpb.BackfillFollowInboxReq, opts ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error)
 }
 
 func (f *fakeContentService) PublishArticle(ctx context.Context, in *contentpb.ArticlePublishReq, opts ...grpc.CallOption) (*contentpb.ArticlePublishRes, error) {
@@ -32,6 +33,13 @@ func (f *fakeContentService) PublishVideo(ctx context.Context, in *contentpb.Vid
 		return nil, errors.New("unexpected PublishVideo call")
 	}
 	return f.publishVideoFunc(ctx, in, opts...)
+}
+
+func (f *fakeContentService) BackfillFollowInbox(ctx context.Context, in *contentpb.BackfillFollowInboxReq, opts ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error) {
+	if f.backfillInboxFunc == nil {
+		return nil, errors.New("unexpected BackfillFollowInbox call")
+	}
+	return f.backfillInboxFunc(ctx, in, opts...)
 }
 
 func strPtr(v string) *string {

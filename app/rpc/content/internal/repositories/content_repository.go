@@ -13,6 +13,7 @@ import (
 type ContentRepository interface {
 	WithTx(tx *gorm.DB) ContentRepository
 	CreateContent(contentDO *do.ContentDO) (int64, error)
+	ListLatestPublishedIDsByAuthor(authorID int64, limit int) ([]int64, error)
 }
 
 type contentRepositoryImpl struct {
@@ -67,4 +68,34 @@ func (r *contentRepositoryImpl) CreateContent(contentDO *do.ContentDO) (int64, e
 	}
 
 	return row.ID, nil
+}
+
+func (r *contentRepositoryImpl) ListLatestPublishedIDsByAuthor(authorID int64, limit int) ([]int64, error) {
+	if authorID <= 0 {
+		return []int64{}, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+
+	rows := make([]*model.ZfeedContent, 0, limit)
+	err := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedContent{}).
+		Select("id").
+		Where("user_id = ? AND status = ? AND visibility = ? AND is_deleted = 0", authorID, 30, 10).
+		Order("id DESC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if row == nil || row.ID <= 0 {
+			continue
+		}
+		ids = append(ids, row.ID)
+	}
+	return ids, nil
 }

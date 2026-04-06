@@ -1,20 +1,32 @@
 package redis
 
 const (
-	RedisLikeUserPrefix         = "like:user"
-	RedisLikeExpireSeconds      = 5 * 24 * 60 * 60
-	RedisCommentItemPrefix      = "comment:item"
-	RedisCommentListPrefix      = "comment:list"
-	RedisCommentReplyPrefix     = "comment:reply"
-	RedisCommentListLockPrefix  = "lock:comment:list"
-	RedisCommentReplyLockPrefix = "lock:comment:reply"
-	RedisCommentItemExpireSecs  = 24 * 60 * 60
-	RedisCommentIndexExpireSecs = 30 * 60
-	RedisCommentLockExpireSecs  = 5
+	RedisLikeUserPrefix           = "like:user"
+	RedisLikeExpireSeconds        = 5 * 24 * 60 * 60
+	RedisFavoriteRelPrefix        = "favorite:rel"
+	RedisFavoriteRelExpireSecs    = 24 * 60 * 60
+	RedisFavoriteRelNegExpireSecs = 10 * 60
+	RedisUserFavoriteFeedPrefix   = "feed:user:favorite"
+	RedisCommentItemPrefix        = "comment:item"
+	RedisCommentListPrefix        = "comment:list"
+	RedisCommentReplyPrefix       = "comment:reply"
+	RedisCommentListLockPrefix    = "lock:comment:list"
+	RedisCommentReplyLockPrefix   = "lock:comment:reply"
+	RedisCommentItemExpireSecs    = 24 * 60 * 60
+	RedisCommentIndexExpireSecs   = 30 * 60
+	RedisCommentLockExpireSecs    = 5
 )
 
 func BuildLikeUserKey(userID string) string {
 	return RedisLikeUserPrefix + ":" + userID
+}
+
+func BuildFavoriteRelKey(scene string, userID string, contentID string) string {
+	return RedisFavoriteRelPrefix + ":" + scene + ":" + userID + ":" + contentID
+}
+
+func BuildUserFavoriteFeedKey(userID string) string {
+	return RedisUserFavoriteFeedPrefix + ":" + userID
 }
 
 func BuildCommentItemKey(commentID string) string {

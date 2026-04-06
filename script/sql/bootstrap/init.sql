@@ -14,6 +14,8 @@ SOURCE script/sql/zfeed_content.sql;
 SOURCE script/sql/zfeed_article.sql;
 SOURCE script/sql/zfeed_video.sql;
 SOURCE script/sql/zfeed_like.sql;
+SOURCE script/sql/zfeed_favorite.sql;
+SOURCE script/sql/zfeed_follow.sql;
 SOURCE script/sql/zfeed_mq_consume_dedup.sql;
 SOURCE script/sql/zfeed_comment.sql;
 SOURCE script/sql/zfeed_comment_migrate.sql;

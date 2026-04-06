@@ -13,6 +13,13 @@ UserRpcClientConf:
     Key: user.rpc
   NonBlock: true
 
+ContentRpcClientConf:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}:${ETCD_PORT}
+    Key: content.rpc
+  NonBlock: true
+
 RedisConfig:
   Host: ${REDIS_HOST}:${REDIS_PORT}
   Type: node

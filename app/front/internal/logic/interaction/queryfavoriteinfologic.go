@@ -8,6 +8,9 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	"zfeed/app/rpc/interaction/interaction"
+	"zfeed/pkg/errorx"
+	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +30,29 @@ func NewQueryFavoriteInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *QueryFavoriteInfoLogic) QueryFavoriteInfo(req *types.QueryFavoriteInfoReq) (resp *types.QueryFavoriteInfoRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.ContentId == nil || req.Scene == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	scene, err := parseScene(*req.Scene)
+	if err != nil {
+		return nil, err
+	}
+
+	userID := utils.GetContextUserIdWithDefault(l.ctx)
+	rpcResp, err := l.svcCtx.FavoriteRpc.QueryFavoriteInfo(l.ctx, &interaction.QueryFavoriteInfoReq{
+		UserId:    userID,
+		ContentId: *req.ContentId,
+		Scene:     scene,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.QueryFavoriteInfoRes{
+		FavoriteCount: rpcResp.GetFavoriteCount(),
+		IsFavorite:    rpcResp.GetIsFavorited(),
+		ContentId:     rpcResp.GetContentId(),
+		Scene:         rpcResp.GetScene().String(),
+	}, nil
 }
