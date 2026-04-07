@@ -1,6 +1,29 @@
 Name: count.rpc
-ListenOn: 0.0.0.0:8080
+ListenOn: ${COUNT_RPC_LISTEN_ON}
 Etcd:
   Hosts:
   - ${ETCD_HOST}:${ETCD_PORT}
   Key: count.rpc
+
+Prometheus:
+  Host: ${PROM_HOST}
+  Port: 9292
+  Path: /metrics
+
+RedisConfig:
+  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Type: node
+  Pass: ""
+
+MySQL:
+  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
+KqConsumerConf:
+  Name: count-canal-consumer
+  Brokers:
+    - ${KAFKA_BROKERS}
+  Group: zfeed-count-canal-consumer
+  Topic: zfeed-count-canal
+  Offset: last
+  Consumers: 2
+  Processors: 2

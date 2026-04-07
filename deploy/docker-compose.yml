@@ -115,7 +115,7 @@ services:
     working_dir: /app
     command:
       - /bin/sh
-      - -lc
+      - -c
       - ENV_FILE=/app/deploy/.env go run ./app/rpc/content -f app/rpc/content/etc/content.yaml
     volumes:
       - ..:/app
@@ -138,7 +138,7 @@ services:
     working_dir: /app
     command:
       - /bin/sh
-      - -lc
+      - -c
       - ENV_FILE=/app/deploy/.env go run ./app/rpc/interaction -f app/rpc/interaction/etc/interaction.yaml
     volumes:
       - ..:/app
@@ -146,6 +146,31 @@ services:
       - ./.env
     ports:
       - "5002:5002"
+    depends_on:
+      etcd:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - zfeed-net
+
+  count-rpc:
+    image: golang:1.25
+    working_dir: /app
+    command:
+      - /bin/sh
+      - -c
+      - ENV_FILE=/app/deploy/.env go run ./app/rpc/count -f app/rpc/count/etc/count.yaml
+    volumes:
+      - ..:/app
+    env_file:
+      - ./.env
+    ports:
+      - "5004:5004"
     depends_on:
       etcd:
         condition: service_healthy

@@ -51,4 +51,4 @@ MYSQL_PWD="${MYSQL_PWD}" mysql -h"${MYSQL_HOST}" -P"${MYSQL_PORT}" -u"${MYSQL_US
 MYSQL_PWD="${MYSQL_PWD}" mysql -h"${MYSQL_HOST}" -P"${MYSQL_PORT}" -u"${MYSQL_USER}" -D zfeed \
   -e "SELECT id,content_id,title,origin_url,cover_url,duration,transcode_status FROM zfeed_video ORDER BY id DESC LIMIT 10;"
 
-redis-cli -h "${REDIS_HOST}" ZRANGE "user:publish:${USER_ID}" 0 -1 WITHSCORES
+redis-cli -h "${REDIS_HOST}" ZRANGE "feed:user:publish:${USER_ID}" 0 -1 WITHSCORES

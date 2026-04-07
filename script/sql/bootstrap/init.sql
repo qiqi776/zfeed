@@ -9,13 +9,14 @@ FLUSH PRIVILEGES;
 
 USE `zfeed`;
 
-SOURCE script/sql/zfeed_user.sql;
-SOURCE script/sql/zfeed_content.sql;
-SOURCE script/sql/zfeed_article.sql;
-SOURCE script/sql/zfeed_video.sql;
-SOURCE script/sql/zfeed_like.sql;
-SOURCE script/sql/zfeed_favorite.sql;
-SOURCE script/sql/zfeed_follow.sql;
-SOURCE script/sql/zfeed_mq_consume_dedup.sql;
-SOURCE script/sql/zfeed_comment.sql;
-SOURCE script/sql/zfeed_comment_migrate.sql;
+SOURCE /seed-sql/zfeed_user.sql;
+SOURCE /seed-sql/zfeed_content.sql;
+SOURCE /seed-sql/zfeed_article.sql;
+SOURCE /seed-sql/zfeed_video.sql;
+SOURCE /seed-sql/zfeed_like.sql;
+SOURCE /seed-sql/zfeed_favorite.sql;
+SOURCE /seed-sql/zfeed_follow.sql;
+SOURCE /seed-sql/zfeed_mq_consume_dedup.sql;
+SOURCE /seed-sql/zfeed_comment.sql;
+SOURCE /seed-sql/zfeed_comment_migrate.sql;
+SOURCE /seed-sql/zfeed_count_value.sql;

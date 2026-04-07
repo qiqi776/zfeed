@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
 	"zfeed/app/rpc/count/count"
 	"zfeed/app/rpc/count/internal/config"
+	"zfeed/app/rpc/count/internal/mq/consumer"
 	"zfeed/app/rpc/count/internal/server"
 	"zfeed/app/rpc/count/internal/svc"
+	"zfeed/pkg/envx"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -20,9 +23,10 @@ var configFile = flag.String("f", "etc/count.yaml", "the config file")
 
 func main() {
 	flag.Parse()
+	envx.Load()
 
 	var c config.Config
-	conf.MustLoad(*configFile, &c)
+	conf.MustLoad(*configFile, &c, conf.UseEnv())
 	ctx := svc.NewServiceContext(c)
 
 	s := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
@@ -35,5 +39,13 @@ func main() {
 	defer s.Stop()
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
-	s.Start()
+
+	serviceGroup := service.NewServiceGroup()
+	defer serviceGroup.Stop()
+
+	for _, mq := range consumer.Consumers(c, context.Background(), ctx) {
+		serviceGroup.Add(mq)
+	}
+	serviceGroup.Add(s)
+	serviceGroup.Start()
 }

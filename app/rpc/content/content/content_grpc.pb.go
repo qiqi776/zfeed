@@ -195,3 +195,219 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "app/rpc/content/proto/content.proto",
 }
+
+const (
+	FeedService_RecommendFeed_FullMethodName    = "/content.FeedService/RecommendFeed"
+	FeedService_FollowFeed_FullMethodName       = "/content.FeedService/FollowFeed"
+	FeedService_UserPublishFeed_FullMethodName  = "/content.FeedService/UserPublishFeed"
+	FeedService_UserFavoriteFeed_FullMethodName = "/content.FeedService/UserFavoriteFeed"
+)
+
+// FeedServiceClient is the client API for FeedService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type FeedServiceClient interface {
+	RecommendFeed(ctx context.Context, in *RecommendFeedReq, opts ...grpc.CallOption) (*RecommendFeedRes, error)
+	FollowFeed(ctx context.Context, in *FollowFeedReq, opts ...grpc.CallOption) (*FollowFeedRes, error)
+	UserPublishFeed(ctx context.Context, in *UserPublishFeedReq, opts ...grpc.CallOption) (*UserPublishFeedRes, error)
+	UserFavoriteFeed(ctx context.Context, in *UserFavoriteFeedReq, opts ...grpc.CallOption) (*UserFavoriteFeedRes, error)
+}
+
+type feedServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewFeedServiceClient(cc grpc.ClientConnInterface) FeedServiceClient {
+	return &feedServiceClient{cc}
+}
+
+func (c *feedServiceClient) RecommendFeed(ctx context.Context, in *RecommendFeedReq, opts ...grpc.CallOption) (*RecommendFeedRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecommendFeedRes)
+	err := c.cc.Invoke(ctx, FeedService_RecommendFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *feedServiceClient) FollowFeed(ctx context.Context, in *FollowFeedReq, opts ...grpc.CallOption) (*FollowFeedRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(FollowFeedRes)
+	err := c.cc.Invoke(ctx, FeedService_FollowFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *feedServiceClient) UserPublishFeed(ctx context.Context, in *UserPublishFeedReq, opts ...grpc.CallOption) (*UserPublishFeedRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserPublishFeedRes)
+	err := c.cc.Invoke(ctx, FeedService_UserPublishFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *feedServiceClient) UserFavoriteFeed(ctx context.Context, in *UserFavoriteFeedReq, opts ...grpc.CallOption) (*UserFavoriteFeedRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UserFavoriteFeedRes)
+	err := c.cc.Invoke(ctx, FeedService_UserFavoriteFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// FeedServiceServer is the server API for FeedService service.
+// All implementations must embed UnimplementedFeedServiceServer
+// for forward compatibility.
+type FeedServiceServer interface {
+	RecommendFeed(context.Context, *RecommendFeedReq) (*RecommendFeedRes, error)
+	FollowFeed(context.Context, *FollowFeedReq) (*FollowFeedRes, error)
+	UserPublishFeed(context.Context, *UserPublishFeedReq) (*UserPublishFeedRes, error)
+	UserFavoriteFeed(context.Context, *UserFavoriteFeedReq) (*UserFavoriteFeedRes, error)
+	mustEmbedUnimplementedFeedServiceServer()
+}
+
+// UnimplementedFeedServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedFeedServiceServer struct{}
+
+func (UnimplementedFeedServiceServer) RecommendFeed(context.Context, *RecommendFeedReq) (*RecommendFeedRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecommendFeed not implemented")
+}
+func (UnimplementedFeedServiceServer) FollowFeed(context.Context, *FollowFeedReq) (*FollowFeedRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method FollowFeed not implemented")
+}
+func (UnimplementedFeedServiceServer) UserPublishFeed(context.Context, *UserPublishFeedReq) (*UserPublishFeedRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method UserPublishFeed not implemented")
+}
+func (UnimplementedFeedServiceServer) UserFavoriteFeed(context.Context, *UserFavoriteFeedReq) (*UserFavoriteFeedRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method UserFavoriteFeed not implemented")
+}
+func (UnimplementedFeedServiceServer) mustEmbedUnimplementedFeedServiceServer() {}
+func (UnimplementedFeedServiceServer) testEmbeddedByValue()                     {}
+
+// UnsafeFeedServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to FeedServiceServer will
+// result in compilation errors.
+type UnsafeFeedServiceServer interface {
+	mustEmbedUnimplementedFeedServiceServer()
+}
+
+func RegisterFeedServiceServer(s grpc.ServiceRegistrar, srv FeedServiceServer) {
+	// If the following call panics, it indicates UnimplementedFeedServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&FeedService_ServiceDesc, srv)
+}
+
+func _FeedService_RecommendFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecommendFeedReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeedServiceServer).RecommendFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeedService_RecommendFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeedServiceServer).RecommendFeed(ctx, req.(*RecommendFeedReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FeedService_FollowFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FollowFeedReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeedServiceServer).FollowFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeedService_FollowFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeedServiceServer).FollowFeed(ctx, req.(*FollowFeedReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FeedService_UserPublishFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserPublishFeedReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeedServiceServer).UserPublishFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeedService_UserPublishFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeedServiceServer).UserPublishFeed(ctx, req.(*UserPublishFeedReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FeedService_UserFavoriteFeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UserFavoriteFeedReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeedServiceServer).UserFavoriteFeed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeedService_UserFavoriteFeed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeedServiceServer).UserFavoriteFeed(ctx, req.(*UserFavoriteFeedReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// FeedService_ServiceDesc is the grpc.ServiceDesc for FeedService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var FeedService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "content.FeedService",
+	HandlerType: (*FeedServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "RecommendFeed",
+			Handler:    _FeedService_RecommendFeed_Handler,
+		},
+		{
+			MethodName: "FollowFeed",
+			Handler:    _FeedService_FollowFeed_Handler,
+		},
+		{
+			MethodName: "UserPublishFeed",
+			Handler:    _FeedService_UserPublishFeed_Handler,
+		},
+		{
+			MethodName: "UserFavoriteFeed",
+			Handler:    _FeedService_UserFavoriteFeed_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "app/rpc/content/proto/content.proto",
+}

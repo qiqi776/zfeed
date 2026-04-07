@@ -8,6 +8,9 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	contentpb "zfeed/app/rpc/content/content"
+	"zfeed/pkg/errorx"
+	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -27,7 +30,47 @@ func NewUserFavoriteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *User
 }
 
 func (l *UserFavoriteLogic) UserFavorite(req *types.UserFavoriteFeedReq) (resp *types.UserFavoriteFeedRes, err error) {
-	// todo: add your logic here and delete this line
+	if req == nil || req.UserId == nil || req.Cursor == nil || req.PageSize == nil {
+		return nil, errorx.NewMsg("参数错误")
+	}
 
-	return
+	var viewerID *int64
+	if uid := utils.GetContextUserIdWithDefault(l.ctx); uid > 0 {
+		viewerID = &uid
+	}
+
+	rpcResp, err := l.svcCtx.FeedRpc.UserFavoriteFeed(l.ctx, &contentpb.UserFavoriteFeedReq{
+		ViewerId: viewerID,
+		UserId:   *req.UserId,
+		Cursor:   *req.Cursor,
+		PageSize: *req.PageSize,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]types.UserFavoriteFeedItem, 0, len(rpcResp.GetItems()))
+	for _, item := range rpcResp.GetItems() {
+		if item == nil {
+			continue
+		}
+		items = append(items, types.UserFavoriteFeedItem{
+			ContentId:    item.GetContentId(),
+			ContentType:  int32(item.GetContentType()),
+			AuthorId:     item.GetAuthorId(),
+			AuthorName:   item.GetAuthorName(),
+			AuthorAvatar: item.GetAuthorAvatar(),
+			Title:        item.GetTitle(),
+			CoverUrl:     item.GetCoverUrl(),
+			PublishedAt:  item.GetPublishedAt(),
+			IsLiked:      item.GetIsLiked(),
+			LikeCount:    item.GetLikeCount(),
+		})
+	}
+
+	return &types.UserFavoriteFeedRes{
+		Items:      items,
+		NextCursor: rpcResp.GetNextCursor(),
+		HasMore:    rpcResp.GetHasMore(),
+	}, nil
 }

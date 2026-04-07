@@ -62,8 +62,93 @@ message BackfillFollowInboxRes {
   int32 added_count = 1;
 }
 
+message RecommendFeedReq {
+  optional int64 user_id = 1;
+  string cursor = 2;
+  uint32 page_size = 3;
+  optional string snapshot_id = 4;
+}
+
+message RecommendFeedRes {
+  repeated ContentItem items = 1;
+  int64 next_cursor = 2;
+  bool has_more = 3;
+  string snapshot_id = 4;
+}
+
+message FollowFeedReq {
+  int64 user_id = 1;
+  string cursor = 2;
+  uint32 page_size = 3;
+}
+
+message FollowFeedRes {
+  repeated FollowFeedItem items = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message UserPublishFeedReq {
+  int64 author_id = 1;
+  optional int64 viewer_id = 2;
+  string cursor = 3;
+  uint32 page_size = 4;
+}
+
+message UserPublishFeedRes {
+  repeated ContentItem items = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message UserFavoriteFeedReq {
+  optional int64 viewer_id = 1;
+  int64 user_id = 2;
+  string cursor = 3;
+  uint32 page_size = 4;
+}
+
+message UserFavoriteFeedRes {
+  repeated ContentItem items = 1;
+  string next_cursor = 2;
+  bool has_more = 3;
+}
+
+message ContentItem {
+  int64 content_id = 1;
+  ContentType content_type = 2;
+  int64 author_id = 3;
+  string author_name = 4;
+  string author_avatar = 5;
+  string title = 6;
+  string cover_url = 7;
+  int64 published_at = 8;
+  bool is_liked = 9;
+  int64 like_count = 10;
+}
+
+message FollowFeedItem {
+  int64 content_id = 1;
+  ContentType content_type = 2;
+  int64 author_id = 3;
+  string author_name = 4;
+  string author_avatar = 5;
+  string title = 6;
+  string cover_url = 7;
+  int64 published_at = 8;
+  bool is_liked = 9;
+  int64 like_count = 10;
+}
+
 service ContentService {
   rpc PublishArticle(ArticlePublishReq) returns (ArticlePublishRes);
   rpc PublishVideo(VideoPublishReq) returns (VideoPublishRes);
   rpc BackfillFollowInbox(BackfillFollowInboxReq) returns (BackfillFollowInboxRes);
+}
+
+service FeedService {
+  rpc RecommendFeed(RecommendFeedReq) returns (RecommendFeedRes);
+  rpc FollowFeed(FollowFeedReq) returns (FollowFeedRes);
+  rpc UserPublishFeed(UserPublishFeedReq) returns (UserPublishFeedRes);
+  rpc UserFavoriteFeed(UserFavoriteFeedReq) returns (UserFavoriteFeedRes);
 }

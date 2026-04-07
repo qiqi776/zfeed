@@ -3,7 +3,7 @@ package redis
 import "fmt"
 
 const (
-	RedisUserPublishPrefix      = "user:publish"
+	RedisUserPublishPrefix      = "feed:user:publish"
 	RedisFollowInboxPrefix      = "feed:follow:inbox"
 	RedisFollowInboxLockPrefix  = "feed:follow:inbox:lock"
 	RedisUserPublishKeepLatestN = 5000
@@ -12,6 +12,10 @@ const (
 
 func BuildUserPublishKey(userID int64) string {
 	return fmt.Sprintf("%s:%d", RedisUserPublishPrefix, userID)
+}
+
+func BuildUserPublishFeedKey(userID int64) string {
+	return BuildUserPublishKey(userID)
 }
 
 func BuildFollowInboxKey(userID int64) string {

@@ -11,6 +11,8 @@ import (
 	"zfeed/app/front/internal/config"
 	"zfeed/app/front/internal/middleware"
 	contentservice "zfeed/app/rpc/content/contentservice"
+	"zfeed/app/rpc/content/feedservice"
+	"zfeed/app/rpc/count/counterservice"
 	"zfeed/app/rpc/interaction/client/commentservice"
 	"zfeed/app/rpc/interaction/client/favoriteservice"
 	"zfeed/app/rpc/interaction/client/followservice"
@@ -22,31 +24,35 @@ type ServiceContext struct {
 	Config                        config.Config
 	Redis                         *redis.Redis
 	ContentRpc                    contentservice.ContentService
+	FeedRpc                       feedservice.FeedService
 	CommentRpc                    commentservice.CommentService
 	FavoriteRpc                   favoriteservice.FavoriteService
 	FollowRpc                     followservice.FollowService
 	LikeRpc                       likeservice.LikeService
 	UserRpc                       userservice.UserService
-	CountRpc                      zrpc.Client
+	CountRpc                      counterservice.CounterService
 	UserLoginStatusAuthMiddleware rest.Middleware
 	OptionalLoginMiddleware       rest.Middleware
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	rds := redis.MustNewRedis(c.RedisConfig)
-	contentRpc := contentservice.NewContentService(zrpc.MustNewClient(c.ContentRpcClientConf))
+	contentRpcClient := zrpc.MustNewClient(c.ContentRpcClientConf)
+	contentRpc := contentservice.NewContentService(contentRpcClient)
+	feedRpc := feedservice.NewFeedService(contentRpcClient)
 	interactionRpcClient := zrpc.MustNewClient(c.InteractionRpcClientConf)
 	likeRpc := likeservice.NewLikeService(interactionRpcClient)
 	commentRpc := commentservice.NewCommentService(interactionRpcClient)
 	favoriteRpc := favoriteservice.NewFavoriteService(interactionRpcClient)
 	followRpc := followservice.NewFollowService(interactionRpcClient)
 	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf)
-	countRpc := zrpc.MustNewClient(c.CountRpcClientConf)
+	countRpc := counterservice.NewCounterService(zrpc.MustNewClient(c.CountRpcClientConf))
 
 	return &ServiceContext{
 		Config:                        c,
 		Redis:                         rds,
 		ContentRpc:                    contentRpc,
+		FeedRpc:                       feedRpc,
 		CommentRpc:                    commentRpc,
 		FavoriteRpc:                   favoriteRpc,
 		FollowRpc:                     followRpc,

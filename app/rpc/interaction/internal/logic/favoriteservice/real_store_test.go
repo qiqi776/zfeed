@@ -39,7 +39,7 @@ func (a *day13ContentServiceAdapter) PublishVideo(ctx context.Context, in *conte
 }
 
 func (a *day13ContentServiceAdapter) BackfillFollowInbox(ctx context.Context, in *contentpb.BackfillFollowInboxReq, opts ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error) {
-	publishKey := "user:publish:" + int64ToString(in.GetFolloweeId())
+	publishKey := "feed:user:publish:" + int64ToString(in.GetFolloweeId())
 	inboxKey := "feed:follow:inbox:" + int64ToString(in.GetFollowerId())
 
 	members, err := a.redisClient.ZrevrangeCtx(ctx, publishKey, 0, int64(in.GetLimit())-1)
@@ -279,7 +279,7 @@ func TestDay13RealStoreFavoriteAndFollowFlow(t *testing.T) {
 func seedFolloweePublishZSet(t *testing.T, redisClient *gzredis.Redis, followeeID int64) (int64, int64) {
 	t.Helper()
 
-	publishKey := "user:publish:" + int64ToString(followeeID)
+	publishKey := "feed:user:publish:" + int64ToString(followeeID)
 	firstContent := int64(900001)
 	secondContent := int64(900002)
 
