@@ -5,6 +5,7 @@ package user
 
 import (
 	"context"
+	"sync"
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
@@ -35,28 +36,55 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
 	}
 
-	rpcResp, err := l.svcCtx.UserRpc.GetMe(l.ctx, &user.GetMeReq{UserId: userID})
-	if err != nil {
-		return nil, err
+	var (
+		userResp  *user.GetMeRes
+		userErr   error
+		countResp = defaultUserProfileCounts()
+		countErr  error
+		wg        sync.WaitGroup
+	)
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		userResp, userErr = l.svcCtx.UserRpc.GetMe(l.ctx, &user.GetMeReq{UserId: userID})
+	}()
+
+	go func() {
+		defer wg.Done()
+		countResp, countErr = loadUserProfileCounts(l.ctx, l.svcCtx, userID)
+	}()
+
+	wg.Wait()
+
+	if userErr != nil {
+		return nil, userErr
 	}
-	if rpcResp.GetUserInfo() == nil {
+	if userResp.GetUserInfo() == nil {
 		return nil, errorx.NewMsg("用户不存在")
 	}
+	if countErr != nil {
+		l.Errorf("query me counts failed, user_id=%d, err=%v", userID, countErr)
+		countResp = defaultUserProfileCounts()
+	}
+	if countResp == nil {
+		countResp = defaultUserProfileCounts()
+	}
 
-	// user-rpc currently returns zero-value counters until follow/count services exist.
 	return &types.GetMeRes{
 		UserInfo: types.UserInfo{
-			UserId:   rpcResp.GetUserInfo().GetUserId(),
-			Mobile:   rpcResp.GetUserInfo().GetMobile(),
-			Nickname: rpcResp.GetUserInfo().GetNickname(),
-			Avatar:   rpcResp.GetUserInfo().GetAvatar(),
-			Bio:      rpcResp.GetUserInfo().GetBio(),
-			Gender:   int32(rpcResp.GetUserInfo().GetGender()),
-			Status:   int32(rpcResp.GetUserInfo().GetStatus()),
+			UserId:   userResp.GetUserInfo().GetUserId(),
+			Mobile:   userResp.GetUserInfo().GetMobile(),
+			Nickname: userResp.GetUserInfo().GetNickname(),
+			Avatar:   userResp.GetUserInfo().GetAvatar(),
+			Bio:      userResp.GetUserInfo().GetBio(),
+			Gender:   int32(userResp.GetUserInfo().GetGender()),
+			Status:   int32(userResp.GetUserInfo().GetStatus()),
 		},
-		FolloweeCount:         rpcResp.GetFolloweeCount(),
-		FollowerCount:         rpcResp.GetFollowerCount(),
-		LikeReceivedCount:     rpcResp.GetLikeReceivedCount(),
-		FavoriteReceivedCount: rpcResp.GetFavoriteReceivedCount(),
+		FolloweeCount:         countResp.GetFollowingCount(),
+		FollowerCount:         countResp.GetFollowedCount(),
+		LikeReceivedCount:     countResp.GetLikeCount(),
+		FavoriteReceivedCount: countResp.GetFavoriteCount(),
 	}, nil
 }

@@ -12,6 +12,18 @@ import (
 
 const cacheExpireJitterMaxSeconds = 600
 
+const (
+	rebuildLockExpireSeconds = 30
+)
+
+type cacheQueryResult int
+
+const (
+	cacheHit cacheQueryResult = iota
+	cacheMiss
+	cacheError
+)
+
 type userProfileCountsCache struct {
 	FollowingCount int64 `json:"following_count"`
 	FollowedCount  int64 `json:"followed_count"`
@@ -31,8 +43,19 @@ func buildCountValueMapKey(bizType count.BizType, targetType count.TargetType, t
 	return fmt.Sprintf("%d:%d:%d", bizType, targetType, targetID)
 }
 
+func buildCountValueRebuildLockKey(bizType count.BizType, targetType count.TargetType, targetID int64) string {
+	return redisconsts.GetRedisPrefixKey(
+		redisconsts.RedisCountRebuildLockPrefix,
+		fmt.Sprintf("%d:%d:%d", bizType, targetType, targetID),
+	)
+}
+
 func buildUserProfileCountsCacheKey(userID int64) string {
 	return redisconsts.BuildUserProfileCountsKey(userID)
+}
+
+func buildUserProfileCountsRebuildLockKey(userID int64) string {
+	return redisconsts.GetRedisPrefixKey(redisconsts.RedisUserProfileCountsRebuildLockPref, strconv.FormatInt(userID, 10))
 }
 
 func countCacheExpireSecondsWithJitter(base int) int {
@@ -50,4 +73,17 @@ func marshalUserProfileCounts(value *count.GetUserProfileCountsRes) (string, err
 		return "", err
 	}
 	return string(payload), nil
+}
+
+func unmarshalUserProfileCounts(payload string) (*count.GetUserProfileCountsRes, error) {
+	var cached userProfileCountsCache
+	if err := json.Unmarshal([]byte(payload), &cached); err != nil {
+		return nil, err
+	}
+	return &count.GetUserProfileCountsRes{
+		FollowingCount: cached.FollowingCount,
+		FollowedCount:  cached.FollowedCount,
+		LikeCount:      cached.LikeCount,
+		FavoriteCount:  cached.FavoriteCount,
+	}, nil
 }

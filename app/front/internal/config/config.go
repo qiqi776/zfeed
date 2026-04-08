@@ -17,6 +17,7 @@ type Config struct {
 	CountRpcClientConf       zrpc.RpcClientConf
 	Oss                      OssConfig
 	SessionTTL               int64
+	CountRPCTimeoutMs        int64
 	RedisConfig              redis.RedisConf
 }
 

@@ -27,3 +27,8 @@ KqConsumerConf:
   Offset: last
   Consumers: 2
   Processors: 2
+
+DelayedCacheInvalidator:
+  DelayMs: 200
+  Workers: 4
+  QueueSize: 1024

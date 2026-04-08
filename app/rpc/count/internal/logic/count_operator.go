@@ -18,6 +18,8 @@ type CountOperator struct {
 	countRepo repositories.CountValueRepository
 }
 
+const delayedCacheInvalidateDelay = 200 * time.Millisecond
+
 func NewCountOperator(ctx context.Context, svcCtx *svc.ServiceContext) *CountOperator {
 	return &CountOperator{
 		ctx:       ctx,
@@ -101,9 +103,8 @@ func (o *CountOperator) InvalidateCountCache(bizType count.BizType, targetType c
 		return
 	}
 	cacheKey := buildCountValueCacheKey(bizType, targetType, targetID)
-	if _, err := o.svcCtx.Redis.DelCtx(o.ctx, cacheKey); err != nil {
-		o.Errorf("delete count cache failed, key=%s, err=%v", cacheKey, err)
-	}
+	o.invalidateCacheNow(cacheKey, "count cache")
+	o.invalidateCacheLater(cacheKey, "count cache")
 }
 
 func (o *CountOperator) InvalidateUserProfileCountsCache(userID int64) {
@@ -111,9 +112,22 @@ func (o *CountOperator) InvalidateUserProfileCountsCache(userID int64) {
 		return
 	}
 	cacheKey := buildUserProfileCountsCacheKey(userID)
+	o.invalidateCacheNow(cacheKey, "user profile counts cache")
+	o.invalidateCacheLater(cacheKey, "user profile counts cache")
+}
+
+func (o *CountOperator) invalidateCacheNow(cacheKey string, desc string) {
 	if _, err := o.svcCtx.Redis.DelCtx(o.ctx, cacheKey); err != nil {
-		o.Errorf("delete user profile counts cache failed, key=%s, err=%v", cacheKey, err)
+		o.Errorf("delete %s failed, key=%s, err=%v", desc, cacheKey, err)
 	}
+}
+
+func (o *CountOperator) invalidateCacheLater(cacheKey string, desc string) {
+	if o.svcCtx.DelayedCacheInvalidator == nil {
+		o.Errorf("delayed cache invalidator is nil, skip delayed delete, key=%s", cacheKey)
+		return
+	}
+	o.svcCtx.DelayedCacheInvalidator.Schedule(cacheKey, desc)
 }
 
 func defaultUpdatedAt(ts time.Time) time.Time {

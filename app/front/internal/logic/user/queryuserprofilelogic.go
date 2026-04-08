@@ -5,9 +5,11 @@ package user
 
 import (
 	"context"
+	"sync"
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	"zfeed/app/rpc/count/count"
 	"zfeed/app/rpc/user/user"
 	"zfeed/pkg/errorx"
 
@@ -33,26 +35,59 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 		return nil, errorx.NewMsg("参数错误")
 	}
 
-	rpcResp, err := l.svcCtx.UserRpc.GetUserProfile(l.ctx, &user.GetUserProfileReq{
-		UserId: req.UserId,
-	})
-	if err != nil {
-		return nil, err
+	var (
+		userResp  *user.GetUserProfileRes
+		userErr   error
+		countResp *count.GetUserProfileCountsRes
+		countErr  error
+		wg        sync.WaitGroup
+	)
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		userResp, userErr = l.svcCtx.UserRpc.GetUserProfile(l.ctx, &user.GetUserProfileReq{
+			UserId: req.UserId,
+		})
+	}()
+
+	go func() {
+		defer wg.Done()
+		countResp, countErr = loadUserProfileCounts(l.ctx, l.svcCtx, req.UserId)
+	}()
+
+	wg.Wait()
+
+	if userErr != nil {
+		return nil, userErr
 	}
-	if rpcResp.GetUserProfile() == nil {
+	if userResp.GetUserProfile() == nil {
 		return nil, errorx.NewMsg("用户不存在")
 	}
 
-	// Profile counts and viewer relation are placeholders until interaction/count services exist.
+	if countErr != nil {
+		l.Errorf("query user profile counts failed, user_id=%d, err=%v", req.UserId, countErr)
+		countResp = defaultUserProfileCounts()
+	}
+	if countResp == nil {
+		countResp = defaultUserProfileCounts()
+	}
+
 	return &types.QueryUserProfileRes{
 		UserProfileInfo: types.UserProfileInfo{
-			UserId:   rpcResp.GetUserProfile().GetUserId(),
-			Nickname: rpcResp.GetUserProfile().GetNickname(),
-			Avatar:   rpcResp.GetUserProfile().GetAvatar(),
-			Bio:      rpcResp.GetUserProfile().GetBio(),
-			Gender:   int32(rpcResp.GetUserProfile().GetGender()),
+			UserId:   userResp.GetUserProfile().GetUserId(),
+			Nickname: userResp.GetUserProfile().GetNickname(),
+			Avatar:   userResp.GetUserProfile().GetAvatar(),
+			Bio:      userResp.GetUserProfile().GetBio(),
+			Gender:   int32(userResp.GetUserProfile().GetGender()),
 		},
-		UserProfileCounts: types.UserProfileCounts{},
+		UserProfileCounts: types.UserProfileCounts{
+			FolloweeCount:         countResp.GetFollowingCount(),
+			FollowerCount:         countResp.GetFollowedCount(),
+			LikeReceivedCount:     countResp.GetLikeCount(),
+			FavoriteReceivedCount: countResp.GetFavoriteCount(),
+		},
 		ViewerProfileState: types.ViewerProfileState{
 			IsFollowing: false,
 		},

@@ -8,11 +8,18 @@ import (
 
 type Config struct {
 	zrpc.RpcServerConf
-	RedisConfig    redis.RedisConf
-	MySQL          MySQLConf
-	KqConsumerConf kq.KqConf
+	RedisConfig             redis.RedisConf
+	MySQL                   MySQLConf
+	KqConsumerConf          kq.KqConf
+	DelayedCacheInvalidator DelayedCacheInvalidatorConf
 }
 
 type MySQLConf struct {
 	DataSource string
+}
+
+type DelayedCacheInvalidatorConf struct {
+	DelayMs   int
+	Workers   int
+	QueueSize int
 }
