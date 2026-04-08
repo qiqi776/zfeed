@@ -53,9 +53,38 @@ func (o *CountOperator) ApplyDeltaWithRepo(
 		return nil
 	}
 
-	if _, err := repo.ApplyDelta(int32(bizType), int32(targetType), targetID, ownerID, delta, updatedAt); err != nil {
+	if err := o.ApplyDeltaWithRepoNoCache(repo, bizType, targetType, targetID, ownerID, delta, updatedAt); err != nil {
 		return err
 	}
+	o.InvalidateForUpdate(bizType, targetType, targetID, ownerID)
+	return nil
+}
+
+func (o *CountOperator) ApplyDeltaWithRepoNoCache(
+	repo repositories.CountValueRepository,
+	bizType count.BizType,
+	targetType count.TargetType,
+	targetID int64,
+	ownerID int64,
+	delta int64,
+	updatedAt time.Time,
+) error {
+	if bizType == count.BizType_BIZ_TYPE_UNKNOWN ||
+		targetType == count.TargetType_TARGET_TYPE_UNKNOWN ||
+		targetID <= 0 || delta == 0 {
+		return nil
+	}
+
+	_, err := repo.ApplyDelta(int32(bizType), int32(targetType), targetID, ownerID, delta, updatedAt)
+	return err
+}
+
+func (o *CountOperator) InvalidateForUpdate(
+	bizType count.BizType,
+	targetType count.TargetType,
+	targetID int64,
+	ownerID int64,
+) {
 	o.InvalidateCountCache(bizType, targetType, targetID)
 	if targetType == count.TargetType_CONTENT && ownerID > 0 {
 		o.InvalidateUserProfileCountsCache(ownerID)
@@ -63,7 +92,6 @@ func (o *CountOperator) ApplyDeltaWithRepo(
 	if targetType == count.TargetType_USER && targetID > 0 {
 		o.InvalidateUserProfileCountsCache(targetID)
 	}
-	return nil
 }
 
 func (o *CountOperator) InvalidateCountCache(bizType count.BizType, targetType count.TargetType, targetID int64) {

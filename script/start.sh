@@ -12,11 +12,13 @@ USER_RPC_PID_FILE="$RUNTIME_DIR/user-rpc.pid"
 CONTENT_RPC_PID_FILE="$RUNTIME_DIR/content-rpc.pid"
 INTERACTION_RPC_PID_FILE="$RUNTIME_DIR/interaction-rpc.pid"
 FRONT_API_PID_FILE="$RUNTIME_DIR/front-api.pid"
+COUNT_RPC_PID_FILE="$RUNTIME_DIR/count-rpc.pid"
 
 USER_RPC_LOG="$LOG_DIR/user-rpc.log"
 CONTENT_RPC_LOG="$LOG_DIR/content-rpc.log"
 INTERACTION_RPC_LOG="$LOG_DIR/interaction-rpc.log"
 FRONT_API_LOG="$LOG_DIR/front-api.log"
+COUNT_RPC_LOG="$LOG_DIR/count-rpc.log"
 
 fct_require_env_file() {
   if [ -f "$ENV_FILE_PATH" ]; then
@@ -116,14 +118,13 @@ fct_stop_pid_file() {
 
 mkdir -p "$LOG_DIR" "$RUNTIME_DIR"
 fct_require_env_file
-set -a
 . "$ENV_FILE_PATH"
-set +a
 export ENV_FILE="$ENV_FILE_PATH"
 
 USER_RPC_PORT=$(fct_port_from_listen_on "$USER_RPC_LISTEN_ON")
 CONTENT_RPC_PORT=$(fct_port_from_listen_on "$CONTENT_RPC_LISTEN_ON")
 INTERACTION_RPC_PORT=$(fct_port_from_listen_on "$INTERACTION_RPC_LISTEN_ON")
+COUNT_RPC_PORT=$(fct_port_from_listen_on "$COUNT_RPC_LISTEN_ON")
 KAFKA_PORT=$(fct_port_from_listen_on "$KAFKA_BROKERS")
 
 cd "$ROOT_DIR"
@@ -140,6 +141,7 @@ fct_wait_for_port "$KAFKA_PORT" "kafka"
 fct_stop_pid_file "$USER_RPC_PID_FILE"
 fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
 fct_stop_pid_file "$INTERACTION_RPC_PID_FILE"
+fct_stop_pid_file "$COUNT_RPC_PID_FILE"
 fct_stop_pid_file "$FRONT_API_PID_FILE"
 
 if fct_port_busy "$USER_RPC_PORT"; then
@@ -159,6 +161,11 @@ fi
 
 if fct_port_busy "$INTERACTION_RPC_PORT"; then
   echo "Port $INTERACTION_RPC_PORT is already in use. Stop the existing process before starting interaction-rpc." >&2
+  exit 1
+fi
+
+if fct_port_busy "$COUNT_RPC_PORT"; then
+  echo "Port $COUNT_RPC_PORT is already in use. Stop the existing process before starting count-rpc." >&2
   exit 1
 fi
 
@@ -186,6 +193,14 @@ if ! fct_wait_for_port "$INTERACTION_RPC_PORT" "interaction-rpc"; then
   exit 1
 fi
 
+echo "Starting count-rpc locally..."
+nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/count -f app/rpc/count/etc/count.yaml >"$COUNT_RPC_LOG" 2>&1 &
+echo $! >"$COUNT_RPC_PID_FILE"
+if ! fct_wait_for_port "$COUNT_RPC_PORT" "count-rpc"; then
+  tail -n 50 "$COUNT_RPC_LOG" >&2 || true
+  exit 1
+fi
+
 echo "Starting front-api locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/front -f app/front/etc/front-api.yaml >"$FRONT_API_LOG" 2>&1 &
 echo $! >"$FRONT_API_PID_FILE"
@@ -199,5 +214,6 @@ echo "  ENV_FILE: $ENV_FILE"
 echo "  user-rpc log: $USER_RPC_LOG"
 echo "  content-rpc log: $CONTENT_RPC_LOG"
 echo "  interaction-rpc log: $INTERACTION_RPC_LOG"
+echo "  count-rpc log: $COUNT_RPC_LOG"
 echo "  front-api log: $FRONT_API_LOG"
 echo "  stop command: $ROOT_DIR/script/stop.sh"

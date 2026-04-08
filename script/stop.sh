@@ -49,6 +49,7 @@ fct_stop_pid_file() {
 
 echo "Stopping local Go services..."
 fct_stop_pid_file "$RUNTIME_DIR/front-api.pid"
+fct_stop_pid_file "$RUNTIME_DIR/count-rpc.pid"
 fct_stop_pid_file "$RUNTIME_DIR/interaction-rpc.pid"
 fct_stop_pid_file "$RUNTIME_DIR/content-rpc.pid"
 fct_stop_pid_file "$RUNTIME_DIR/user-rpc.pid"

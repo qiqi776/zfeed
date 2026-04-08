@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -121,62 +122,94 @@ func (r *countValueRepositoryImpl) ApplyDelta(
 		return 0, nil
 	}
 
+	if r.tx != nil {
+		return r.applyDeltaOnce(r.tx.WithContext(r.ctx), bizType, targetType, targetID, ownerID, delta, updatedAt)
+	}
+
 	var finalValue int64
-	err := r.getDB().WithContext(r.ctx).Transaction(func(tx *gorm.DB) error {
-		var row model.ZfeedCountValue
-		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("biz_type = ? AND target_type = ? AND target_id = ?", bizType, targetType, targetID).
-			Take(&row).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			if delta < 0 {
-				finalValue = 0
-				return nil
-			}
-			row = model.ZfeedCountValue{
-				BizType:    bizType,
-				TargetType: targetType,
-				TargetID:   targetID,
-				Value:      delta,
-				Version:    1,
-				OwnerID:    ownerID,
-				CreatedAt:  updatedAt,
-				UpdatedAt:  updatedAt,
-			}
-			if err := tx.Create(&row).Error; err != nil {
-				return err
-			}
-			finalValue = row.Value
-			return nil
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		err = r.db.WithContext(r.ctx).Transaction(func(tx *gorm.DB) error {
+			var innerErr error
+			finalValue, innerErr = r.applyDeltaOnce(tx, bizType, targetType, targetID, ownerID, delta, updatedAt)
+			return innerErr
+		})
+		if err == nil {
+			return finalValue, nil
 		}
-		if err != nil {
-			return err
+		if !isRetryableTxErr(err) || attempt == 2 {
+			return 0, err
 		}
+		time.Sleep(time.Duration(attempt+1) * 10 * time.Millisecond)
+	}
 
-		nextValue := row.Value + delta
-		if nextValue < 0 {
-			nextValue = 0
-		}
-		updates := map[string]any{
-			"value":      nextValue,
-			"version":    row.Version + 1,
-			"updated_at": updatedAt,
-		}
-		if row.OwnerID == 0 && ownerID > 0 {
-			updates["owner_id"] = ownerID
-		}
+	return 0, err
+}
 
-		if err := tx.Model(&model.ZfeedCountValue{}).
-			Where("id = ?", row.ID).
-			Updates(updates).Error; err != nil {
-			return err
+func (r *countValueRepositoryImpl) applyDeltaOnce(
+	tx *gorm.DB,
+	bizType int32,
+	targetType int32,
+	targetID int64,
+	ownerID int64,
+	delta int64,
+	updatedAt time.Time,
+) (int64, error) {
+	var row model.ZfeedCountValue
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("biz_type = ? AND target_type = ? AND target_id = ?", bizType, targetType, targetID).
+		Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		if delta < 0 {
+			return 0, nil
 		}
-
-		finalValue = nextValue
-		return nil
-	})
+		row = model.ZfeedCountValue{
+			BizType:    bizType,
+			TargetType: targetType,
+			TargetID:   targetID,
+			Value:      delta,
+			Version:    1,
+			OwnerID:    ownerID,
+			CreatedAt:  updatedAt,
+			UpdatedAt:  updatedAt,
+		}
+		if err := tx.Create(&row).Error; err != nil {
+			return 0, err
+		}
+		return row.Value, nil
+	}
 	if err != nil {
 		return 0, err
 	}
 
-	return finalValue, nil
+	nextValue := row.Value + delta
+	if nextValue < 0 {
+		nextValue = 0
+	}
+	updates := map[string]any{
+		"value":      nextValue,
+		"version":    row.Version + 1,
+		"updated_at": updatedAt,
+	}
+	if row.OwnerID == 0 && ownerID > 0 {
+		updates["owner_id"] = ownerID
+	}
+
+	if err := tx.Model(&model.ZfeedCountValue{}).
+		Where("id = ?", row.ID).
+		Updates(updates).Error; err != nil {
+		return 0, err
+	}
+
+	return nextValue, nil
+}
+
+func isRetryableTxErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "deadlock found when trying to get lock") ||
+		strings.Contains(msg, "lock wait timeout exceeded") ||
+		strings.Contains(msg, "database is locked")
 }
