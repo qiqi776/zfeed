@@ -16,6 +16,7 @@ type ContentRepository interface {
 	ListLatestPublishedIDsByAuthor(authorID int64, limit int) ([]int64, error)
 	BatchGetPublishedByIDs(contentIDs []int64) (map[int64]*model.ZfeedContent, error)
 	ListFollowByAuthorsCursor(authorIDs []int64, cursorID int64, limit int) ([]*model.ZfeedContent, error)
+	ListPublishedByAuthor(authorID int64) ([]*model.ZfeedContent, error)
 }
 
 type contentRepositoryImpl struct {
@@ -110,7 +111,7 @@ func (r *contentRepositoryImpl) BatchGetPublishedByIDs(contentIDs []int64) (map[
 	rows := make([]*model.ZfeedContent, 0, len(contentIDs))
 	err := r.getDB().WithContext(r.ctx).
 		Model(&model.ZfeedContent{}).
-		Select("id", "user_id", "content_type", "published_at").
+		Select("id", "user_id", "content_type", "like_count", "published_at").
 		Where("id IN ?", contentIDs).
 		Where("status = ? AND visibility = ? AND is_deleted = 0", 30, 10).
 		Where("published_at IS NOT NULL").
@@ -137,7 +138,7 @@ func (r *contentRepositoryImpl) ListFollowByAuthorsCursor(authorIDs []int64, cur
 	rows := make([]*model.ZfeedContent, 0, limit)
 	query := r.getDB().WithContext(r.ctx).
 		Model(&model.ZfeedContent{}).
-		Select("id", "user_id", "content_type", "published_at").
+		Select("id", "user_id", "content_type", "like_count", "published_at").
 		Where("user_id IN ?", authorIDs).
 		Where("status = ? AND visibility = ? AND is_deleted = 0", 30, 10).
 		Where("published_at IS NOT NULL")
@@ -146,6 +147,26 @@ func (r *contentRepositoryImpl) ListFollowByAuthorsCursor(authorIDs []int64, cur
 	}
 
 	err := query.Order("id DESC").Limit(limit).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (r *contentRepositoryImpl) ListPublishedByAuthor(authorID int64) ([]*model.ZfeedContent, error) {
+	if authorID <= 0 {
+		return []*model.ZfeedContent{}, nil
+	}
+
+	rows := make([]*model.ZfeedContent, 0)
+	err := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedContent{}).
+		Select("id", "user_id", "content_type", "like_count", "published_at").
+		Where("user_id = ?", authorID).
+		Where("status = ? AND visibility = ? AND is_deleted = 0", 30, 10).
+		Where("published_at IS NOT NULL").
+		Order("id DESC").
+		Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}

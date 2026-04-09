@@ -8,6 +8,7 @@ import (
 type Config struct {
 	zrpc.RpcServerConf
 	InteractionRpcClientConf zrpc.RpcClientConf
+	UserRpcClientConf        zrpc.RpcClientConf
 	RedisConfig              redis.RedisConf
 	MySQL                    MySQLConf
 }

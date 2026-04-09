@@ -31,8 +31,7 @@ type FollowFeedLogic struct {
 	svcCtx *svc.ServiceContext
 	logx.Logger
 	contentRepo repositories.ContentRepository
-	articleRepo repositories.ArticleRepository
-	videoRepo   repositories.VideoRepository
+	itemBuilder *FeedItemBuilder
 }
 
 func NewFollowFeedLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FollowFeedLogic {
@@ -41,8 +40,7 @@ func NewFollowFeedLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Follow
 		svcCtx:      svcCtx,
 		Logger:      logx.WithContext(ctx),
 		contentRepo: repositories.NewContentRepository(ctx, svcCtx.MysqlDb),
-		articleRepo: repositories.NewArticleRepository(ctx, svcCtx.MysqlDb),
-		videoRepo:   repositories.NewVideoRepository(ctx, svcCtx.MysqlDb),
+		itemBuilder: NewFeedItemBuilder(ctx, svcCtx),
 	}
 }
 
@@ -68,7 +66,7 @@ func (l *FollowFeedLogic) FollowFeed(in *contentpb.FollowFeedReq) (*contentpb.Fo
 		return emptyFollowFeedRes(), nil
 	}
 
-	contents, err := l.loadContents(ids)
+	contents, err := l.itemBuilder.LoadContentsByIDs(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -76,13 +74,14 @@ func (l *FollowFeedLogic) FollowFeed(in *contentpb.FollowFeedReq) (*contentpb.Fo
 		return emptyFollowFeedRes(), nil
 	}
 
-	items, err := l.buildFollowItems(contents)
+	viewerID := in.GetUserId()
+	contentItems, err := l.itemBuilder.BuildContentItems(contents, &viewerID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &contentpb.FollowFeedRes{
-		Items:      items,
+		Items:      ContentItemsToFollowItems(contentItems),
 		NextCursor: nextCursor,
 		HasMore:    hasMore,
 	}, nil
@@ -263,85 +262,4 @@ func (l *FollowFeedLogic) updateInboxCache(inboxKey string, rows []*model.ZfeedC
 		return errorx.Wrap(l.ctx, err, errorx.NewMsg("回填关注收件箱失败"))
 	}
 	return nil
-}
-
-func (l *FollowFeedLogic) loadContents(ids []int64) ([]*model.ZfeedContent, error) {
-	contentMap, err := l.contentRepo.BatchGetPublishedByIDs(ids)
-	if err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询关注内容失败"))
-	}
-
-	contents := make([]*model.ZfeedContent, 0, len(ids))
-	for _, id := range ids {
-		if row, ok := contentMap[id]; ok && row != nil {
-			contents = append(contents, row)
-		}
-	}
-	return contents, nil
-}
-
-func (l *FollowFeedLogic) buildFollowItems(contents []*model.ZfeedContent) ([]*contentpb.FollowFeedItem, error) {
-	articleMap, videoMap, err := l.buildBriefMaps(contents)
-	if err != nil {
-		return nil, err
-	}
-
-	items := make([]*contentpb.FollowFeedItem, 0, len(contents))
-	for _, row := range contents {
-		if row == nil || row.ID <= 0 {
-			continue
-		}
-
-		item := &contentpb.FollowFeedItem{
-			ContentId:   row.ID,
-			ContentType: contentpb.ContentType(row.ContentType),
-			AuthorId:    row.UserID,
-		}
-		if row.PublishedAt != nil {
-			item.PublishedAt = row.PublishedAt.Unix()
-		}
-
-		switch contentpb.ContentType(row.ContentType) {
-		case contentpb.ContentType_CONTENT_TYPE_ARTICLE:
-			if article, ok := articleMap[row.ID]; ok && article != nil {
-				item.Title = article.Title
-				item.CoverUrl = article.Cover
-			}
-		case contentpb.ContentType_CONTENT_TYPE_VIDEO:
-			if video, ok := videoMap[row.ID]; ok && video != nil {
-				item.Title = video.Title
-				item.CoverUrl = video.CoverURL
-			}
-		}
-
-		items = append(items, item)
-	}
-	return items, nil
-}
-
-func (l *FollowFeedLogic) buildBriefMaps(contents []*model.ZfeedContent) (map[int64]*model.ZfeedArticle, map[int64]*model.ZfeedVideo, error) {
-	articleIDs := make([]int64, 0)
-	videoIDs := make([]int64, 0)
-
-	for _, row := range contents {
-		if row == nil || row.ID <= 0 {
-			continue
-		}
-		switch contentpb.ContentType(row.ContentType) {
-		case contentpb.ContentType_CONTENT_TYPE_ARTICLE:
-			articleIDs = append(articleIDs, row.ID)
-		case contentpb.ContentType_CONTENT_TYPE_VIDEO:
-			videoIDs = append(videoIDs, row.ID)
-		}
-	}
-
-	articleMap, err := l.articleRepo.BatchGetBriefByContentIDs(articleIDs)
-	if err != nil {
-		return nil, nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询文章摘要失败"))
-	}
-	videoMap, err := l.videoRepo.BatchGetBriefByContentIDs(videoIDs)
-	if err != nil {
-		return nil, nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询视频摘要失败"))
-	}
-	return articleMap, videoMap, nil
 }

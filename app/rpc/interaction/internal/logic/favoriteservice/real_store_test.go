@@ -22,23 +22,23 @@ import (
 	"zfeed/app/rpc/interaction/internal/testutil/mysqltest"
 )
 
-const runDay13RealStoreEnv = "RUN_DAY13_REAL_STORE"
+const runRealStoreEnv = "RUN_REAL_STORE"
 
-type day13ContentServiceAdapter struct {
+type realStoreContentServiceAdapter struct {
 	redisClient *gzredis.Redis
 }
 
-var _ contentservice.ContentService = (*day13ContentServiceAdapter)(nil)
+var _ contentservice.ContentService = (*realStoreContentServiceAdapter)(nil)
 
-func (a *day13ContentServiceAdapter) PublishArticle(ctx context.Context, in *contentpb.ArticlePublishReq, opts ...grpc.CallOption) (*contentpb.ArticlePublishRes, error) {
+func (a *realStoreContentServiceAdapter) PublishArticle(ctx context.Context, in *contentpb.ArticlePublishReq, opts ...grpc.CallOption) (*contentpb.ArticlePublishRes, error) {
 	return nil, grpc.ErrClientConnClosing
 }
 
-func (a *day13ContentServiceAdapter) PublishVideo(ctx context.Context, in *contentpb.VideoPublishReq, opts ...grpc.CallOption) (*contentpb.VideoPublishRes, error) {
+func (a *realStoreContentServiceAdapter) PublishVideo(ctx context.Context, in *contentpb.VideoPublishReq, opts ...grpc.CallOption) (*contentpb.VideoPublishRes, error) {
 	return nil, grpc.ErrClientConnClosing
 }
 
-func (a *day13ContentServiceAdapter) BackfillFollowInbox(ctx context.Context, in *contentpb.BackfillFollowInboxReq, opts ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error) {
+func (a *realStoreContentServiceAdapter) BackfillFollowInbox(ctx context.Context, in *contentpb.BackfillFollowInboxReq, opts ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error) {
 	publishKey := "feed:user:publish:" + int64ToString(in.GetFolloweeId())
 	inboxKey := "feed:follow:inbox:" + int64ToString(in.GetFollowerId())
 
@@ -59,9 +59,9 @@ func (a *day13ContentServiceAdapter) BackfillFollowInbox(ctx context.Context, in
 	return &contentpb.BackfillFollowInboxRes{AddedCount: int32(len(members))}, nil
 }
 
-func TestDay13RealStoreFavoriteAndFollowFlow(t *testing.T) {
-	if os.Getenv(runDay13RealStoreEnv) != "1" {
-		t.Skipf("set %s=1 to run real MySQL/Redis Day13 verification", runDay13RealStoreEnv)
+func TestRealStoreFavoriteAndFollowFlow(t *testing.T) {
+	if os.Getenv(runRealStoreEnv) != "1" {
+		t.Skipf("set %s=1 to run real MySQL/Redis verification", runRealStoreEnv)
 	}
 
 	db, err := mysqltest.Open()
@@ -78,7 +78,7 @@ func TestDay13RealStoreFavoriteAndFollowFlow(t *testing.T) {
 	); err != nil {
 		t.Fatalf("auto migrate interaction models: %v", err)
 	}
-	if err := ensureDay13ContentTables(db); err != nil {
+	if err := ensureRealStoreContentTables(db); err != nil {
 		t.Fatalf("ensure content tables: %v", err)
 	}
 
@@ -87,13 +87,13 @@ func TestDay13RealStoreFavoriteAndFollowFlow(t *testing.T) {
 		Type: "node",
 	})
 
-	cleanupDay13Tables(t, db)
+	cleanupRealStoreTables(t, db)
 
 	ctx := context.Background()
 	interactionSvcCtx := &interactionsvc.ServiceContext{
 		MysqlDb: db,
 		Redis:   redisClient,
-		ContentRpc: &day13ContentServiceAdapter{
+		ContentRpc: &realStoreContentServiceAdapter{
 			redisClient: redisClient,
 		},
 	}
@@ -313,7 +313,7 @@ func waitForInboxMembers(t *testing.T, redisClient *gzredis.Redis, key string, w
 	return nil
 }
 
-func cleanupDay13Tables(t *testing.T, db *gorm.DB) {
+func cleanupRealStoreTables(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
 	for _, stmt := range []string{
@@ -329,7 +329,7 @@ func cleanupDay13Tables(t *testing.T, db *gorm.DB) {
 	}
 }
 
-func ensureDay13ContentTables(db *gorm.DB) error {
+func ensureRealStoreContentTables(db *gorm.DB) error {
 	for _, stmt := range []string{
 		`CREATE TABLE IF NOT EXISTS zfeed_content (
 			id BIGINT NOT NULL AUTO_INCREMENT,

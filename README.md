@@ -110,7 +110,7 @@ GOCACHE=/tmp/go-build go test ./...
 项目包含一条面向真实 MySQL 和 Redis 的定向验证测试，用来确认收藏和关注链路的 DB / Redis 证据链：
 
 ```bash
-RUN_DAY13_REAL_STORE=1 GOCACHE=/tmp/go-build go test -run TestDay13RealStoreFavoriteAndFollowFlow -v ./app/rpc/interaction/internal/logic/favoriteservice
+RUN_REAL_STORE=1 GOCACHE=/tmp/go-build go test -run TestRealStoreFavoriteAndFollowFlow -v ./app/rpc/interaction/internal/logic/favoriteservice
 ```
 
 ## 当前限制

@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 # SCRIPT INFO
 # Name: test_count_read_path.sh
-# Purpose: Replay the Day16 count read-path verification for cache hit/miss, batch query, and profile aggregate.
+# Purpose: Replay the count read-path verification for cache hit/miss, batch query, and profile aggregate.
 # Scope: local zfeed repo with docker infra running and local count-rpc listening.
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -254,7 +254,7 @@ fct_execute_this() {
   fct_verify_batch_get_count
   fct_verify_user_profile_counts
 
-  printf '\nDay16 count read-path verification passed.\n'
+  printf '\nCount read-path verification passed.\n'
 }
 
 fct_main() {

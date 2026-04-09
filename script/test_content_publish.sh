@@ -19,7 +19,7 @@ article_resp=$(curl -sS -X POST "${API_BASE_URL}/v1/content/article/publish" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${TOKEN}" \
   -d '{
-    "title":"day6 article",
+    "title":"publish article",
     "description":"content domain article",
     "cover":"https://example.com/article-cover.png",
     "content":"hello zfeed article",
@@ -32,7 +32,7 @@ video_resp=$(curl -sS -X POST "${API_BASE_URL}/v1/content/video/publish" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer ${TOKEN}" \
   -d '{
-    "title":"day6 video",
+    "title":"publish video",
     "description":"content domain video",
     "video_url":"https://example.com/video.mp4",
     "cover_url":"https://example.com/video-cover.png",

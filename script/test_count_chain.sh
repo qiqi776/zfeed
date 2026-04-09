@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 # SCRIPT INFO
 # Name: test_count_chain.sh
-# Purpose: Replay the Day15 count write-chain verification for like/follow.
+# Purpose: Replay the count write-chain verification for like/follow.
 # Scope: local zfeed repo with docker infra running and local count-rpc listening.
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,10 +12,10 @@ readonly DEPLOY_DIR="${ROOT_DIR}/deploy"
 readonly ENV_FILE_PATH="${ROOT_DIR}/.env.local"
 
 readonly COUNT_CONSUMER_NAME="count.canal_consumer"
-readonly LIKE_INSERT_EVENT_ID="day15-like-verify-insert"
-readonly FOLLOW_INSERT_EVENT_ID="day15-follow-verify-insert"
-readonly LIKE_UPDATE_EVENT_ID="day15-like-verify-update"
-readonly FOLLOW_UPDATE_EVENT_ID="day15-follow-verify-update"
+readonly LIKE_INSERT_EVENT_ID="like-verify-insert"
+readonly FOLLOW_INSERT_EVENT_ID="follow-verify-insert"
+readonly LIKE_UPDATE_EVENT_ID="like-verify-update"
+readonly FOLLOW_UPDATE_EVENT_ID="follow-verify-update"
 
 readonly LIKE_TARGET_ID="22001"
 readonly FOLLOWING_TARGET_ID="12001"
@@ -223,7 +223,7 @@ EOF
   fct_wait_consume
   fct_verify_update_phase
 
-  printf 'Day15 count write-chain verification passed.\n'
+  printf 'Count write-chain verification passed.\n'
 }
 
 fct_main() {
