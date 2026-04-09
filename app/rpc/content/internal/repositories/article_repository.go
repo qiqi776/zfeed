@@ -13,6 +13,7 @@ import (
 type ArticleRepository interface {
 	WithTx(tx *gorm.DB) ArticleRepository
 	CreateArticle(articleDO *do.ArticleDO) error
+	BatchGetBriefByContentIDs(contentIDs []int64) (map[int64]*model.ZfeedArticle, error)
 }
 
 type articleRepositoryImpl struct {
@@ -58,4 +59,30 @@ func (r *articleRepositoryImpl) CreateArticle(articleDO *do.ArticleDO) error {
 	}
 
 	return r.getDB().WithContext(r.ctx).Create(row).Error
+}
+
+func (r *articleRepositoryImpl) BatchGetBriefByContentIDs(contentIDs []int64) (map[int64]*model.ZfeedArticle, error) {
+	if len(contentIDs) == 0 {
+		return map[int64]*model.ZfeedArticle{}, nil
+	}
+
+	rows := make([]*model.ZfeedArticle, 0, len(contentIDs))
+	err := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedArticle{}).
+		Select("content_id", "title", "cover").
+		Where("content_id IN ?", contentIDs).
+		Where("is_deleted = 0").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int64]*model.ZfeedArticle, len(rows))
+	for _, row := range rows {
+		if row == nil || row.ContentID <= 0 {
+			continue
+		}
+		result[row.ContentID] = row
+	}
+	return result, nil
 }

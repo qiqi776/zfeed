@@ -14,6 +14,8 @@ type ContentRepository interface {
 	WithTx(tx *gorm.DB) ContentRepository
 	CreateContent(contentDO *do.ContentDO) (int64, error)
 	ListLatestPublishedIDsByAuthor(authorID int64, limit int) ([]int64, error)
+	BatchGetPublishedByIDs(contentIDs []int64) (map[int64]*model.ZfeedContent, error)
+	ListFollowByAuthorsCursor(authorIDs []int64, cursorID int64, limit int) ([]*model.ZfeedContent, error)
 }
 
 type contentRepositoryImpl struct {
@@ -98,4 +100,54 @@ func (r *contentRepositoryImpl) ListLatestPublishedIDsByAuthor(authorID int64, l
 		ids = append(ids, row.ID)
 	}
 	return ids, nil
+}
+
+func (r *contentRepositoryImpl) BatchGetPublishedByIDs(contentIDs []int64) (map[int64]*model.ZfeedContent, error) {
+	if len(contentIDs) == 0 {
+		return map[int64]*model.ZfeedContent{}, nil
+	}
+
+	rows := make([]*model.ZfeedContent, 0, len(contentIDs))
+	err := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedContent{}).
+		Select("id", "user_id", "content_type", "published_at").
+		Where("id IN ?", contentIDs).
+		Where("status = ? AND visibility = ? AND is_deleted = 0", 30, 10).
+		Where("published_at IS NOT NULL").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int64]*model.ZfeedContent, len(rows))
+	for _, row := range rows {
+		if row == nil || row.ID <= 0 {
+			continue
+		}
+		result[row.ID] = row
+	}
+	return result, nil
+}
+
+func (r *contentRepositoryImpl) ListFollowByAuthorsCursor(authorIDs []int64, cursorID int64, limit int) ([]*model.ZfeedContent, error) {
+	if len(authorIDs) == 0 || limit <= 0 {
+		return nil, nil
+	}
+
+	rows := make([]*model.ZfeedContent, 0, limit)
+	query := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedContent{}).
+		Select("id", "user_id", "content_type", "published_at").
+		Where("user_id IN ?", authorIDs).
+		Where("status = ? AND visibility = ? AND is_deleted = 0", 30, 10).
+		Where("published_at IS NOT NULL")
+	if cursorID > 0 {
+		query = query.Where("id < ?", cursorID)
+	}
+
+	err := query.Order("id DESC").Limit(limit).Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }

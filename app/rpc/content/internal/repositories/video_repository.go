@@ -13,6 +13,7 @@ import (
 type VideoRepository interface {
 	WithTx(tx *gorm.DB) VideoRepository
 	CreateVideo(videoDO *do.VideoDO) error
+	BatchGetBriefByContentIDs(contentIDs []int64) (map[int64]*model.ZfeedVideo, error)
 }
 
 type videoRepositoryImpl struct {
@@ -60,4 +61,30 @@ func (r *videoRepositoryImpl) CreateVideo(videoDO *do.VideoDO) error {
 	}
 
 	return r.getDB().WithContext(r.ctx).Create(row).Error
+}
+
+func (r *videoRepositoryImpl) BatchGetBriefByContentIDs(contentIDs []int64) (map[int64]*model.ZfeedVideo, error) {
+	if len(contentIDs) == 0 {
+		return map[int64]*model.ZfeedVideo{}, nil
+	}
+
+	rows := make([]*model.ZfeedVideo, 0, len(contentIDs))
+	err := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedVideo{}).
+		Select("content_id", "title", "cover_url").
+		Where("content_id IN ?", contentIDs).
+		Where("is_deleted = 0").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int64]*model.ZfeedVideo, len(rows))
+	for _, row := range rows {
+		if row == nil || row.ContentID <= 0 {
+			continue
+		}
+		result[row.ContentID] = row
+	}
+	return result, nil
 }

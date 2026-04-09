@@ -22,6 +22,10 @@ func BuildFollowInboxKey(userID int64) string {
 	return fmt.Sprintf("%s:%d", RedisFollowInboxPrefix, userID)
 }
 
-func BuildFollowInboxLockKey(userID int64) string {
+func BuildFollowInboxRebuildLockKey(userID int64) string {
 	return fmt.Sprintf("%s:%d", RedisFollowInboxLockPrefix, userID)
+}
+
+func BuildFollowInboxLockKey(userID int64) string {
+	return BuildFollowInboxRebuildLockKey(userID)
 }

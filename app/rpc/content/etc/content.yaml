@@ -6,6 +6,13 @@ Etcd:
     - ${ETCD_HOST}:${ETCD_PORT}
   Key: content.rpc
 
+InteractionRpcClientConf:
+  Etcd:
+    Hosts:
+      - ${ETCD_HOST}:${ETCD_PORT}
+    Key: interaction.rpc
+  NonBlock: true
+
 RedisConfig:
   Host: ${REDIS_HOST}:${REDIS_PORT}
   Type: node
