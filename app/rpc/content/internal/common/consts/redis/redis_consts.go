@@ -3,6 +3,15 @@ package redis
 import "fmt"
 
 const (
+	RedisFeedHotGlobalKey            = "feed:hot:global"
+	RedisFeedHotGlobalLatestKey      = "feed:hot:global:latest"
+	RedisFeedHotGlobalSnapshotPrefix = "feed:hot:global:snap"
+	RedisFeedHotGlobalIncPrefix      = "feed:hot:global:inc"
+	RedisFeedHotIncDefaultShards     = 64
+	RedisFeedHotFastLockPrefix       = "feed:hot:global:lock:fast"
+	RedisFeedHotColdLockPrefix       = "feed:hot:global:lock:cold"
+	RedisFeedHotBucketCleanupPrefix  = "feed:hot:global:lock:cleanup"
+
 	RedisUserPublishPrefix       = "feed:user:publish"
 	RedisUserPublishLockPrefix   = "feed:user:publish:lock"
 	RedisUserFavoritePrefix      = "feed:user:favorite"
@@ -16,6 +25,26 @@ const (
 
 func BuildUserPublishKey(userID int64) string {
 	return fmt.Sprintf("%s:%d", RedisUserPublishPrefix, userID)
+}
+
+func BuildHotFeedSnapshotKey(snapshotID string) string {
+	return fmt.Sprintf("%s:%s", RedisFeedHotGlobalSnapshotPrefix, snapshotID)
+}
+
+func BuildHotFeedIncKey(shard int) string {
+	return fmt.Sprintf("%s:%d", RedisFeedHotGlobalIncPrefix, shard)
+}
+
+func BuildHotFeedFastLockKey(bucket string) string {
+	return fmt.Sprintf("%s:%s", RedisFeedHotFastLockPrefix, bucket)
+}
+
+func BuildHotFeedColdLockKey(date string) string {
+	return fmt.Sprintf("%s:%s", RedisFeedHotColdLockPrefix, date)
+}
+
+func BuildHotFeedBucketCleanupLockKey(date string) string {
+	return fmt.Sprintf("%s:%s", RedisFeedHotBucketCleanupPrefix, date)
 }
 
 func BuildUserPublishFeedKey(userID int64) string {

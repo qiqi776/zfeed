@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS `zfeed_content` (
   `like_count` BIGINT NOT NULL DEFAULT 0 COMMENT 'legacy denormalized field, count service remains the primary truth',
   `favorite_count` BIGINT NOT NULL DEFAULT 0 COMMENT 'legacy denormalized field, count service remains the primary truth',
   `comment_count` BIGINT NOT NULL DEFAULT 0 COMMENT 'legacy denormalized field, count service remains the primary truth',
+  `hot_score` DOUBLE NOT NULL DEFAULT 0 COMMENT 'calculated hot score for ranking maintenance jobs',
+  `last_hot_score_at` DATETIME DEFAULT NULL COMMENT 'last hot score refresh time',
   `published_at` DATETIME DEFAULT NULL,
   `is_deleted` TINYINT NOT NULL DEFAULT 0,
   `created_by` BIGINT NOT NULL DEFAULT 0,
@@ -15,5 +17,6 @@ CREATE TABLE IF NOT EXISTS `zfeed_content` (
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_user_publish_list` (`user_id`, `status`, `visibility`, `is_deleted`, `id`),
-  KEY `idx_user_publish_time` (`user_id`, `status`, `visibility`, `is_deleted`, `published_at`, `id`)
+  KEY `idx_user_publish_time` (`user_id`, `status`, `visibility`, `is_deleted`, `published_at`, `id`),
+  KEY `idx_hot_score` (`hot_score`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

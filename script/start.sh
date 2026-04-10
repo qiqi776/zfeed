@@ -85,6 +85,11 @@ fct_port_from_listen_on() {
   printf '%s\n' "${listen_on##*:}"
 }
 
+fct_port_from_url() {
+  local url="$1"
+  printf '%s\n' "$url" | sed -E 's#^https?://[^:]+:([0-9]+).*$#\1#'
+}
+
 fct_wait_for_port() {
   local port="$1"
   local name="$2"
@@ -125,18 +130,23 @@ USER_RPC_PORT=$(fct_port_from_listen_on "$USER_RPC_LISTEN_ON")
 CONTENT_RPC_PORT=$(fct_port_from_listen_on "$CONTENT_RPC_LISTEN_ON")
 INTERACTION_RPC_PORT=$(fct_port_from_listen_on "$INTERACTION_RPC_LISTEN_ON")
 COUNT_RPC_PORT=$(fct_port_from_listen_on "$COUNT_RPC_LISTEN_ON")
+XXL_EXECUTOR_BIND_PORT=$(fct_port_from_listen_on "$XXL_EXECUTOR_ADDRESS")
+XXL_ADMIN_PORT=$(fct_port_from_url "$XXL_JOB_ADMIN_ADDR")
 KAFKA_PORT=$(fct_port_from_listen_on "$KAFKA_BROKERS")
 
 cd "$ROOT_DIR"
 
 echo "Starting infrastructure via Docker Compose..."
-fct_docker_compose up -d etcd redis mysql kafka canal
+fct_docker_compose up -d etcd redis mysql kafka canal xxl-job-admin
 
 echo "Waiting for infrastructure ports..."
 fct_wait_for_port "$ETCD_PORT" "etcd"
 fct_wait_for_port "$REDIS_PORT" "redis"
 fct_wait_for_port "$MYSQL_APP_PORT" "mysql"
 fct_wait_for_port "$KAFKA_PORT" "kafka"
+if [ -n "${XXL_ADMIN_PORT}" ] && [ "${XXL_ADMIN_PORT}" != "${XXL_JOB_ADMIN_ADDR}" ]; then
+  fct_wait_for_port "$XXL_ADMIN_PORT" "xxl-job-admin"
+fi
 
 fct_stop_pid_file "$USER_RPC_PID_FILE"
 fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
@@ -152,6 +162,13 @@ fi
 if fct_port_busy "$CONTENT_RPC_PORT"; then
   echo "Port $CONTENT_RPC_PORT is already in use. Stop the existing process before starting content-rpc." >&2
   exit 1
+fi
+
+if [ -n "${XXL_EXECUTOR_BIND_PORT}" ] && [ "$XXL_EXECUTOR_BIND_PORT" != "$CONTENT_RPC_PORT" ]; then
+  if fct_port_busy "$XXL_EXECUTOR_BIND_PORT"; then
+    echo "Port $XXL_EXECUTOR_BIND_PORT is already in use. Stop the existing process before starting xxl executor." >&2
+    exit 1
+  fi
 fi
 
 if fct_port_busy "$FRONT_API_PORT"; then
@@ -183,6 +200,12 @@ echo $! >"$CONTENT_RPC_PID_FILE"
 if ! fct_wait_for_port "$CONTENT_RPC_PORT" "content-rpc"; then
   tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
   exit 1
+fi
+if [ -n "${XXL_EXECUTOR_BIND_PORT}" ] && [ "$XXL_EXECUTOR_BIND_PORT" != "$CONTENT_RPC_PORT" ]; then
+  if ! fct_wait_for_port "$XXL_EXECUTOR_BIND_PORT" "content-rpc xxl executor"; then
+    tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
+    exit 1
+  fi
 fi
 
 echo "Starting interaction-rpc locally..."
@@ -216,6 +239,8 @@ echo "  content-rpc log: $CONTENT_RPC_LOG"
 echo "  interaction-rpc log: $INTERACTION_RPC_LOG"
 echo "  count-rpc log: $COUNT_RPC_LOG"
 echo "  front-api log: $FRONT_API_LOG"
+echo "  xxl-job admin: $XXL_JOB_ADMIN_ADDR"
+echo "  xxl executor endpoint: http://${XXL_EXECUTOR_ADDRESS}"
 echo "  count write-chain verify: $ROOT_DIR/script/test_count_chain.sh"
 echo "  count read-path verify: $ROOT_DIR/script/test_count_read_path.sh"
 echo "  stop command: $ROOT_DIR/script/stop.sh"

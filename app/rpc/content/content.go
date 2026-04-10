@@ -1,17 +1,22 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
 	"zfeed/app/rpc/content/content"
 	"zfeed/app/rpc/content/internal/config"
+	"zfeed/app/rpc/content/internal/cron"
 	"zfeed/app/rpc/content/internal/server"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/envx"
+	"zfeed/pkg/xxljob"
 
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/service"
+	"github.com/zeromicro/go-zero/core/threading"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -36,6 +41,26 @@ func main() {
 		}
 	})
 	defer s.Stop()
+
+	xxlCtx, cancelXxl := context.WithCancel(context.Background())
+	defer cancelXxl()
+	executor := xxljob.NewExecutor(xxljob.Config{
+		AppName:          c.XxlJob.AppName,
+		Address:          c.XxlJob.Address,
+		RegistryAddr:     c.XxlJob.RegistryAddress,
+		IP:               c.XxlJob.IP,
+		Port:             c.XxlJob.Port,
+		AccessToken:      c.XxlJob.AccessToken,
+		AdminAddresses:   c.XxlJob.AdminAddresses,
+		RegistryInterval: c.XxlJob.RegistryInterval,
+		HTTPTimeout:      c.XxlJob.HTTPTimeout,
+	})
+	cron.Register(xxlCtx, executor, ctx)
+	threading.GoSafe(func() {
+		if err := executor.Start(xxlCtx); err != nil {
+			logx.Errorf("xxl-job executor start failed: %v", err)
+		}
+	})
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
 	s.Start()

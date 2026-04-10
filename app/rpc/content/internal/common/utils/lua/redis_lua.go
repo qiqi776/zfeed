@@ -2,6 +2,18 @@ package lua
 
 import _ "embed"
 
+//go:embed query_hot_feed_zset.lua
+var QueryHotFeedZSetScript string
+
+//go:embed merge_hot_inc.lua
+var MergeHotIncScript string
+
+//go:embed rebuild_hot_feed_zset.lua
+var RebuildHotFeedZSetScript string
+
+//go:embed rebuild_hot_snapshot.lua
+var RebuildHotSnapshotScript string
+
 //go:embed query_follow_inbox_zset.lua
 var QueryFollowInboxZSetScript string
 

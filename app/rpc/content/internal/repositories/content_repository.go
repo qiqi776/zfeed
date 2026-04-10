@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -17,6 +19,8 @@ type ContentRepository interface {
 	BatchGetPublishedByIDs(contentIDs []int64) (map[int64]*model.ZfeedContent, error)
 	ListFollowByAuthorsCursor(authorIDs []int64, cursorID int64, limit int) ([]*model.ZfeedContent, error)
 	ListPublishedByAuthor(authorID int64) ([]*model.ZfeedContent, error)
+	ListColdUpdateContents(status int32, visibility int32, start time.Time, cursorID int64, limit int) ([]*model.ZfeedContent, error)
+	BatchUpdateHotScores(ids []int64, scores []float64, updatedAt time.Time) error
 }
 
 type contentRepositoryImpl struct {
@@ -171,4 +175,55 @@ func (r *contentRepositoryImpl) ListPublishedByAuthor(authorID int64) ([]*model.
 		return nil, err
 	}
 	return rows, nil
+}
+
+func (r *contentRepositoryImpl) ListColdUpdateContents(status int32, visibility int32, start time.Time, cursorID int64, limit int) ([]*model.ZfeedContent, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+
+	rows := make([]*model.ZfeedContent, 0, limit)
+	query := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedContent{}).
+		Select("id", "like_count", "comment_count", "favorite_count", "published_at").
+		Where("status = ? AND visibility = ? AND is_deleted = 0", status, visibility).
+		Where("published_at IS NOT NULL").
+		Where("published_at >= ?", start)
+	if cursorID > 0 {
+		query = query.Where("id < ?", cursorID)
+	}
+	if err := query.Order("id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+func (r *contentRepositoryImpl) BatchUpdateHotScores(ids []int64, scores []float64, updatedAt time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if len(ids) != len(scores) {
+		return fmt.Errorf("ids and scores length mismatch")
+	}
+
+	const batchSize = 500
+	return r.getDB().WithContext(r.ctx).Transaction(func(tx *gorm.DB) error {
+		for start := 0; start < len(ids); start += batchSize {
+			end := start + batchSize
+			if end > len(ids) {
+				end = len(ids)
+			}
+			for i := start; i < end; i++ {
+				if err := tx.Model(&model.ZfeedContent{}).
+					Where("id = ?", ids[i]).
+					Updates(map[string]any{
+						"hot_score":         scores[i],
+						"last_hot_score_at": updatedAt,
+					}).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
 }

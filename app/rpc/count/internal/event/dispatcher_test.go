@@ -56,6 +56,14 @@ func TestDispatcherLikeEventUpdatesCountAndInvalidatesCache(t *testing.T) {
 	if applied != 1 {
 		t.Fatalf("applied updates = %d, want 1", applied)
 	}
+	incKey := redisconsts.BuildHotFeedIncKey(int(9001 % int64(redisconsts.RedisFeedHotIncDefaultShards)))
+	incMap, err := svcCtx.Redis.HgetallCtx(ctx, incKey)
+	if err != nil {
+		t.Fatalf("read hot increment bucket: %v", err)
+	}
+	if incMap["9001"] != "1" {
+		t.Fatalf("hot increment bucket value = %q, want %q", incMap["9001"], "1")
+	}
 
 	applied, err = dispatcher.Dispatch(ctx, evt)
 	if err != nil {

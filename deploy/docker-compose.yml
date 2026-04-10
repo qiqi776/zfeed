@@ -110,6 +110,21 @@ services:
     networks:
       - zfeed-net
 
+  xxl-job-admin:
+    image: ${XXL_JOB_IMAGE}
+    ports:
+      - "${XXL_JOB_PORT}:8080"
+    environment:
+      PARAMS: >-
+        --spring.datasource.url=jdbc:mysql://mysql:3306/xxl_job?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=UTC
+        --spring.datasource.username=${MYSQL_USER}
+        --spring.datasource.password=${MYSQL_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - zfeed-net
+
   content-rpc:
     image: golang:1.25
     working_dir: /app
@@ -123,6 +138,7 @@ services:
       - ./.env
     ports:
       - "5001:5001"
+      - "${XXL_JOB_EXECUTOR_PORT}:${XXL_EXECUTOR_PORT}"
     depends_on:
       etcd:
         condition: service_healthy
@@ -130,6 +146,8 @@ services:
         condition: service_started
       mysql:
         condition: service_healthy
+      xxl-job-admin:
+        condition: service_started
     networks:
       - zfeed-net
 
