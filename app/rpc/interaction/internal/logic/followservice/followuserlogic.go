@@ -39,10 +39,10 @@ func NewFollowUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Follow
 
 func (l *FollowUserLogic) FollowUser(in *interaction.FollowUserReq) (*interaction.FollowUserRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetFollowUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetUserId() == in.GetFollowUserId() {
-		return nil, errorx.NewMsg("不能关注自己")
+		return nil, errorx.NewBadRequest("不能关注自己")
 	}
 
 	if err := l.ensureTargetUserExists(in.GetFollowUserId()); err != nil {
@@ -89,7 +89,7 @@ func (l *FollowUserLogic) ensureTargetUserExists(userID int64) error {
 		return errorx.Wrap(l.ctx, err, errorx.NewMsg("查询用户失败"))
 	}
 	if resp.GetUserInfo() == nil || resp.GetUserInfo().GetUserId() <= 0 {
-		return errorx.NewMsg("用户不存在")
+		return errorx.NewNotFound("用户不存在")
 	}
 	return nil
 }

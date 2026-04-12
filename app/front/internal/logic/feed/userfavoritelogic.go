@@ -31,7 +31,7 @@ func NewUserFavoriteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *User
 
 func (l *UserFavoriteLogic) UserFavorite(req *types.UserFavoriteFeedReq) (resp *types.UserFavoriteFeedRes, err error) {
 	if req == nil || req.UserId == nil || req.Cursor == nil || req.PageSize == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	var viewerID *int64

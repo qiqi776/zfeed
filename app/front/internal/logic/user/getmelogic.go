@@ -33,7 +33,7 @@ func NewGetMeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetMeLogic 
 func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 	userID, err := utils.GetContextUserId(l.ctx)
 	if err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewUnauthorized("用户未登录"))
 	}
 
 	var (
@@ -62,7 +62,7 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 		return nil, userErr
 	}
 	if userResp.GetUserInfo() == nil {
-		return nil, errorx.NewMsg("用户不存在")
+		return nil, errorx.NewNotFound("用户不存在")
 	}
 	if countErr != nil {
 		l.Errorf("query me counts failed, user_id=%d, err=%v", userID, countErr)

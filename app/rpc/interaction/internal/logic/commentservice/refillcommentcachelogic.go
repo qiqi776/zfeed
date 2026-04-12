@@ -29,7 +29,7 @@ func NewRefillCommentCacheLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 
 func (l *RefillCommentCacheLogic) RefillCommentCache(in *interaction.RefillCommentCacheReq) (*interaction.RefillCommentCacheRes, error) {
 	if in == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	commentIDs := uniqueCommentIDs(in.GetCommentIds())

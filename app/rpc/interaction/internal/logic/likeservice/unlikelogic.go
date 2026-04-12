@@ -33,10 +33,10 @@ func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogi
 
 func (l *UnlikeLogic) Unlike(in *interaction.UnlikeReq) (*interaction.UnlikeRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetContentId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetScene() == interaction.Scene_SCENE_UNKNOWN {
-		return nil, errorx.NewMsg("场景参数错误")
+		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
 	contentUserID, err := l.contentRepo.GetAuthorID(in.GetContentId())
@@ -44,7 +44,7 @@ func (l *UnlikeLogic) Unlike(in *interaction.UnlikeReq) (*interaction.UnlikeRes,
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询内容作者失败"))
 	}
 	if contentUserID <= 0 {
-		return nil, errorx.NewMsg("内容不存在")
+		return nil, errorx.NewNotFound("内容不存在")
 	}
 
 	changed, err := l.processUnlike(in.GetUserId(), in.GetContentId())

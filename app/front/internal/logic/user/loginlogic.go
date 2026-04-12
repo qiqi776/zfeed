@@ -30,7 +30,7 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 
 func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginRes, err error) {
 	if req == nil || req.Mobile == nil || req.Password == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	rpcResp, err := l.svcCtx.UserRpc.Login(l.ctx, &user.LoginReq{

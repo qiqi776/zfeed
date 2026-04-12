@@ -7,6 +7,8 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 
 	"zfeed/app/front/internal/config"
 	"zfeed/app/front/internal/middleware"
@@ -23,6 +25,7 @@ import (
 type ServiceContext struct {
 	Config                        config.Config
 	Redis                         *redis.Redis
+	MysqlDb                       *gorm.DB
 	ContentRpc                    contentservice.ContentService
 	FeedRpc                       feedservice.FeedService
 	CommentRpc                    commentservice.CommentService
@@ -37,6 +40,10 @@ type ServiceContext struct {
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	rds := redis.MustNewRedis(c.RedisConfig)
+	db, err := gorm.Open(mysql.Open(c.MySQL.DataSource), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
 	contentRpcClient := zrpc.MustNewClient(c.ContentRpcClientConf)
 	contentRpc := contentservice.NewContentService(contentRpcClient)
 	feedRpc := feedservice.NewFeedService(contentRpcClient)
@@ -51,6 +58,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	return &ServiceContext{
 		Config:                        c,
 		Redis:                         rds,
+		MysqlDb:                       db,
 		ContentRpc:                    contentRpc,
 		FeedRpc:                       feedRpc,
 		CommentRpc:                    commentRpc,

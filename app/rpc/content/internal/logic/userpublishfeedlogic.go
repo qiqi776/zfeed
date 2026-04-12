@@ -45,7 +45,7 @@ func NewUserPublishFeedLogic(ctx context.Context, svcCtx *svc.ServiceContext) *U
 
 func (l *UserPublishFeedLogic) UserPublishFeed(in *contentpb.UserPublishFeedReq) (*contentpb.UserPublishFeedRes, error) {
 	if in == nil || in.GetAuthorId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	pageSize := int(in.GetPageSize())

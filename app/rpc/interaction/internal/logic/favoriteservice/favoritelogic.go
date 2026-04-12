@@ -33,10 +33,10 @@ func NewFavoriteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Favorite
 
 func (l *FavoriteLogic) Favorite(in *interaction.FavoriteReq) (*interaction.FavoriteRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetContentId() <= 0 || in.GetContentUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetScene() == interaction.Scene_SCENE_UNKNOWN {
-		return nil, errorx.NewMsg("场景参数错误")
+		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
 	err := l.favoriteRepo.Upsert(&do.FavoriteDO{

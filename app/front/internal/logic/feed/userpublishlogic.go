@@ -31,7 +31,7 @@ func NewUserPublishLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UserP
 
 func (l *UserPublishLogic) UserPublish(req *types.UserPublishFeedReq) (resp *types.UserPublishFeedRes, err error) {
 	if req == nil || req.UserId == nil || req.Cursor == nil || req.PageSize == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	viewerID := req.ViewerId

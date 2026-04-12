@@ -51,7 +51,7 @@ func extractToken(authHeader string) (string, bool) {
 
 func verifyAndRenewSession(ctx context.Context, rds *redis.Redis, token string, ttl time.Duration) (int64, error) {
 	if token == "" {
-		return 0, errorx.NewMsg("用户未登录")
+		return 0, errorx.NewUnauthorized("用户未登录")
 	}
 
 	ttlSeconds := int(ttl.Seconds())
@@ -80,12 +80,12 @@ func verifyAndRenewSession(ctx context.Context, rds *redis.Redis, token string, 
 	}
 	userIDStr = strings.TrimSpace(userIDStr)
 	if userIDStr == "" {
-		return 0, errorx.NewMsg("用户未登录")
+		return 0, errorx.NewUnauthorized("用户未登录")
 	}
 
 	userID, err := strconv.ParseInt(userIDStr, 10, 64)
 	if err != nil || userID <= 0 {
-		return 0, errorx.NewMsg("用户未登录")
+		return 0, errorx.NewUnauthorized("用户未登录")
 	}
 
 	return userID, nil

@@ -43,7 +43,7 @@ func NewBackfillFollowInboxLogic(ctx context.Context, svcCtx *svc.ServiceContext
 
 func (l *BackfillFollowInboxLogic) BackfillFollowInbox(in *contentpb.BackfillFollowInboxReq) (*contentpb.BackfillFollowInboxRes, error) {
 	if in == nil || in.GetFollowerId() <= 0 || in.GetFolloweeId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	limit := int(in.GetLimit())

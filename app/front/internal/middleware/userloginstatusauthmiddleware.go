@@ -30,13 +30,13 @@ func (m *UserLoginStatusAuthMiddleware) Handle(next http.HandlerFunc) http.Handl
 	return func(w http.ResponseWriter, r *http.Request) {
 		token, ok := extractToken(r.Header.Get(headerAuthorization))
 		if !ok {
-			httpx.ErrorCtx(r.Context(), w, errorx.NewMsg("用户未登录"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewUnauthorized("用户未登录"))
 			return
 		}
 
 		userID, err := verifyAndRenewSession(r.Context(), m.redis, token, parseSessionTTL(m.config))
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, errorx.NewMsg("用户未登录"))
+			httpx.ErrorCtx(r.Context(), w, errorx.NewUnauthorized("用户未登录"))
 			return
 		}
 

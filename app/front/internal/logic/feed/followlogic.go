@@ -31,7 +31,7 @@ func NewFollowLogic(ctx context.Context, svcCtx *svc.ServiceContext) *FollowLogi
 
 func (l *FollowLogic) Follow(req *types.FollowFeedReq) (resp *types.FollowFeedRes, err error) {
 	if req == nil || req.Cursor == nil || req.PageSize == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	userID, err := utils.GetContextUserId(l.ctx)
 	if err != nil {

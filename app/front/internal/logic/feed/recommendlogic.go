@@ -32,7 +32,7 @@ func NewRecommendLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Recomme
 
 func (l *RecommendLogic) Recommend(req *types.RecommendFeedReq) (resp *types.RecommendFeedRes, err error) {
 	if req == nil || req.Cursor == nil || req.PageSize == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	var userID *int64

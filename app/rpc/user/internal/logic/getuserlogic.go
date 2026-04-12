@@ -29,7 +29,7 @@ func NewGetUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUserLo
 
 func (l *GetUserLogic) GetUser(in *user.GetUserReq) (*user.GetUserRes, error) {
 	if in == nil || in.GetUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	userDO, err := l.userRepo.GetByID(in.GetUserId())
@@ -37,7 +37,7 @@ func (l *GetUserLogic) GetUser(in *user.GetUserReq) (*user.GetUserRes, error) {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询用户失败"))
 	}
 	if userDO == nil {
-		return nil, errorx.NewMsg("用户不存在")
+		return nil, errorx.NewNotFound("用户不存在")
 	}
 
 	return &user.GetUserRes{

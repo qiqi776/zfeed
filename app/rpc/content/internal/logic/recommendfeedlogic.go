@@ -47,7 +47,7 @@ func NewRecommendFeedLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Rec
 
 func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*contentpb.RecommendFeedRes, error) {
 	if in == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	pageSize := int(in.GetPageSize())

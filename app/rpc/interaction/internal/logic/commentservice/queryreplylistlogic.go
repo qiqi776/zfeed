@@ -33,7 +33,7 @@ func NewQueryReplyListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Qu
 
 func (l *QueryReplyListLogic) QueryReplyList(in *interaction.QueryReplyListReq) (*interaction.QueryReplyListRes, error) {
 	if in == nil || in.GetRootId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	pageSize, err := normalizeCommentPage(in.GetPageSize())

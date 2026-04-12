@@ -30,10 +30,10 @@ func NewUnfollowUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Unfo
 
 func (l *UnfollowUserLogic) UnfollowUser(in *interaction.UnfollowUserReq) (*interaction.UnfollowUserRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetFollowUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetUserId() == in.GetFollowUserId() {
-		return nil, errorx.NewMsg("不能取关自己")
+		return nil, errorx.NewBadRequest("不能取关自己")
 	}
 
 	err := l.followRepo.Upsert(&do.FollowDO{

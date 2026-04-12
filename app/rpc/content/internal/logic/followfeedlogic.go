@@ -46,7 +46,7 @@ func NewFollowFeedLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Follow
 
 func (l *FollowFeedLogic) FollowFeed(in *contentpb.FollowFeedReq) (*contentpb.FollowFeedRes, error) {
 	if in == nil || in.GetUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	pageSize := int(in.GetPageSize())
