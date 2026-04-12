@@ -5,10 +5,10 @@ import (
 	"zfeed/app/rpc/interaction/client/favoriteservice"
 	"zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/user/client/userservice"
+	"zfeed/orm"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/zrpc"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -22,10 +22,10 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	db, err := gorm.Open(mysql.Open(c.MySQL.DataSource), &gorm.Config{})
-	if err != nil {
-		panic(err)
-	}
+	db := orm.MustNewMysql(&orm.Config{
+		DSN:     c.MySQL.DataSource,
+		Service: "content-rpc",
+	})
 
 	interactionRpcClient := zrpc.MustNewClient(c.InteractionRpcClientConf)
 	followRpc := followservice.NewFollowService(interactionRpcClient)

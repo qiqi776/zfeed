@@ -4,13 +4,13 @@ import (
 	"github.com/zeromicro/go-queue/kq"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/zrpc"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	contentservice "zfeed/app/rpc/content/contentservice"
 	"zfeed/app/rpc/interaction/internal/config"
 	"zfeed/app/rpc/interaction/internal/mq/producer"
 	"zfeed/app/rpc/user/client/userservice"
+	"zfeed/orm"
 )
 
 type ServiceContext struct {
@@ -24,10 +24,10 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	db, err := gorm.Open(mysql.Open(c.MySQL.DataSource), &gorm.Config{})
-	if err != nil {
-		panic(err)
-	}
+	db := orm.MustNewMysql(&orm.Config{
+		DSN:     c.MySQL.DataSource,
+		Service: "interaction-rpc",
+	})
 
 	kqPusher := kq.NewPusher(c.KqProducerConf.Brokers, c.KqProducerConf.Topic)
 	maxRetries := c.KqProducerConf.MaxRetries

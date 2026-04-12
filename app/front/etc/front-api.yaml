@@ -1,5 +1,5 @@
 Name: zfeed-front-api
-Host: ${FRONT_API_HOST}
+Host: "${FRONT_API_HOST}"
 Port: ${FRONT_API_PORT}
 MaxBytes: 20971520
 Timeout: 100000
@@ -11,11 +11,11 @@ Timeout: 100000
 #   Sampler: 1.0
 
 Log:
-  ServiceName: "zfeed-front-api"
+  ServiceName: "front-api"
   Mode: "file"
   Encoding: "json"
   TimeFormat: "2006-01-02T15:04:05.000Z07:00"
-  Path: ${LOG_PATH}
+  Path: "${LOG_PATH}/front-api"
   Level: "info"
   MaxContentLength: 0
   Compress: false
@@ -28,43 +28,43 @@ Log:
   FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
 
 Prometheus:
-  Host: ${PROM_HOST}
+  Host: "${PROM_HOST}"
   Port: ${PROM_PORT}
   Path: /metrics
 
 RedisConfig:
-  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Host: "${REDIS_HOST}:${REDIS_PORT}"
   Type: node
   Pass: ""
 
 MySQL:
-  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
 
 ContentRpcClientConf:
   Etcd:
     Hosts:
-      - ${ETCD_HOST}:${ETCD_PORT}
+      - "${ETCD_HOST}:${ETCD_PORT}"
     Key: content.rpc
   NonBlock: true
 
 InteractionRpcClientConf:
   Etcd:
     Hosts:
-      - ${ETCD_HOST}:${ETCD_PORT}
+      - "${ETCD_HOST}:${ETCD_PORT}"
     Key: interaction.rpc
   NonBlock: true
 
 UserRpcClientConf:
   Etcd:
     Hosts:
-      - ${ETCD_HOST}:${ETCD_PORT}
+      - "${ETCD_HOST}:${ETCD_PORT}"
     Key: user.rpc
   NonBlock: true
 
 CountRpcClientConf:
   Etcd:
     Hosts:
-      - ${ETCD_HOST}:${ETCD_PORT}
+      - "${ETCD_HOST}:${ETCD_PORT}"
     Key: count.rpc
   NonBlock: true
 

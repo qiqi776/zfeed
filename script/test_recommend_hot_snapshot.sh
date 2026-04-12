@@ -4,7 +4,7 @@ set -Eeuo pipefail
 readonly API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:5000}"
 readonly REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 readonly REDIS_PORT="${REDIS_PORT:-16379}"
-readonly SNAPSHOT_ID="${SNAPSHOT_ID:-day19-demo-snapshot}"
+readonly SNAPSHOT_ID="${SNAPSHOT_ID:-recommend-demo-snapshot}"
 readonly PAGE_SIZE="${PAGE_SIZE:-2}"
 
 readonly MYSQL_HOST="${MYSQL_HOST:-127.0.0.1}"
@@ -157,7 +157,7 @@ fct_main() {
     fct_fail "expected error message 热榜缓存不存在 when all snapshot sources are missing"
   fi
 
-  printf '\nDay19 recommend snapshot verification passed.\n'
+  printf '\nRecommend snapshot verification passed.\n'
 }
 
 fct_main "$@"

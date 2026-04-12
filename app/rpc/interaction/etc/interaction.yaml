@@ -1,40 +1,62 @@
 Name: interaction.rpc
-ListenOn: ${INTERACTION_RPC_LISTEN_ON}
+ListenOn: "${INTERACTION_RPC_LISTEN_ON}"
+
+Prometheus:
+  Host: "${PROM_HOST}"
+  Port: ${INTERACTION_PROM_PORT}
+  Path: /metrics
+
+Log:
+  ServiceName: "interaction-rpc"
+  Mode: "file"
+  Encoding: "json"
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+  Path: "${LOG_PATH}/interaction-rpc"
+  Level: "info"
+  MaxContentLength: 0
+  Compress: false
+  Stat: true
+  KeepDays: 1
+  StackCooldownMillis: 100
+  MaxBackups: 0
+  MaxSize: 0
+  Rotation: "daily"
+  FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
 
 Etcd:
   Hosts:
-    - ${ETCD_HOST}:${ETCD_PORT}
+    - "${ETCD_HOST}:${ETCD_PORT}"
   Key: interaction.rpc
 
 UserRpcClientConf:
   Etcd:
     Hosts:
-      - ${ETCD_HOST}:${ETCD_PORT}
+      - "${ETCD_HOST}:${ETCD_PORT}"
     Key: user.rpc
   NonBlock: true
 
 ContentRpcClientConf:
   Etcd:
     Hosts:
-      - ${ETCD_HOST}:${ETCD_PORT}
+      - "${ETCD_HOST}:${ETCD_PORT}"
     Key: content.rpc
   NonBlock: true
 
 RedisConfig:
-  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Host: "${REDIS_HOST}:${REDIS_PORT}"
   Type: node
   Pass: ""
 
 KqProducerConf:
   Brokers:
-    - ${KAFKA_BROKERS}
+    - "${KAFKA_BROKERS}"
   Topic: zfeed-like
   MaxRetries: 3
 
 KqConsumerConf:
   Name: interaction-like-consumer
   Brokers:
-    - ${KAFKA_BROKERS}
+    - "${KAFKA_BROKERS}"
   Group: zfeed-like-consumer
   Topic: zfeed-like
   Offset: last
@@ -42,4 +64,4 @@ KqConsumerConf:
   Processors: 8
 
 MySQL:
-  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"

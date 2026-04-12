@@ -98,6 +98,11 @@ if [ -f "$ENV_FILE_PATH" ]; then
   . "$ENV_FILE_PATH"
 
   FRONT_API_PORT="${FRONT_API_PORT:-5000}"
+  FRONT_PROM_PORT="${PROM_PORT:-9290}"
+  CONTENT_PROM_PORT="${CONTENT_PROM_PORT:-9291}"
+  INTERACTION_PROM_PORT="${INTERACTION_PROM_PORT:-9293}"
+  COUNT_PROM_PORT="${COUNT_PROM_PORT:-9292}"
+  USER_PROM_PORT="${USER_PROM_PORT:-9294}"
   USER_RPC_PORT=$(fct_port_from_listen_on "${USER_RPC_LISTEN_ON:-127.0.0.1:5003}")
   CONTENT_RPC_PORT=$(fct_port_from_listen_on "${CONTENT_RPC_LISTEN_ON:-127.0.0.1:5001}")
   INTERACTION_RPC_PORT=$(fct_port_from_listen_on "${INTERACTION_RPC_LISTEN_ON:-127.0.0.1:5002}")
@@ -105,10 +110,15 @@ if [ -f "$ENV_FILE_PATH" ]; then
   XXL_EXECUTOR_PORT=$(fct_port_from_listen_on "${XXL_EXECUTOR_ADDRESS:-127.0.0.1:5005}")
 
   fct_stop_port_listener "$FRONT_API_PORT" "front-api"
+  fct_stop_port_listener "$FRONT_PROM_PORT" "front-api metrics"
   fct_stop_port_listener "$COUNT_RPC_PORT" "count-rpc"
+  fct_stop_port_listener "$COUNT_PROM_PORT" "count-rpc metrics"
   fct_stop_port_listener "$INTERACTION_RPC_PORT" "interaction-rpc"
+  fct_stop_port_listener "$INTERACTION_PROM_PORT" "interaction-rpc metrics"
   fct_stop_port_listener "$CONTENT_RPC_PORT" "content-rpc"
+  fct_stop_port_listener "$CONTENT_PROM_PORT" "content-rpc metrics"
   fct_stop_port_listener "$USER_RPC_PORT" "user-rpc"
+  fct_stop_port_listener "$USER_PROM_PORT" "user-rpc metrics"
   if [ "$XXL_EXECUTOR_PORT" != "$CONTENT_RPC_PORT" ]; then
     fct_stop_port_listener "$XXL_EXECUTOR_PORT" "content-rpc xxl executor"
   fi

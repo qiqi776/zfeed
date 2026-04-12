@@ -2,10 +2,10 @@ package svc
 
 import (
 	"github.com/zeromicro/go-zero/core/stores/redis"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"zfeed/app/rpc/user/internal/config"
+	"zfeed/orm"
 )
 
 type ServiceContext struct {
@@ -15,10 +15,10 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	db, err := gorm.Open(mysql.Open(c.MySQL.DataSource), &gorm.Config{})
-	if err != nil {
-		panic(err)
-	}
+	db := orm.MustNewMysql(&orm.Config{
+		DSN:     c.MySQL.DataSource,
+		Service: "user-rpc",
+	})
 
 	return &ServiceContext{
 		Config:  c,

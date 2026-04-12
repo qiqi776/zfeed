@@ -1,9 +1,9 @@
 Name: user.rpc
-ListenOn: ${USER_RPC_LISTEN_ON}
+ListenOn: "${USER_RPC_LISTEN_ON}"
 
 Etcd:
   Hosts:
-    - ${ETCD_HOST}:${ETCD_PORT}
+    - "${ETCD_HOST}:${ETCD_PORT}"
   Key: user.rpc
 
 # Telemetry:
@@ -12,49 +12,49 @@ Etcd:
 #   Batcher: otlpgrpc
 #   Sampler: 1.0
 
-# Prometheus:
-#   Host: 0.0.0.0
-#   Port: 9294
-#   Path: /metrics
+Prometheus:
+  Host: "${PROM_HOST}"
+  Port: ${USER_PROM_PORT}
+  Path: /metrics
 
-# Log:
-#   ServiceName: "user.rpc"
-#   Mode: "file"
-#   Encoding: "json"
-#   TimeFormat: "2006-01-02T15:04:05.000Z07:00"
-#   Path: /var/log/zfeed
-#   Level: "info"
-#   MaxContentLength: 0
-#   Compress: false
-#   Stat: true
-#   KeepDays: 1
-#   StackCooldownMillis: 100
-#   MaxBackups: 0
-#   MaxSize: 0
-#   Rotation: "daily"
-#   FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
+Log:
+  ServiceName: "user-rpc"
+  Mode: "file"
+  Encoding: "json"
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+  Path: "${LOG_PATH}/user-rpc"
+  Level: "info"
+  MaxContentLength: 0
+  Compress: false
+  Stat: true
+  KeepDays: 1
+  StackCooldownMillis: 100
+  MaxBackups: 0
+  MaxSize: 0
+  Rotation: "daily"
+  FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
 
 # InteractionRpcClientConf:
 #   Etcd:
 #     Hosts:
-#       - ${ETCD_HOST}:${ETCD_PORT}
+#       - "${ETCD_HOST}:${ETCD_PORT}"
 #     Key: interaction.rpc
 #   NonBlock: true
 
 # CountRpcClientConf:
 #   Etcd:
 #     Hosts:
-#       - ${ETCD_HOST}:${ETCD_PORT}
+#       - "${ETCD_HOST}:${ETCD_PORT}"
 #     Key: count.rpc
 #   NonBlock: true
 
 RedisConfig:
-  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Host: "${REDIS_HOST}:${REDIS_PORT}"
   Type: node
   Pass: ""
 
 MySQL:
-  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
 
 SessionTTL: 86400
 

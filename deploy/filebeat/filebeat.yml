@@ -1,0 +1,28 @@
+filebeat.inputs:
+  - type: filestream
+    id: zfeed-service-logs
+    enabled: true
+    paths:
+      - /workspace-logs/front-api/*.log
+      - /workspace-logs/user-rpc/*.log
+      - /workspace-logs/content-rpc/*.log
+      - /workspace-logs/interaction-rpc/*.log
+      - /workspace-logs/count-rpc/*.log
+    parsers:
+      - ndjson:
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
+
+processors:
+  - add_fields:
+      target: ""
+      fields:
+        collector: filebeat
+        stack: zfeed
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+setup.template.enabled: false
+logging.level: info

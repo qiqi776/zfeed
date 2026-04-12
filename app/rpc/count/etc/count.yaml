@@ -1,27 +1,44 @@
 Name: count.rpc
-ListenOn: ${COUNT_RPC_LISTEN_ON}
+ListenOn: "${COUNT_RPC_LISTEN_ON}"
 Etcd:
   Hosts:
-  - ${ETCD_HOST}:${ETCD_PORT}
+  - "${ETCD_HOST}:${ETCD_PORT}"
   Key: count.rpc
 
 Prometheus:
-  Host: ${PROM_HOST}
-  Port: 9292
+  Host: "${PROM_HOST}"
+  Port: ${COUNT_PROM_PORT}
   Path: /metrics
 
+Log:
+  ServiceName: "count-rpc"
+  Mode: "file"
+  Encoding: "json"
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+  Path: "${LOG_PATH}/count-rpc"
+  Level: "info"
+  MaxContentLength: 0
+  Compress: false
+  Stat: true
+  KeepDays: 1
+  StackCooldownMillis: 100
+  MaxBackups: 0
+  MaxSize: 0
+  Rotation: "daily"
+  FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
+
 RedisConfig:
-  Host: ${REDIS_HOST}:${REDIS_PORT}
+  Host: "${REDIS_HOST}:${REDIS_PORT}"
   Type: node
   Pass: ""
 
 MySQL:
-  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
 
 KqConsumerConf:
   Name: count-canal-consumer
   Brokers:
-    - ${KAFKA_BROKERS}
+    - "${KAFKA_BROKERS}"
   Group: zfeed-count-canal-consumer
   Topic: zfeed-count-canal
   Offset: last

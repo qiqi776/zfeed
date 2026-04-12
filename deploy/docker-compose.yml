@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   etcd:
     image: ${ETCD_IMAGE}
@@ -201,6 +199,45 @@ services:
     networks:
       - zfeed-net
 
+  prometheus:
+    image: ${PROMETHEUS_IMAGE}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "${PROMETHEUS_HOST_PORT}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - zfeed-net
+
+  logstash:
+    image: ${LOGSTASH_IMAGE}
+    environment:
+      - LS_JAVA_OPTS=-Xms256m -Xmx256m
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ../logs/collected:/collected
+    networks:
+      - zfeed-net
+
+  filebeat:
+    image: ${FILEBEAT_IMAGE}
+    user: root
+    command: ["filebeat", "-e", "--strict.perms=false"]
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ../logs:/workspace-logs:ro
+      - filebeat-data:/usr/share/filebeat/data
+    depends_on:
+      - logstash
+    networks:
+      - zfeed-net
+
 networks:
   zfeed-net:
     driver: bridge
@@ -210,3 +247,5 @@ volumes:
   redis-data:
   mysql-data:
   kafka-data:
+  prometheus-data:
+  filebeat-data:

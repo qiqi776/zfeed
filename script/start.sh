@@ -7,6 +7,12 @@ ENV_FILE_PATH="$ROOT_DIR/.env.local"
 ENV_TEMPLATE_PATH="$ROOT_DIR/.env.local.example"
 LOG_DIR="$ROOT_DIR/logs"
 RUNTIME_DIR="$LOG_DIR/runtime"
+COLLECTED_DIR="$LOG_DIR/collected"
+FRONT_LOG_DIR="$LOG_DIR/front-api"
+USER_LOG_DIR="$LOG_DIR/user-rpc"
+CONTENT_LOG_DIR="$LOG_DIR/content-rpc"
+INTERACTION_LOG_DIR="$LOG_DIR/interaction-rpc"
+COUNT_LOG_DIR="$LOG_DIR/count-rpc"
 
 USER_RPC_PID_FILE="$RUNTIME_DIR/user-rpc.pid"
 CONTENT_RPC_PID_FILE="$RUNTIME_DIR/content-rpc.pid"
@@ -160,7 +166,15 @@ fct_stop_pid_file() {
   rm -f "$pid_file"
 }
 
-mkdir -p "$LOG_DIR" "$RUNTIME_DIR"
+mkdir -p \
+  "$LOG_DIR" \
+  "$RUNTIME_DIR" \
+  "$COLLECTED_DIR" \
+  "$FRONT_LOG_DIR" \
+  "$USER_LOG_DIR" \
+  "$CONTENT_LOG_DIR" \
+  "$INTERACTION_LOG_DIR" \
+  "$COUNT_LOG_DIR"
 fct_require_env_file
 . "$ENV_FILE_PATH"
 export ENV_FILE="$ENV_FILE_PATH"
@@ -172,11 +186,23 @@ COUNT_RPC_PORT=$(fct_port_from_listen_on "$COUNT_RPC_LISTEN_ON")
 XXL_EXECUTOR_BIND_PORT=$(fct_port_from_listen_on "$XXL_EXECUTOR_ADDRESS")
 XXL_ADMIN_PORT=$(fct_port_from_url "$XXL_JOB_ADMIN_ADDR")
 KAFKA_PORT=$(fct_port_from_listen_on "$KAFKA_BROKERS")
+FRONT_PROM_PORT="${PROM_PORT}"
+CONTENT_PROM_PORT="${CONTENT_PROM_PORT}"
+INTERACTION_PROM_PORT="${INTERACTION_PROM_PORT}"
+COUNT_PROM_PORT="${COUNT_PROM_PORT}"
+USER_PROM_PORT="${USER_PROM_PORT}"
+PROMETHEUS_HOST_PORT="${PROMETHEUS_HOST_PORT}"
+ENABLE_LOG_PIPELINE="${ENABLE_LOG_PIPELINE:-0}"
 
 cd "$ROOT_DIR"
 
+infra_services=(etcd redis mysql kafka canal xxl-job-admin prometheus)
+if [ "$ENABLE_LOG_PIPELINE" = "1" ]; then
+  infra_services+=(logstash filebeat)
+fi
+
 echo "Starting infrastructure via Docker Compose..."
-fct_docker_compose up -d etcd redis mysql kafka canal xxl-job-admin
+fct_docker_compose up -d "${infra_services[@]}"
 
 echo "Waiting for infrastructure ports..."
 fct_wait_for_port "$ETCD_PORT" "etcd"
@@ -185,6 +211,9 @@ fct_wait_for_port "$MYSQL_APP_PORT" "mysql"
 fct_wait_for_port "$KAFKA_PORT" "kafka"
 if [ -n "${XXL_ADMIN_PORT}" ] && [ "${XXL_ADMIN_PORT}" != "${XXL_JOB_ADMIN_ADDR}" ]; then
   fct_wait_for_port "$XXL_ADMIN_PORT" "xxl-job-admin"
+fi
+if [ -n "${PROMETHEUS_HOST_PORT}" ]; then
+  fct_wait_for_port "$PROMETHEUS_HOST_PORT" "prometheus"
 fi
 
 fct_stop_pid_file "$USER_RPC_PID_FILE"
@@ -201,6 +230,11 @@ fi
 fct_stop_port_listener "$FRONT_API_PORT" "front-api"
 fct_stop_port_listener "$INTERACTION_RPC_PORT" "interaction-rpc"
 fct_stop_port_listener "$COUNT_RPC_PORT" "count-rpc"
+fct_stop_port_listener "$FRONT_PROM_PORT" "front-api metrics"
+fct_stop_port_listener "$CONTENT_PROM_PORT" "content-rpc metrics"
+fct_stop_port_listener "$INTERACTION_PROM_PORT" "interaction-rpc metrics"
+fct_stop_port_listener "$COUNT_PROM_PORT" "count-rpc metrics"
+fct_stop_port_listener "$USER_PROM_PORT" "user-rpc metrics"
 
 if fct_port_busy "$USER_RPC_PORT"; then
   echo "Port $USER_RPC_PORT is already in use. Stop the existing process before starting user-rpc." >&2
@@ -234,10 +268,39 @@ if fct_port_busy "$COUNT_RPC_PORT"; then
   exit 1
 fi
 
+if fct_port_busy "$FRONT_PROM_PORT"; then
+  echo "Port $FRONT_PROM_PORT is already in use. Stop the existing process before starting front-api metrics." >&2
+  exit 1
+fi
+
+if fct_port_busy "$CONTENT_PROM_PORT"; then
+  echo "Port $CONTENT_PROM_PORT is already in use. Stop the existing process before starting content-rpc metrics." >&2
+  exit 1
+fi
+
+if fct_port_busy "$INTERACTION_PROM_PORT"; then
+  echo "Port $INTERACTION_PROM_PORT is already in use. Stop the existing process before starting interaction-rpc metrics." >&2
+  exit 1
+fi
+
+if fct_port_busy "$COUNT_PROM_PORT"; then
+  echo "Port $COUNT_PROM_PORT is already in use. Stop the existing process before starting count-rpc metrics." >&2
+  exit 1
+fi
+
+if fct_port_busy "$USER_PROM_PORT"; then
+  echo "Port $USER_PROM_PORT is already in use. Stop the existing process before starting user-rpc metrics." >&2
+  exit 1
+fi
+
 echo "Starting user-rpc locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/user -f app/rpc/user/etc/user.yaml >"$USER_RPC_LOG" 2>&1 &
 echo $! >"$USER_RPC_PID_FILE"
 if ! fct_wait_for_port "$USER_RPC_PORT" "user-rpc"; then
+  tail -n 50 "$USER_RPC_LOG" >&2 || true
+  exit 1
+fi
+if ! fct_wait_for_port "$USER_PROM_PORT" "user-rpc metrics"; then
   tail -n 50 "$USER_RPC_LOG" >&2 || true
   exit 1
 fi
@@ -246,6 +309,10 @@ echo "Starting content-rpc locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/content -f app/rpc/content/etc/content.yaml >"$CONTENT_RPC_LOG" 2>&1 &
 echo $! >"$CONTENT_RPC_PID_FILE"
 if ! fct_wait_for_port "$CONTENT_RPC_PORT" "content-rpc"; then
+  tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
+  exit 1
+fi
+if ! fct_wait_for_port "$CONTENT_PROM_PORT" "content-rpc metrics"; then
   tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
   exit 1
 fi
@@ -263,11 +330,19 @@ if ! fct_wait_for_port "$INTERACTION_RPC_PORT" "interaction-rpc"; then
   tail -n 50 "$INTERACTION_RPC_LOG" >&2 || true
   exit 1
 fi
+if ! fct_wait_for_port "$INTERACTION_PROM_PORT" "interaction-rpc metrics"; then
+  tail -n 50 "$INTERACTION_RPC_LOG" >&2 || true
+  exit 1
+fi
 
 echo "Starting count-rpc locally..."
 nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/count -f app/rpc/count/etc/count.yaml >"$COUNT_RPC_LOG" 2>&1 &
 echo $! >"$COUNT_RPC_PID_FILE"
 if ! fct_wait_for_port "$COUNT_RPC_PORT" "count-rpc"; then
+  tail -n 50 "$COUNT_RPC_LOG" >&2 || true
+  exit 1
+fi
+if ! fct_wait_for_port "$COUNT_PROM_PORT" "count-rpc metrics"; then
   tail -n 50 "$COUNT_RPC_LOG" >&2 || true
   exit 1
 fi
@@ -279,6 +354,10 @@ if ! fct_wait_for_port "$FRONT_API_PORT" "front-api"; then
   tail -n 50 "$FRONT_API_LOG" >&2 || true
   exit 1
 fi
+if ! fct_wait_for_port "$FRONT_PROM_PORT" "front-api metrics"; then
+  tail -n 50 "$FRONT_API_LOG" >&2 || true
+  exit 1
+fi
 
 echo "zfeed local stack is ready."
 echo "  ENV_FILE: $ENV_FILE"
@@ -287,8 +366,19 @@ echo "  content-rpc log: $CONTENT_RPC_LOG"
 echo "  interaction-rpc log: $INTERACTION_RPC_LOG"
 echo "  count-rpc log: $COUNT_RPC_LOG"
 echo "  front-api log: $FRONT_API_LOG"
+echo "  service log roots: $FRONT_LOG_DIR $USER_LOG_DIR $CONTENT_LOG_DIR $INTERACTION_LOG_DIR $COUNT_LOG_DIR"
+echo "  collected logs: $COLLECTED_DIR"
+echo "  metrics endpoints:"
+echo "    front-api: http://127.0.0.1:$FRONT_PROM_PORT/metrics"
+echo "    content-rpc: http://127.0.0.1:$CONTENT_PROM_PORT/metrics"
+echo "    interaction-rpc: http://127.0.0.1:$INTERACTION_PROM_PORT/metrics"
+echo "    count-rpc: http://127.0.0.1:$COUNT_PROM_PORT/metrics"
+echo "    user-rpc: http://127.0.0.1:$USER_PROM_PORT/metrics"
+echo "  prometheus: http://127.0.0.1:$PROMETHEUS_HOST_PORT"
+echo "  log pipeline enabled: $ENABLE_LOG_PIPELINE"
 echo "  xxl-job admin: $XXL_JOB_ADMIN_ADDR"
 echo "  xxl executor endpoint: http://${XXL_EXECUTOR_ADDRESS}"
+echo "  observability verify: $ROOT_DIR/script/test_observability.sh"
 echo "  count write-chain verify: $ROOT_DIR/script/test_count_chain.sh"
 echo "  count read-path verify: $ROOT_DIR/script/test_count_read_path.sh"
 echo "  stop command: $ROOT_DIR/script/stop.sh"

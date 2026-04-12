@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"zfeed/app/rpc/count/internal/config"
+	"zfeed/orm"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -24,10 +24,10 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
-	db, err := gorm.Open(mysql.Open(c.MySQL.DataSource), &gorm.Config{})
-	if err != nil {
-		panic(err)
-	}
+	db := orm.MustNewMysql(&orm.Config{
+		DSN:     c.MySQL.DataSource,
+		Service: "count-rpc",
+	})
 	redisClient := redis.MustNewRedis(c.RedisConfig)
 	delayMs := c.DelayedCacheInvalidator.DelayMs
 	if delayMs <= 0 {
