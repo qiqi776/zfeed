@@ -29,7 +29,7 @@ func NewGetMeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetMeLogic 
 
 func (l *GetMeLogic) GetMe(in *user.GetMeReq) (*user.GetMeRes, error) {
 	if in == nil || in.GetUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	userDO, err := l.userRepo.GetByID(in.GetUserId())
@@ -37,7 +37,7 @@ func (l *GetMeLogic) GetMe(in *user.GetMeReq) (*user.GetMeRes, error) {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询我的信息失败"))
 	}
 	if userDO == nil {
-		return nil, errorx.NewMsg("用户不存在")
+		return nil, errorx.NewNotFound("用户不存在")
 	}
 
 	// Count fields stay at zero until follow/count services are wired in.

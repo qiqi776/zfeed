@@ -19,6 +19,7 @@ type Config struct {
 	SessionTTL               int64
 	CountRPCTimeoutMs        int64
 	RedisConfig              redis.RedisConf
+	MySQL                    MySQLConf
 }
 
 type OssConfig struct {
@@ -30,4 +31,8 @@ type OssConfig struct {
 	Endpoint        string
 	UploadDir       string
 	PublicHost      string
+}
+
+type MySQLConf struct {
+	DataSource string
 }

@@ -38,10 +38,10 @@ func NewCommentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CommentLo
 
 func (l *CommentLogic) Comment(in *interaction.CommentReq) (*interaction.CommentRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetContentId() <= 0 || in.GetContentUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetScene() == interaction.Scene_SCENE_UNKNOWN {
-		return nil, errorx.NewMsg("场景参数错误")
+		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
 	commentText := strings.TrimSpace(in.GetComment())
@@ -54,7 +54,7 @@ func (l *CommentLogic) Comment(in *interaction.CommentReq) (*interaction.Comment
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询内容作者失败"))
 	}
 	if contentUserID <= 0 {
-		return nil, errorx.NewMsg("内容不存在")
+		return nil, errorx.NewNotFound("内容不存在")
 	}
 	if in.GetContentUserId() != contentUserID {
 		return nil, errorx.NewMsg("内容作者错误")

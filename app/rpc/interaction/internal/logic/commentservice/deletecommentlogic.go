@@ -34,10 +34,10 @@ func NewDeleteCommentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 
 func (l *DeleteCommentLogic) DeleteComment(in *interaction.DeleteCommentReq) (*interaction.DeleteCommentRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetCommentId() <= 0 || in.GetContentId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetScene() == interaction.Scene_SCENE_UNKNOWN {
-		return nil, errorx.NewMsg("场景参数错误")
+		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
 	commentDO, err := l.commentRepo.GetByIDIncludeDeleted(in.GetCommentId())

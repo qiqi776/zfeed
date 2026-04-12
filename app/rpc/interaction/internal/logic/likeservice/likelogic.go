@@ -30,10 +30,10 @@ func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 
 func (l *LikeLogic) Like(in *interaction.LikeReq) (*interaction.LikeRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetContentId() <= 0 || in.GetContentUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetScene() == interaction.Scene_SCENE_UNKNOWN {
-		return nil, errorx.NewMsg("场景参数错误")
+		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
 	changed, err := l.processLike(in.GetUserId(), in.GetContentId())

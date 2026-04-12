@@ -37,6 +37,9 @@ RedisConfig:
   Type: node
   Pass: ""
 
+MySQL:
+  DataSource: ${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+
 ContentRpcClientConf:
   Etcd:
     Hosts:

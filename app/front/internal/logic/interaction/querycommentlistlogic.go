@@ -30,7 +30,7 @@ func NewQueryCommentListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *QueryCommentListLogic) QueryCommentList(req *types.QueryCommentListReq) (resp *types.QueryCommentListRes, err error) {
 	if req == nil || req.ContentId == nil || req.Scene == nil || req.Cursor == nil || req.PageSize == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	scene, err := parseScene(*req.Scene)

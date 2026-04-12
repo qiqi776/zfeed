@@ -31,7 +31,7 @@ func NewQueryFavoriteInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 
 func (l *QueryFavoriteInfoLogic) QueryFavoriteInfo(req *types.QueryFavoriteInfoReq) (resp *types.QueryFavoriteInfoRes, err error) {
 	if req == nil || req.ContentId == nil || req.Scene == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	scene, err := parseScene(*req.Scene)

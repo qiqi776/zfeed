@@ -32,13 +32,13 @@ func NewLogoutLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LogoutLogi
 func (l *LogoutLogic) Logout() (resp *types.LogoutRes, err error) {
 	userID, err := utils.GetContextUserId(l.ctx)
 	if err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewUnauthorized("用户未登录"))
 	}
 
 	tokenVal := l.ctx.Value("token")
 	token, ok := tokenVal.(string)
 	if !ok || token == "" {
-		return nil, errorx.NewMsg("token缺失")
+		return nil, errorx.NewUnauthorized("token缺失")
 	}
 
 	_, err = l.svcCtx.UserRpc.Logout(l.ctx, &user.LogoutReq{

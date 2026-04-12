@@ -29,7 +29,7 @@ func NewGetFollowSummaryLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *GetFollowSummaryLogic) GetFollowSummary(in *interaction.GetFollowSummaryReq) (*interaction.GetFollowSummaryRes, error) {
 	if in == nil || in.GetUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	followeeCount, err := l.followRepo.CountFollowees(in.GetUserId())

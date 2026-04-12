@@ -29,7 +29,7 @@ func NewBatchGetCommentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 
 func (l *BatchGetCommentsLogic) BatchGetComments(in *interaction.BatchGetCommentsReq) (*interaction.BatchGetCommentsRes, error) {
 	if in == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	commentIDs := uniqueCommentIDs(in.GetCommentIds())
 	if len(commentIDs) == 0 {

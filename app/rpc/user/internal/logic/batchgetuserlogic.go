@@ -29,7 +29,7 @@ func NewBatchGetUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Batc
 
 func (l *BatchGetUserLogic) BatchGetUser(in *user.BatchGetUserReq) (*user.BatchGetUserRes, error) {
 	if in == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if len(in.GetUserIds()) == 0 {
 		return &user.BatchGetUserRes{

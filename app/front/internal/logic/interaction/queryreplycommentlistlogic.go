@@ -30,7 +30,7 @@ func NewQueryReplyCommentListLogic(ctx context.Context, svcCtx *svc.ServiceConte
 
 func (l *QueryReplyCommentListLogic) QueryReplyCommentList(req *types.QueryReplyCommentListReq) (resp *types.QueryReplyCommentListRes, err error) {
 	if req == nil || req.CommentId == nil || req.Cursor == nil || req.PageSize == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	res, err := l.svcCtx.CommentRpc.QueryReplyList(l.ctx, &commentservicepb.QueryReplyListReq{

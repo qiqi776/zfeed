@@ -19,8 +19,8 @@ import (
 )
 
 type PublishVideoLogic struct {
-	ctx         context.Context
-	svcCtx      *svc.ServiceContext
+	ctx    context.Context
+	svcCtx *svc.ServiceContext
 	logx.Logger
 	contentRepo repositories.ContentRepository
 	videoRepo   repositories.VideoRepository
@@ -38,10 +38,10 @@ func NewPublishVideoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Publ
 
 func (l *PublishVideoLogic) PublishVideo(in *contentpb.VideoPublishReq) (*contentpb.VideoPublishRes, error) {
 	if in == nil || in.GetUserId() <= 0 || strings.TrimSpace(in.GetTitle()) == "" || strings.TrimSpace(in.GetOriginUrl()) == "" || strings.TrimSpace(in.GetCoverUrl()) == "" {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetVisibility() == contentpb.Visibility_VISIBILITY_UNKNOWN {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	now := time.Now()

@@ -31,10 +31,10 @@ func NewRemoveFavoriteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Re
 
 func (l *RemoveFavoriteLogic) RemoveFavorite(in *interaction.RemoveFavoriteReq) (*interaction.RemoveFavoriteRes, error) {
 	if in == nil || in.GetUserId() <= 0 || in.GetContentId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetScene() == interaction.Scene_SCENE_UNKNOWN {
-		return nil, errorx.NewMsg("场景参数错误")
+		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
 	if _, err := l.favoriteRepo.DeleteByUserAndContent(in.GetUserId(), in.GetContentId()); err != nil {

@@ -34,10 +34,10 @@ func NewGetCountLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetCount
 
 func (l *GetCountLogic) GetCount(in *count.GetCountReq) (*count.GetCountRes, error) {
 	if in == nil || in.GetTargetId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetBizType() == count.BizType_BIZ_TYPE_UNKNOWN || in.GetTargetType() == count.TargetType_TARGET_TYPE_UNKNOWN {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	cacheKey := buildCountValueCacheKey(in.GetBizType(), in.GetTargetType(), in.GetTargetId())

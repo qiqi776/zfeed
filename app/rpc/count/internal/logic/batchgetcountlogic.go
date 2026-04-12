@@ -32,7 +32,7 @@ func NewBatchGetCountLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Bat
 
 func (l *BatchGetCountLogic) BatchGetCount(in *count.BatchGetCountReq) (*count.BatchGetCountRes, error) {
 	if in == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if len(in.GetKeys()) == 0 {
 		return &count.BatchGetCountRes{}, nil
@@ -43,10 +43,10 @@ func (l *BatchGetCountLogic) BatchGetCount(in *count.BatchGetCountReq) (*count.B
 	uniqueKeys := make([]string, 0, len(in.GetKeys()))
 	for _, key := range in.GetKeys() {
 		if key == nil || key.GetTargetId() <= 0 {
-			return nil, errorx.NewMsg("参数错误")
+			return nil, errorx.NewBadRequest("参数错误")
 		}
 		if key.GetBizType() == count.BizType_BIZ_TYPE_UNKNOWN || key.GetTargetType() == count.TargetType_TARGET_TYPE_UNKNOWN {
-			return nil, errorx.NewMsg("参数错误")
+			return nil, errorx.NewBadRequest("参数错误")
 		}
 
 		info := batchCountKeyInfo{

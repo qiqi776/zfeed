@@ -35,7 +35,7 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 
 func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error) {
 	if in == nil || in.GetMobile() == "" || in.GetPassword() == "" || in.GetAvatar() == "" || in.GetEmail() == "" || in.GetBirthday() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	nickname := in.GetNickname()
@@ -48,7 +48,7 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询用户失败"))
 	}
 	if exist != nil {
-		return nil, errorx.NewMsg("手机号已注册")
+		return nil, errorx.NewConflict("手机号已注册")
 	}
 
 	passwordSalt, err := l.newPasswordSalt()

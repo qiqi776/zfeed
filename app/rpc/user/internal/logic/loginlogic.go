@@ -15,8 +15,8 @@ import (
 )
 
 type LoginLogic struct {
-	ctx      context.Context
-	svcCtx   *svc.ServiceContext
+	ctx    context.Context
+	svcCtx *svc.ServiceContext
 	logx.Logger
 	userRepo repositories.UserRepository
 }
@@ -32,7 +32,7 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 
 func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginRes, error) {
 	if in == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	u, err := l.userRepo.GetByMobile(in.GetMobile())
@@ -40,11 +40,11 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginRes, error) {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询用户失败"))
 	}
 	if u == nil {
-		return nil, errorx.NewMsg("用户不存在")
+		return nil, errorx.NewNotFound("用户不存在")
 	}
 
 	if !utils.CheckPassword(u.PasswordHash, in.GetPassword()+u.PasswordSalt) {
-		return nil, errorx.NewMsg("密码错误")
+		return nil, errorx.NewUnauthorized("密码错误")
 	}
 
 	sessionTTL := session.GetSessionTTL(l.svcCtx.Config)

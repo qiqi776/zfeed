@@ -9,9 +9,9 @@ import (
 
 	"github.com/zeromicro/go-zero/core/logx"
 
-	contentpb "zfeed/app/rpc/content/content"
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	contentpb "zfeed/app/rpc/content/content"
 	"zfeed/pkg/errorx"
 	"zfeed/pkg/utils"
 )
@@ -32,12 +32,12 @@ func NewPublishArticleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pu
 
 func (l *PublishArticleLogic) PublishArticle(req *types.PublishArticleReq) (resp *types.PublishArticleRes, err error) {
 	if req == nil || req.Title == nil || req.Cover == nil || req.Content == nil || req.Visibility == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	userID, err := utils.GetContextUserId(l.ctx)
 	if err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewUnauthorized("用户未登录"))
 	}
 
 	rpcResp, err := l.svcCtx.ContentRpc.PublishArticle(l.ctx, &contentpb.ArticlePublishReq{

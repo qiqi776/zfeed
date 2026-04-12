@@ -29,10 +29,10 @@ func NewDecLogic(ctx context.Context, svcCtx *svc.ServiceContext) *DecLogic {
 
 func (l *DecLogic) Dec(in *count.DecReq) (*count.DecRes, error) {
 	if in == nil || in.GetTargetId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetBizType() == count.BizType_BIZ_TYPE_UNKNOWN || in.GetTargetType() == count.TargetType_TARGET_TYPE_UNKNOWN {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if err := l.operator.ApplyDelta(in.GetBizType(), in.GetTargetType(), in.GetTargetId(), 0, -1, time.Now()); err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("计数更新失败"))

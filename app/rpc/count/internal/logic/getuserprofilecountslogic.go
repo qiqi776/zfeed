@@ -33,7 +33,7 @@ func NewGetUserProfileCountsLogic(ctx context.Context, svcCtx *svc.ServiceContex
 
 func (l *GetUserProfileCountsLogic) GetUserProfileCounts(in *count.GetUserProfileCountsReq) (*count.GetUserProfileCountsRes, error) {
 	if in == nil || in.GetUserId() <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	cacheKey := buildUserProfileCountsCacheKey(in.GetUserId())
@@ -128,7 +128,7 @@ func (l *GetUserProfileCountsLogic) rebuildCacheWithLock(userID int64, cacheKey 
 
 func (l *GetUserProfileCountsLogic) queryFromDB(userID int64) (*count.GetUserProfileCountsRes, error) {
 	if userID <= 0 {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	likeCount, err := l.countRepo.SumByOwner(int32(count.BizType_LIKE), int32(count.TargetType_CONTENT), userID)

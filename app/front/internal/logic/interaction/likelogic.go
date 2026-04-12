@@ -31,12 +31,12 @@ func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 
 func (l *LikeLogic) Like(req *types.LikeReq) (resp *types.LikeRes, err error) {
 	if req == nil || req.ContentId == nil || req.ContentUserId == nil || req.Scene == nil {
-		return nil, errorx.NewMsg("参数错误")
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	userID, err := utils.GetContextUserId(l.ctx)
 	if err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("获取用户id失败"))
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewUnauthorized("用户未登录"))
 	}
 
 	scene, err := parseScene(*req.Scene)

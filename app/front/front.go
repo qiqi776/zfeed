@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -11,10 +12,12 @@ import (
 	"zfeed/app/front/internal/handler"
 	"zfeed/app/front/internal/svc"
 	"zfeed/pkg/envx"
+	"zfeed/pkg/errorx"
 
 	"github.com/zeromicro/go-zero/core/conf"
 
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
 var configFile = flag.String("f", "etc/front-api.yaml", "the config file")
@@ -25,6 +28,9 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c, conf.UseEnv())
+	httpx.SetErrorHandlerCtx(func(_ context.Context, err error) (int, any) {
+		return errorx.ResponseFromError(err)
+	})
 
 	server := rest.MustNewServer(c.RestConf, rest.WithCors())
 	defer server.Stop()

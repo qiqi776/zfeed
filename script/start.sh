@@ -80,6 +80,45 @@ fct_port_busy() {
   lsof -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
 }
 
+fct_stop_port_listener() {
+  local port="$1"
+  local name="$2"
+  local pids
+  local pid
+
+  pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u || true)
+  if [ -z "$pids" ]; then
+    return 0
+  fi
+
+  echo "Stopping existing $name listener on port $port..."
+  for pid in $pids; do
+    kill "$pid" 2>/dev/null || true
+  done
+
+  for _ in $(seq 1 20); do
+    if ! fct_port_busy "$port"; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u || true)
+  for pid in $pids; do
+    kill -9 "$pid" 2>/dev/null || true
+  done
+
+  for _ in $(seq 1 10); do
+    if ! fct_port_busy "$port"; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "Failed to stop existing $name listener on port $port" >&2
+  return 1
+}
+
 fct_port_from_listen_on() {
   local listen_on="$1"
   printf '%s\n' "${listen_on##*:}"
@@ -153,6 +192,15 @@ fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
 fct_stop_pid_file "$INTERACTION_RPC_PID_FILE"
 fct_stop_pid_file "$COUNT_RPC_PID_FILE"
 fct_stop_pid_file "$FRONT_API_PID_FILE"
+
+fct_stop_port_listener "$USER_RPC_PORT" "user-rpc"
+fct_stop_port_listener "$CONTENT_RPC_PORT" "content-rpc"
+if [ -n "${XXL_EXECUTOR_BIND_PORT}" ] && [ "$XXL_EXECUTOR_BIND_PORT" != "$CONTENT_RPC_PORT" ]; then
+  fct_stop_port_listener "$XXL_EXECUTOR_BIND_PORT" "content-rpc xxl executor"
+fi
+fct_stop_port_listener "$FRONT_API_PORT" "front-api"
+fct_stop_port_listener "$INTERACTION_RPC_PORT" "interaction-rpc"
+fct_stop_port_listener "$COUNT_RPC_PORT" "count-rpc"
 
 if fct_port_busy "$USER_RPC_PORT"; then
   echo "Port $USER_RPC_PORT is already in use. Stop the existing process before starting user-rpc." >&2
