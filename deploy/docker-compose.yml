@@ -1,4 +1,39 @@
 services:
+  front-api:
+    image: ${FRONT_API_IMAGE}
+    build:
+      context: ..
+      dockerfile: build/front-api.Dockerfile
+    command: ["/app/bin/front-api", "-f", "/app/app/front/etc/front-api.yaml"]
+    working_dir: /app
+    environment:
+      - ENV_FILE=/app/.env
+    env_file:
+      - ./.env
+    ports:
+      - "${FRONT_API_PORT}:5000"
+      - "${PROM_PORT}:9290"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ../logs:/var/log/zfeed
+    depends_on:
+      etcd:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      user-rpc:
+        condition: service_started
+      content-rpc:
+        condition: service_started
+      interaction-rpc:
+        condition: service_started
+      count-rpc:
+        condition: service_started
+    networks:
+      - zfeed-net
+
   etcd:
     image: ${ETCD_IMAGE}
     ports:
@@ -123,20 +158,75 @@ services:
     networks:
       - zfeed-net
 
-  content-rpc:
-    image: golang:1.25
-    working_dir: /app
-    command:
-      - /bin/sh
-      - -c
-      - ENV_FILE=/app/deploy/.env go run ./app/rpc/content -f app/rpc/content/etc/content.yaml
+  otel-collector:
+    image: ${OTEL_COLLECTOR_IMAGE}
+    command: ["--config=/etc/otel-collector.yaml"]
+    ports:
+      - "${OTEL_COLLECTOR_GRPC_HOST_PORT}:4317"
+      - "${OTEL_COLLECTOR_HTTP_HOST_PORT}:4318"
     volumes:
-      - ..:/app
+      - ./otel/otel-collector.yaml:/etc/otel-collector.yaml:ro
+    depends_on:
+      - jaeger
+    networks:
+      - zfeed-net
+
+  jaeger:
+    image: ${JAEGER_IMAGE}
+    ports:
+      - "${JAEGER_HOST_PORT}:16686"
+      - "14268:14268"
+      - "14250:14250"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - zfeed-net
+
+  user-rpc:
+    image: ${USER_RPC_IMAGE}
+    build:
+      context: ..
+      dockerfile: build/user-rpc.Dockerfile
+    command: ["/app/bin/user-rpc", "-f", "/app/app/rpc/user/etc/user.yaml"]
+    working_dir: /app
+    environment:
+      - ENV_FILE=/app/.env
+    env_file:
+      - ./.env
+    ports:
+      - "5003:5003"
+      - "${USER_PROM_PORT}:9294"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ../logs:/var/log/zfeed
+    depends_on:
+      etcd:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+    networks:
+      - zfeed-net
+
+  content-rpc:
+    image: ${CONTENT_RPC_IMAGE}
+    build:
+      context: ..
+      dockerfile: build/content-rpc.Dockerfile
+    command: ["/app/bin/content-rpc", "-f", "/app/app/rpc/content/etc/content.yaml"]
+    working_dir: /app
+    environment:
+      - ENV_FILE=/app/.env
+    volumes:
+      - ./.env:/app/.env:ro
+      - ../logs:/var/log/zfeed
     env_file:
       - ./.env
     ports:
       - "5001:5001"
       - "${XXL_JOB_EXECUTOR_PORT}:${XXL_EXECUTOR_PORT}"
+      - "${CONTENT_PROM_PORT}:9291"
     depends_on:
       etcd:
         condition: service_healthy
@@ -150,18 +240,22 @@ services:
       - zfeed-net
 
   interaction-rpc:
-    image: golang:1.25
+    image: ${INTERACTION_RPC_IMAGE}
+    build:
+      context: ..
+      dockerfile: build/interaction-rpc.Dockerfile
+    command: ["/app/bin/interaction-rpc", "-f", "/app/app/rpc/interaction/etc/interaction.yaml"]
     working_dir: /app
-    command:
-      - /bin/sh
-      - -c
-      - ENV_FILE=/app/deploy/.env go run ./app/rpc/interaction -f app/rpc/interaction/etc/interaction.yaml
+    environment:
+      - ENV_FILE=/app/.env
     volumes:
-      - ..:/app
+      - ./.env:/app/.env:ro
+      - ../logs:/var/log/zfeed
     env_file:
       - ./.env
     ports:
       - "5002:5002"
+      - "${INTERACTION_PROM_PORT}:9293"
     depends_on:
       etcd:
         condition: service_healthy
@@ -175,18 +269,22 @@ services:
       - zfeed-net
 
   count-rpc:
-    image: golang:1.25
+    image: ${COUNT_RPC_IMAGE}
+    build:
+      context: ..
+      dockerfile: build/count-rpc.Dockerfile
+    command: ["/app/bin/count-rpc", "-f", "/app/app/rpc/count/etc/count.yaml"]
     working_dir: /app
-    command:
-      - /bin/sh
-      - -c
-      - ENV_FILE=/app/deploy/.env go run ./app/rpc/count -f app/rpc/count/etc/count.yaml
+    environment:
+      - ENV_FILE=/app/.env
     volumes:
-      - ..:/app
+      - ./.env:/app/.env:ro
+      - ../logs:/var/log/zfeed
     env_file:
       - ./.env
     ports:
       - "5004:5004"
+      - "${COUNT_PROM_PORT}:9292"
     depends_on:
       etcd:
         condition: service_healthy

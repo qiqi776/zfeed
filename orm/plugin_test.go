@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -9,6 +10,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	gzprom "github.com/zeromicro/go-zero/core/prometheus"
+	gztracetest "github.com/zeromicro/go-zero/core/trace/tracetest"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	oteltracetest "go.opentelemetry.io/otel/sdk/trace/tracetest"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -230,6 +237,70 @@ func TestObserverPluginRecordsMetrics(t *testing.T) {
 	}
 }
 
+func TestObserverPluginCreatesDBSpan(t *testing.T) {
+	db := openObserverTestDB(t, fmt.Sprintf("orm-trace-%d", time.Now().UnixNano()))
+	me := gztracetest.NewInMemoryExporter(t)
+
+	ctx, parent := otel.Tracer("orm-test").Start(context.Background(), "parent")
+	model := &observerTestModel{Name: "trace"}
+	if err := db.WithContext(ctx).Create(model).Error; err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	parent.End()
+
+	span := findSpanStubByName(t, me.GetSpans(), "db.create observer_test_models")
+	if span.Parent.SpanID() != parent.SpanContext().SpanID() {
+		t.Fatalf("db span parent = %s, want %s", span.Parent.SpanID(), parent.SpanContext().SpanID())
+	}
+	if span.SpanKind != oteltrace.SpanKindClient {
+		t.Fatalf("db span kind = %v, want client", span.SpanKind)
+	}
+	if got := spanAttributeValue(span.Attributes, "db.system"); got != "mysql" {
+		t.Fatalf("db.system = %q, want mysql", got)
+	}
+	if got := spanAttributeValue(span.Attributes, "db.operation"); got != "create" {
+		t.Fatalf("db.operation = %q, want create", got)
+	}
+	if got := spanAttributeValue(span.Attributes, "db.table"); got != "observer_test_models" {
+		t.Fatalf("db.table = %q, want observer_test_models", got)
+	}
+	if got := spanAttributeValue(span.Attributes, "zfeed.db.result"); got != "ok" {
+		t.Fatalf("zfeed.db.result = %q, want ok", got)
+	}
+	if got := spanAttributeValue(span.Attributes, "db.statement"); got == "" {
+		t.Fatalf("db.statement should not be empty")
+	}
+	if span.Status.Code != otelcodes.Unset {
+		t.Fatalf("db span status = %v, want unset", span.Status.Code)
+	}
+}
+
+func TestObserverPluginRecordsDBSpanError(t *testing.T) {
+	db := openObserverTestDB(t, fmt.Sprintf("orm-trace-error-%d", time.Now().UnixNano()))
+	me := gztracetest.NewInMemoryExporter(t)
+
+	ctx, parent := otel.Tracer("orm-test").Start(context.Background(), "parent")
+	err := db.WithContext(ctx).Table("missing_table").Where("id = ?", 1).Take(&observerTestModel{}).Error
+	if err == nil {
+		t.Fatalf("expected missing table error")
+	}
+	parent.End()
+
+	span := findSpanStubByName(t, me.GetSpans(), "db.query missing_table")
+	if got := spanAttributeValue(span.Attributes, "db.table"); got != "missing_table" {
+		t.Fatalf("db.table = %q, want missing_table", got)
+	}
+	if span.Status.Code != otelcodes.Error {
+		t.Fatalf("db span status = %v, want error", span.Status.Code)
+	}
+	if span.Status.Description == "" {
+		t.Fatalf("db span error description should not be empty")
+	}
+	if len(span.Events) == 0 {
+		t.Fatalf("db span should record an error event")
+	}
+}
+
 func metricCounterValue(t *testing.T, familyName string, labels map[string]string) float64 {
 	t.Helper()
 
@@ -299,4 +370,46 @@ func metricLabelsMatch(metric *dto.Metric, labels map[string]string) bool {
 	}
 
 	return true
+}
+
+func openObserverTestDB(t *testing.T, service string) *gorm.DB {
+	t.Helper()
+
+	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:%s?mode=memory&cache=shared", service)), &gorm.Config{
+		Logger: &observerLogger{level: logger.Silent},
+	})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.Use(NewObserverPlugin(service, time.Hour)); err != nil {
+		t.Fatalf("use observer plugin: %v", err)
+	}
+	if err := db.AutoMigrate(&observerTestModel{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+
+	return db
+}
+
+func findSpanStubByName(t *testing.T, spans oteltracetest.SpanStubs, name string) oteltracetest.SpanStub {
+	t.Helper()
+
+	for _, span := range spans {
+		if span.Name == name {
+			return span
+		}
+	}
+
+	t.Fatalf("span %q not found in %+v", name, spans)
+	return oteltracetest.SpanStub{}
+}
+
+func spanAttributeValue(attrs []attribute.KeyValue, key string) string {
+	for _, attr := range attrs {
+		if string(attr.Key) == key {
+			return attr.Value.AsString()
+		}
+	}
+
+	return ""
 }

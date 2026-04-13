@@ -8,6 +8,10 @@ import (
 	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	gztrace "github.com/zeromicro/go-zero/core/trace"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 )
 
@@ -61,12 +65,14 @@ func (p *observerPlugin) observe(db *gorm.DB, operation string) {
 	table := extractTable(db)
 	result := classifyResult(db.Error)
 	service := normalizeService(p.service)
+	statement := compactSQL(db.Statement.SQL.String())
 
 	metricStatementDuration.Observe(elapsed.Milliseconds(), service, operation, table)
 	metricStatementTotal.Inc(service, operation, table, result)
 	if elapsed >= p.slowThreshold {
 		metricStatementSlowTotal.Inc(service, operation, table)
 	}
+	finishTraceSpan(db, operation, table, result, statement)
 
 	writeStatementLog(statementLog{
 		ctx:           extractContext(db),
@@ -74,7 +80,7 @@ func (p *observerPlugin) observe(db *gorm.DB, operation string) {
 		operation:     operation,
 		table:         table,
 		result:        result,
-		statement:     compactSQL(db.Statement.SQL.String()),
+		statement:     statement,
 		rows:          db.RowsAffected,
 		elapsed:       elapsed,
 		err:           db.Error,
@@ -88,7 +94,7 @@ func registerCreateCallbacks(db *gorm.DB, observer func(*gorm.DB, string)) error
 	beforeName := "zfeed:observer:before:" + operation
 	afterName := "zfeed:observer:after:" + operation
 	if err := processor.Before("*").Register(beforeName, func(db *gorm.DB) {
-		db.InstanceSet(observerStartKey(operation), time.Now())
+		beginObserve(db, operation)
 	}); err != nil {
 		return err
 	}
@@ -103,7 +109,7 @@ func registerQueryCallbacks(db *gorm.DB, observer func(*gorm.DB, string)) error 
 	beforeName := "zfeed:observer:before:" + operation
 	afterName := "zfeed:observer:after:" + operation
 	if err := processor.Before("*").Register(beforeName, func(db *gorm.DB) {
-		db.InstanceSet(observerStartKey(operation), time.Now())
+		beginObserve(db, operation)
 	}); err != nil {
 		return err
 	}
@@ -118,7 +124,7 @@ func registerUpdateCallbacks(db *gorm.DB, observer func(*gorm.DB, string)) error
 	beforeName := "zfeed:observer:before:" + operation
 	afterName := "zfeed:observer:after:" + operation
 	if err := processor.Before("*").Register(beforeName, func(db *gorm.DB) {
-		db.InstanceSet(observerStartKey(operation), time.Now())
+		beginObserve(db, operation)
 	}); err != nil {
 		return err
 	}
@@ -133,7 +139,7 @@ func registerDeleteCallbacks(db *gorm.DB, observer func(*gorm.DB, string)) error
 	beforeName := "zfeed:observer:before:" + operation
 	afterName := "zfeed:observer:after:" + operation
 	if err := processor.Before("*").Register(beforeName, func(db *gorm.DB) {
-		db.InstanceSet(observerStartKey(operation), time.Now())
+		beginObserve(db, operation)
 	}); err != nil {
 		return err
 	}
@@ -148,7 +154,7 @@ func registerRowCallbacks(db *gorm.DB, observer func(*gorm.DB, string)) error {
 	beforeName := "zfeed:observer:before:" + operation
 	afterName := "zfeed:observer:after:" + operation
 	if err := processor.Before("*").Register(beforeName, func(db *gorm.DB) {
-		db.InstanceSet(observerStartKey(operation), time.Now())
+		beginObserve(db, operation)
 	}); err != nil {
 		return err
 	}
@@ -164,7 +170,7 @@ func registerRawCallbacks(db *gorm.DB, observer func(*gorm.DB, string)) error {
 	afterName := "zfeed:observer:after:" + operation
 
 	if err := processor.Before("*").Register(beforeName, func(db *gorm.DB) {
-		db.InstanceSet(observerStartKey(operation), time.Now())
+		beginObserve(db, operation)
 	}); err != nil {
 		return err
 	}
@@ -176,6 +182,59 @@ func registerRawCallbacks(db *gorm.DB, observer func(*gorm.DB, string)) error {
 
 func observerStartKey(operation string) string {
 	return "zfeed:observer:start:" + operation
+}
+
+func observerSpanKey(operation string) string {
+	return "zfeed:observer:span:" + operation
+}
+
+func beginObserve(db *gorm.DB, operation string) {
+	db.InstanceSet(observerStartKey(operation), time.Now())
+
+	ctx := extractContext(db)
+	tracer := gztrace.TracerFromContext(ctx)
+	_, span := tracer.Start(ctx, buildDBSpanName(operation, extractTable(db)),
+		oteltrace.WithSpanKind(oteltrace.SpanKindClient))
+	db.InstanceSet(observerSpanKey(operation), span)
+}
+
+func finishTraceSpan(db *gorm.DB, operation, table, result, statement string) {
+	value, ok := db.InstanceGet(observerSpanKey(operation))
+	if !ok {
+		return
+	}
+
+	span, ok := value.(oteltrace.Span)
+	if !ok || span == nil {
+		return
+	}
+	defer span.End()
+
+	span.SetName(buildDBSpanName(operation, table))
+	span.SetAttributes(
+		attribute.String("db.system", "mysql"),
+		attribute.String("db.operation", operation),
+		attribute.String("db.table", table),
+		attribute.String("zfeed.db.result", result),
+		attribute.Int64("db.rows_affected", db.RowsAffected),
+	)
+	if statement != "" {
+		span.SetAttributes(attribute.String("db.statement", statement))
+	}
+
+	if db.Error == nil || errors.Is(db.Error, gorm.ErrRecordNotFound) {
+		return
+	}
+
+	span.RecordError(db.Error)
+	span.SetStatus(otelcodes.Error, db.Error.Error())
+}
+
+func buildDBSpanName(operation, table string) string {
+	if table == "" || table == "unknown" {
+		return "db." + operation
+	}
+	return "db." + operation + " " + table
 }
 
 func classifyResult(err error) string {

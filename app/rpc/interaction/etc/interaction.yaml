@@ -1,6 +1,12 @@
 Name: interaction.rpc
 ListenOn: "${INTERACTION_RPC_LISTEN_ON}"
 
+Telemetry:
+  Name: interaction-rpc
+  Endpoint: "${OTEL_ENDPOINT}"
+  Batcher: otlpgrpc
+  Sampler: 1.0
+
 Prometheus:
   Host: "${PROM_HOST}"
   Port: ${INTERACTION_PROM_PORT}

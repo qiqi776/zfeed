@@ -1,6 +1,12 @@
 Name: content.rpc
 ListenOn: "${CONTENT_RPC_LISTEN_ON}"
 
+Telemetry:
+  Name: content-rpc
+  Endpoint: "${OTEL_ENDPOINT}"
+  Batcher: otlpgrpc
+  Sampler: 1.0
+
 Prometheus:
   Host: "${PROM_HOST}"
   Port: ${CONTENT_PROM_PORT}

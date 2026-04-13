@@ -6,11 +6,11 @@ Etcd:
     - "${ETCD_HOST}:${ETCD_PORT}"
   Key: user.rpc
 
-# Telemetry:
-#   Name: user.rpc-server
-#   Endpoint: otel-collector:4317
-#   Batcher: otlpgrpc
-#   Sampler: 1.0
+Telemetry:
+  Name: user-rpc
+  Endpoint: "${OTEL_ENDPOINT}"
+  Batcher: otlpgrpc
+  Sampler: 1.0
 
 Prometheus:
   Host: "${PROM_HOST}"

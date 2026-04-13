@@ -4,11 +4,11 @@ Port: ${FRONT_API_PORT}
 MaxBytes: 20971520
 Timeout: 100000
 
-# Telemetry:
-#   Name: zfeed-front-api-server
-#   Endpoint: ${OTEL_ENDPOINT}
-#   Batcher: otlpgrpc
-#   Sampler: 1.0
+Telemetry:
+  Name: front-api
+  Endpoint: "${OTEL_ENDPOINT}"
+  Batcher: otlpgrpc
+  Sampler: 1.0
 
 Log:
   ServiceName: "front-api"

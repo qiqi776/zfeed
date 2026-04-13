@@ -19,6 +19,7 @@ func TestUserConfigLoadsWithEnv(t *testing.T) {
 	t.Setenv("MYSQL_USER", "zfeed")
 	t.Setenv("MYSQL_PASSWORD", "123456")
 	t.Setenv("LOG_PATH", "logs")
+	t.Setenv("OTEL_ENDPOINT", "127.0.0.1:4317")
 
 	var cfg Config
 	if err := conf.Load("../../etc/user.yaml", &cfg, conf.UseEnv()); err != nil {
@@ -33,5 +34,8 @@ func TestUserConfigLoadsWithEnv(t *testing.T) {
 	}
 	if got := cfg.RedisConfig.Host; got != "127.0.0.1:16379" {
 		t.Fatalf("unexpected redis host: %q", got)
+	}
+	if cfg.Telemetry.Name != "user-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" {
+		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)
 	}
 }

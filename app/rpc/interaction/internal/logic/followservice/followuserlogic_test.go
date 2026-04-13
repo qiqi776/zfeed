@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	gztracetest "github.com/zeromicro/go-zero/core/trace/tracetest"
+	"go.opentelemetry.io/otel"
+	oteltrace "go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -53,7 +56,7 @@ func newFollowTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func TestFollowAndUnfollow_WriteRelationAndTriggerBackfill(t *testing.T) {
+func TestFollowFlow(t *testing.T) {
 	db := newFollowTestDB(t)
 	backfillCh := make(chan *contentpb.BackfillFollowInboxReq, 1)
 
@@ -155,5 +158,47 @@ func TestFollowAndUnfollow_WriteRelationAndTriggerBackfill(t *testing.T) {
 	}
 	if summaryResp.GetFollowerCount() != 0 || summaryResp.GetIsFollowing() {
 		t.Fatalf("follow summary after unfollow = %+v, want follower_count=0 is_following=false", summaryResp)
+	}
+}
+
+func TestFollowTrace(t *testing.T) {
+	db := newFollowTestDB(t)
+	backfillCtxCh := make(chan context.Context, 1)
+	gztracetest.NewInMemoryExporter(t)
+
+	svcCtx := &svc.ServiceContext{
+		MysqlDb: db,
+		ContentRpc: &fakeContentService{
+			backfillFunc: func(ctx context.Context, in *contentpb.BackfillFollowInboxReq, _ ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error) {
+				backfillCtxCh <- ctx
+				return &contentpb.BackfillFollowInboxRes{AddedCount: 1}, nil
+			},
+		},
+	}
+
+	parentCtx, parentSpan := otel.Tracer("follow-test").Start(context.Background(), "follow-request")
+	defer parentSpan.End()
+
+	logic := NewFollowUserLogic(parentCtx, svcCtx)
+	_, err := logic.FollowUser(&interaction.FollowUserReq{
+		UserId:       3001,
+		FollowUserId: 4002,
+	})
+	if err != nil {
+		t.Fatalf("FollowUser returned error: %v", err)
+	}
+
+	select {
+	case backfillCtx := <-backfillCtxCh:
+		parentSpanCtx := oteltrace.SpanContextFromContext(parentCtx)
+		backfillSpanCtx := oteltrace.SpanContextFromContext(backfillCtx)
+		if !backfillSpanCtx.IsValid() {
+			t.Fatal("backfill context does not contain a valid trace span")
+		}
+		if backfillSpanCtx.TraceID() != parentSpanCtx.TraceID() {
+			t.Fatalf("backfill trace id = %s, want %s", backfillSpanCtx.TraceID(), parentSpanCtx.TraceID())
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for async backfill trace context")
 	}
 }

@@ -172,6 +172,36 @@ fct_require_log_match() {
   fi
 }
 
+fct_wait_jaeger_patterns() {
+  local url="$1"
+  shift
+
+  local body
+  local pattern
+  local all_matched
+
+  for _ in $(seq 1 30); do
+    body="$(curl -fsS "${url}" || true)"
+    if [ -n "${body}" ]; then
+      all_matched=1
+      for pattern in "$@"; do
+        if ! printf '%s\n' "${body}" | grep -Fq "${pattern}"; then
+          all_matched=0
+          break
+        fi
+      done
+
+      if [ "${all_matched}" -eq 1 ]; then
+        return 0
+      fi
+    fi
+    sleep 2
+  done
+
+  printf 'Jaeger check failed for %s, missing one of: %s\n' "${url}" "$*" >&2
+  return 1
+}
+
 fct_execute_this() {
   local front_metrics_url
   local content_metrics_url
@@ -203,6 +233,9 @@ fct_execute_this() {
   local db_after
   local log_root
   local collector_files=0
+  local jaeger_services_url
+  local jaeger_getme_trace_url
+  local jaeger_follow_trace_url
 
   fct_require_env
   fct_require_command curl
@@ -216,6 +249,9 @@ fct_execute_this() {
   count_metrics_url="http://127.0.0.1:${COUNT_PROM_PORT}/metrics"
   user_metrics_url="http://127.0.0.1:${USER_PROM_PORT}/metrics"
   log_root="${ROOT_DIR}/${LOG_PATH}"
+  jaeger_services_url="http://127.0.0.1:${JAEGER_HOST_PORT}/api/services"
+  jaeger_getme_trace_url="http://127.0.0.1:${JAEGER_HOST_PORT}/api/traces?service=front-api&operation=%2Fv1%2Fusers%2Fme&limit=5&lookback=1h"
+  jaeger_follow_trace_url="http://127.0.0.1:${JAEGER_HOST_PORT}/api/traces?service=front-api&operation=%2Fv1%2Finteraction%2Ffollowings&limit=5&lookback=1h"
 
   fct_require_metrics_endpoint "${front_metrics_url}"
   fct_require_metrics_endpoint "${content_metrics_url}"
@@ -290,6 +326,28 @@ fct_execute_this() {
   fct_require_log_match '"layer":"db"' "${log_root}/count-rpc/access.log"
 
   sleep 4
+
+  fct_wait_jaeger_patterns "${jaeger_services_url}" \
+    '"front-api"' \
+    '"user-rpc"' \
+    '"content-rpc"' \
+    '"interaction-rpc"' \
+    '"count-rpc"'
+  fct_wait_jaeger_patterns "${jaeger_getme_trace_url}" \
+    '"/v1/users/me"' \
+    '"user.UserService/GetMe"' \
+    '"count.CounterService/GetUserProfileCounts"' \
+    '"serviceName":"front-api"' \
+    '"serviceName":"user-rpc"' \
+    '"serviceName":"count-rpc"'
+  fct_wait_jaeger_patterns "${jaeger_follow_trace_url}" \
+    '"/v1/interaction/followings"' \
+    '"interaction.FollowService/FollowUser"' \
+    '"content.ContentService/BackfillFollowInbox"' \
+    '"serviceName":"front-api"' \
+    '"serviceName":"interaction-rpc"' \
+    '"serviceName":"user-rpc"' \
+    '"serviceName":"content-rpc"'
 
   if [ "${ENABLE_LOG_PIPELINE:-0}" = "1" ]; then
     collector_files="$(find "${log_root}/collected" -maxdepth 1 -name '*.ndjson' | wc -l | tr -d ' ')"

@@ -6,24 +6,24 @@ scrape_configs:
   - job_name: "zfeed-front"
     metrics_path: /metrics
     static_configs:
-      - targets: ["host.docker.internal:9290"]
+      - targets: ["front-api:9290"]
 
   - job_name: "zfeed-content"
     metrics_path: /metrics
     static_configs:
-      - targets: ["host.docker.internal:9291"]
+      - targets: ["content-rpc:9291"]
 
   - job_name: "zfeed-count"
     metrics_path: /metrics
     static_configs:
-      - targets: ["host.docker.internal:9292"]
+      - targets: ["count-rpc:9292"]
 
   - job_name: "zfeed-interaction"
     metrics_path: /metrics
     static_configs:
-      - targets: ["host.docker.internal:9293"]
+      - targets: ["interaction-rpc:9293"]
 
   - job_name: "zfeed-user"
     metrics_path: /metrics
     static_configs:
-      - targets: ["host.docker.internal:9294"]
+      - targets: ["user-rpc:9294"]

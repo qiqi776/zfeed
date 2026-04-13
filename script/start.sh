@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 DEPLOY_DIR="$ROOT_DIR/deploy"
@@ -19,12 +19,6 @@ CONTENT_RPC_PID_FILE="$RUNTIME_DIR/content-rpc.pid"
 INTERACTION_RPC_PID_FILE="$RUNTIME_DIR/interaction-rpc.pid"
 FRONT_API_PID_FILE="$RUNTIME_DIR/front-api.pid"
 COUNT_RPC_PID_FILE="$RUNTIME_DIR/count-rpc.pid"
-
-USER_RPC_LOG="$LOG_DIR/user-rpc.log"
-CONTENT_RPC_LOG="$LOG_DIR/content-rpc.log"
-INTERACTION_RPC_LOG="$LOG_DIR/interaction-rpc.log"
-FRONT_API_LOG="$LOG_DIR/front-api.log"
-COUNT_RPC_LOG="$LOG_DIR/count-rpc.log"
 
 fct_require_env_file() {
   if [ -f "$ENV_FILE_PATH" ]; then
@@ -53,6 +47,24 @@ fct_require_env_file() {
       printf '%s\n' "$line" >>"$ENV_FILE_PATH"
     fi
   done <"$ENV_TEMPLATE_PATH"
+
+  local tmp_env
+  tmp_env=$(mktemp)
+  awk '
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ {
+      print
+      next
+    }
+    {
+      split($0, pair, "=")
+      key = pair[1]
+      if (seen[key]++) {
+        next
+      }
+      print
+    }
+  ' "$ENV_FILE_PATH" >"$tmp_env"
+  mv "$tmp_env" "$ENV_FILE_PATH"
 }
 
 fct_docker_compose() {
@@ -72,57 +84,14 @@ fct_docker_compose() {
   local deploy_dir_win
   deploy_dir_win=$(wslpath -w "$DEPLOY_DIR")
 
-  local ps_cmd="Set-Location '$deploy_dir_win'; docker compose --env-file .env -f docker-compose.yml"
+  local ps_cmd='cmd /c "pushd '"$deploy_dir_win"' && docker compose --env-file .env -f docker-compose.yml'
   local arg
   for arg in "$@"; do
-    ps_cmd="$ps_cmd '$arg'"
+    ps_cmd="$ps_cmd $arg"
   done
+  ps_cmd="$ps_cmd\""
 
   powershell.exe -NoProfile -Command "$ps_cmd"
-}
-
-fct_port_busy() {
-  local port="$1"
-  lsof -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
-}
-
-fct_stop_port_listener() {
-  local port="$1"
-  local name="$2"
-  local pids
-  local pid
-
-  pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u || true)
-  if [ -z "$pids" ]; then
-    return 0
-  fi
-
-  echo "Stopping existing $name listener on port $port..."
-  for pid in $pids; do
-    kill "$pid" 2>/dev/null || true
-  done
-
-  for _ in $(seq 1 20); do
-    if ! fct_port_busy "$port"; then
-      return 0
-    fi
-    sleep 1
-  done
-
-  pids=$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u || true)
-  for pid in $pids; do
-    kill -9 "$pid" 2>/dev/null || true
-  done
-
-  for _ in $(seq 1 10); do
-    if ! fct_port_busy "$port"; then
-      return 0
-    fi
-    sleep 1
-  done
-
-  echo "Failed to stop existing $name listener on port $port" >&2
-  return 1
 }
 
 fct_port_from_listen_on() {
@@ -175,9 +144,16 @@ mkdir -p \
   "$CONTENT_LOG_DIR" \
   "$INTERACTION_LOG_DIR" \
   "$COUNT_LOG_DIR"
+
 fct_require_env_file
 . "$ENV_FILE_PATH"
 export ENV_FILE="$ENV_FILE_PATH"
+
+BACKEND_RUNTIME="${BACKEND_RUNTIME:-docker}"
+if [ "$BACKEND_RUNTIME" != "docker" ]; then
+  echo "Unsupported BACKEND_RUNTIME=$BACKEND_RUNTIME. Day23 backend startup now expects docker." >&2
+  exit 1
+fi
 
 USER_RPC_PORT=$(fct_port_from_listen_on "$USER_RPC_LISTEN_ON")
 CONTENT_RPC_PORT=$(fct_port_from_listen_on "$CONTENT_RPC_LISTEN_ON")
@@ -193,16 +169,29 @@ COUNT_PROM_PORT="${COUNT_PROM_PORT}"
 USER_PROM_PORT="${USER_PROM_PORT}"
 PROMETHEUS_HOST_PORT="${PROMETHEUS_HOST_PORT}"
 ENABLE_LOG_PIPELINE="${ENABLE_LOG_PIPELINE:-0}"
+ENABLE_TRACE_PIPELINE="${ENABLE_TRACE_PIPELINE:-1}"
+OTEL_COLLECTOR_GRPC_HOST_PORT="${OTEL_COLLECTOR_GRPC_HOST_PORT:-4317}"
+OTEL_COLLECTOR_HTTP_HOST_PORT="${OTEL_COLLECTOR_HTTP_HOST_PORT:-4318}"
+JAEGER_HOST_PORT="${JAEGER_HOST_PORT:-16686}"
 
-cd "$ROOT_DIR"
+fct_stop_pid_file "$USER_RPC_PID_FILE"
+fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
+fct_stop_pid_file "$INTERACTION_RPC_PID_FILE"
+fct_stop_pid_file "$COUNT_RPC_PID_FILE"
+fct_stop_pid_file "$FRONT_API_PID_FILE"
 
 infra_services=(etcd redis mysql kafka canal xxl-job-admin prometheus)
+backend_services=(user-rpc content-rpc interaction-rpc count-rpc front-api)
+
 if [ "$ENABLE_LOG_PIPELINE" = "1" ]; then
   infra_services+=(logstash filebeat)
 fi
+if [ "$ENABLE_TRACE_PIPELINE" = "1" ]; then
+  infra_services+=(jaeger otel-collector)
+fi
 
-echo "Starting infrastructure via Docker Compose..."
-fct_docker_compose up -d "${infra_services[@]}"
+echo "Starting zfeed Docker backend via Docker Compose..."
+fct_docker_compose up -d --build "${infra_services[@]}" "${backend_services[@]}"
 
 echo "Waiting for infrastructure ports..."
 fct_wait_for_port "$ETCD_PORT" "etcd"
@@ -215,159 +204,34 @@ fi
 if [ -n "${PROMETHEUS_HOST_PORT}" ]; then
   fct_wait_for_port "$PROMETHEUS_HOST_PORT" "prometheus"
 fi
+if [ "$ENABLE_TRACE_PIPELINE" = "1" ]; then
+  fct_wait_for_port "$OTEL_COLLECTOR_GRPC_HOST_PORT" "otel-collector grpc"
+  fct_wait_for_port "$OTEL_COLLECTOR_HTTP_HOST_PORT" "otel-collector http"
+  fct_wait_for_port "$JAEGER_HOST_PORT" "jaeger"
+fi
 
-fct_stop_pid_file "$USER_RPC_PID_FILE"
-fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
-fct_stop_pid_file "$INTERACTION_RPC_PID_FILE"
-fct_stop_pid_file "$COUNT_RPC_PID_FILE"
-fct_stop_pid_file "$FRONT_API_PID_FILE"
-
-fct_stop_port_listener "$USER_RPC_PORT" "user-rpc"
-fct_stop_port_listener "$CONTENT_RPC_PORT" "content-rpc"
+echo "Waiting for backend ports..."
+fct_wait_for_port "$USER_RPC_PORT" "user-rpc"
+fct_wait_for_port "$USER_PROM_PORT" "user-rpc metrics"
+fct_wait_for_port "$CONTENT_RPC_PORT" "content-rpc"
+fct_wait_for_port "$CONTENT_PROM_PORT" "content-rpc metrics"
 if [ -n "${XXL_EXECUTOR_BIND_PORT}" ] && [ "$XXL_EXECUTOR_BIND_PORT" != "$CONTENT_RPC_PORT" ]; then
-  fct_stop_port_listener "$XXL_EXECUTOR_BIND_PORT" "content-rpc xxl executor"
+  fct_wait_for_port "$XXL_EXECUTOR_BIND_PORT" "content-rpc xxl executor"
 fi
-fct_stop_port_listener "$FRONT_API_PORT" "front-api"
-fct_stop_port_listener "$INTERACTION_RPC_PORT" "interaction-rpc"
-fct_stop_port_listener "$COUNT_RPC_PORT" "count-rpc"
-fct_stop_port_listener "$FRONT_PROM_PORT" "front-api metrics"
-fct_stop_port_listener "$CONTENT_PROM_PORT" "content-rpc metrics"
-fct_stop_port_listener "$INTERACTION_PROM_PORT" "interaction-rpc metrics"
-fct_stop_port_listener "$COUNT_PROM_PORT" "count-rpc metrics"
-fct_stop_port_listener "$USER_PROM_PORT" "user-rpc metrics"
+fct_wait_for_port "$INTERACTION_RPC_PORT" "interaction-rpc"
+fct_wait_for_port "$INTERACTION_PROM_PORT" "interaction-rpc metrics"
+fct_wait_for_port "$COUNT_RPC_PORT" "count-rpc"
+fct_wait_for_port "$COUNT_PROM_PORT" "count-rpc metrics"
+fct_wait_for_port "$FRONT_API_PORT" "front-api"
+fct_wait_for_port "$FRONT_PROM_PORT" "front-api metrics"
 
-if fct_port_busy "$USER_RPC_PORT"; then
-  echo "Port $USER_RPC_PORT is already in use. Stop the existing process before starting user-rpc." >&2
-  exit 1
-fi
-
-if fct_port_busy "$CONTENT_RPC_PORT"; then
-  echo "Port $CONTENT_RPC_PORT is already in use. Stop the existing process before starting content-rpc." >&2
-  exit 1
-fi
-
-if [ -n "${XXL_EXECUTOR_BIND_PORT}" ] && [ "$XXL_EXECUTOR_BIND_PORT" != "$CONTENT_RPC_PORT" ]; then
-  if fct_port_busy "$XXL_EXECUTOR_BIND_PORT"; then
-    echo "Port $XXL_EXECUTOR_BIND_PORT is already in use. Stop the existing process before starting xxl executor." >&2
-    exit 1
-  fi
-fi
-
-if fct_port_busy "$FRONT_API_PORT"; then
-  echo "Port $FRONT_API_PORT is already in use. Stop the existing process before starting front-api." >&2
-  exit 1
-fi
-
-if fct_port_busy "$INTERACTION_RPC_PORT"; then
-  echo "Port $INTERACTION_RPC_PORT is already in use. Stop the existing process before starting interaction-rpc." >&2
-  exit 1
-fi
-
-if fct_port_busy "$COUNT_RPC_PORT"; then
-  echo "Port $COUNT_RPC_PORT is already in use. Stop the existing process before starting count-rpc." >&2
-  exit 1
-fi
-
-if fct_port_busy "$FRONT_PROM_PORT"; then
-  echo "Port $FRONT_PROM_PORT is already in use. Stop the existing process before starting front-api metrics." >&2
-  exit 1
-fi
-
-if fct_port_busy "$CONTENT_PROM_PORT"; then
-  echo "Port $CONTENT_PROM_PORT is already in use. Stop the existing process before starting content-rpc metrics." >&2
-  exit 1
-fi
-
-if fct_port_busy "$INTERACTION_PROM_PORT"; then
-  echo "Port $INTERACTION_PROM_PORT is already in use. Stop the existing process before starting interaction-rpc metrics." >&2
-  exit 1
-fi
-
-if fct_port_busy "$COUNT_PROM_PORT"; then
-  echo "Port $COUNT_PROM_PORT is already in use. Stop the existing process before starting count-rpc metrics." >&2
-  exit 1
-fi
-
-if fct_port_busy "$USER_PROM_PORT"; then
-  echo "Port $USER_PROM_PORT is already in use. Stop the existing process before starting user-rpc metrics." >&2
-  exit 1
-fi
-
-echo "Starting user-rpc locally..."
-nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/user -f app/rpc/user/etc/user.yaml >"$USER_RPC_LOG" 2>&1 &
-echo $! >"$USER_RPC_PID_FILE"
-if ! fct_wait_for_port "$USER_RPC_PORT" "user-rpc"; then
-  tail -n 50 "$USER_RPC_LOG" >&2 || true
-  exit 1
-fi
-if ! fct_wait_for_port "$USER_PROM_PORT" "user-rpc metrics"; then
-  tail -n 50 "$USER_RPC_LOG" >&2 || true
-  exit 1
-fi
-
-echo "Starting content-rpc locally..."
-nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/content -f app/rpc/content/etc/content.yaml >"$CONTENT_RPC_LOG" 2>&1 &
-echo $! >"$CONTENT_RPC_PID_FILE"
-if ! fct_wait_for_port "$CONTENT_RPC_PORT" "content-rpc"; then
-  tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
-  exit 1
-fi
-if ! fct_wait_for_port "$CONTENT_PROM_PORT" "content-rpc metrics"; then
-  tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
-  exit 1
-fi
-if [ -n "${XXL_EXECUTOR_BIND_PORT}" ] && [ "$XXL_EXECUTOR_BIND_PORT" != "$CONTENT_RPC_PORT" ]; then
-  if ! fct_wait_for_port "$XXL_EXECUTOR_BIND_PORT" "content-rpc xxl executor"; then
-    tail -n 50 "$CONTENT_RPC_LOG" >&2 || true
-    exit 1
-  fi
-fi
-
-echo "Starting interaction-rpc locally..."
-nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/interaction -f app/rpc/interaction/etc/interaction.yaml >"$INTERACTION_RPC_LOG" 2>&1 &
-echo $! >"$INTERACTION_RPC_PID_FILE"
-if ! fct_wait_for_port "$INTERACTION_RPC_PORT" "interaction-rpc"; then
-  tail -n 50 "$INTERACTION_RPC_LOG" >&2 || true
-  exit 1
-fi
-if ! fct_wait_for_port "$INTERACTION_PROM_PORT" "interaction-rpc metrics"; then
-  tail -n 50 "$INTERACTION_RPC_LOG" >&2 || true
-  exit 1
-fi
-
-echo "Starting count-rpc locally..."
-nohup env ENV_FILE="$ENV_FILE" go run ./app/rpc/count -f app/rpc/count/etc/count.yaml >"$COUNT_RPC_LOG" 2>&1 &
-echo $! >"$COUNT_RPC_PID_FILE"
-if ! fct_wait_for_port "$COUNT_RPC_PORT" "count-rpc"; then
-  tail -n 50 "$COUNT_RPC_LOG" >&2 || true
-  exit 1
-fi
-if ! fct_wait_for_port "$COUNT_PROM_PORT" "count-rpc metrics"; then
-  tail -n 50 "$COUNT_RPC_LOG" >&2 || true
-  exit 1
-fi
-
-echo "Starting front-api locally..."
-nohup env ENV_FILE="$ENV_FILE" go run ./app/front -f app/front/etc/front-api.yaml >"$FRONT_API_LOG" 2>&1 &
-echo $! >"$FRONT_API_PID_FILE"
-if ! fct_wait_for_port "$FRONT_API_PORT" "front-api"; then
-  tail -n 50 "$FRONT_API_LOG" >&2 || true
-  exit 1
-fi
-if ! fct_wait_for_port "$FRONT_PROM_PORT" "front-api metrics"; then
-  tail -n 50 "$FRONT_API_LOG" >&2 || true
-  exit 1
-fi
-
-echo "zfeed local stack is ready."
-echo "  ENV_FILE: $ENV_FILE"
-echo "  user-rpc log: $USER_RPC_LOG"
-echo "  content-rpc log: $CONTENT_RPC_LOG"
-echo "  interaction-rpc log: $INTERACTION_RPC_LOG"
-echo "  count-rpc log: $COUNT_RPC_LOG"
-echo "  front-api log: $FRONT_API_LOG"
+echo "zfeed docker stack is ready."
+echo "  backend runtime: $BACKEND_RUNTIME"
+echo "  compose file: $DEPLOY_DIR/docker-compose.yml"
+echo "  host logs: $LOG_DIR"
 echo "  service log roots: $FRONT_LOG_DIR $USER_LOG_DIR $CONTENT_LOG_DIR $INTERACTION_LOG_DIR $COUNT_LOG_DIR"
 echo "  collected logs: $COLLECTED_DIR"
+echo "  API: http://127.0.0.1:$FRONT_API_PORT"
 echo "  metrics endpoints:"
 echo "    front-api: http://127.0.0.1:$FRONT_PROM_PORT/metrics"
 echo "    content-rpc: http://127.0.0.1:$CONTENT_PROM_PORT/metrics"
@@ -376,8 +240,13 @@ echo "    count-rpc: http://127.0.0.1:$COUNT_PROM_PORT/metrics"
 echo "    user-rpc: http://127.0.0.1:$USER_PROM_PORT/metrics"
 echo "  prometheus: http://127.0.0.1:$PROMETHEUS_HOST_PORT"
 echo "  log pipeline enabled: $ENABLE_LOG_PIPELINE"
-echo "  xxl-job admin: $XXL_JOB_ADMIN_ADDR"
-echo "  xxl executor endpoint: http://${XXL_EXECUTOR_ADDRESS}"
+echo "  trace pipeline enabled: $ENABLE_TRACE_PIPELINE"
+if [ "$ENABLE_TRACE_PIPELINE" = "1" ]; then
+  echo "  otel grpc endpoint: ${OTEL_ENDPOINT}"
+  echo "  otel http endpoint: ${OTEL_HTTP_ENDPOINT}"
+  echo "  jaeger: http://127.0.0.1:$JAEGER_HOST_PORT"
+fi
+echo "  xxl-job admin: http://127.0.0.1:$XXL_ADMIN_PORT/xxl-job-admin"
 echo "  observability verify: $ROOT_DIR/script/test_observability.sh"
 echo "  count write-chain verify: $ROOT_DIR/script/test_count_chain.sh"
 echo "  count read-path verify: $ROOT_DIR/script/test_count_read_path.sh"

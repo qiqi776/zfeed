@@ -62,7 +62,9 @@ func (l *FollowUserLogic) FollowUser(in *interaction.FollowUserReq) (*interactio
 
 	if l.svcCtx.ContentRpc != nil {
 		threading.GoSafe(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), backfillFollowInboxTimeout)
+			// Detach cancellation so the async backfill can finish after the RPC
+			// handler returns, while keeping the parent trace context linked.
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(l.ctx), backfillFollowInboxTimeout)
 			defer cancel()
 
 			_, callErr := l.svcCtx.ContentRpc.BackfillFollowInbox(ctx, &contentservice.BackfillFollowInboxReq{
