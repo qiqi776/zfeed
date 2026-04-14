@@ -1,0 +1,61 @@
+syntax = "v1"
+
+type (
+	SearchUserItem {
+		UserId      int64  `json:"user_id"`
+		Nickname    string `json:"nickname"`
+		Avatar      string `json:"avatar"`
+		Bio         string `json:"bio"`
+		IsFollowing bool   `json:"is_following"`
+	}
+	SearchUsersReq {
+		Query    *string `json:"query,optional" validate:"required,min=1,max=50"`
+		Cursor   *int64  `json:"cursor,optional"`
+		PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+	}
+	SearchUsersRes {
+		Items      []SearchUserItem `json:"items"`
+		NextCursor int64            `json:"next_cursor"`
+		HasMore    bool             `json:"has_more"`
+	}
+	SearchContentItem {
+		ContentId    int64  `json:"content_id"`
+		ContentType  int32  `json:"content_type"`
+		AuthorId     int64  `json:"author_id"`
+		AuthorName   string `json:"author_name"`
+		AuthorAvatar string `json:"author_avatar"`
+		Title        string `json:"title"`
+		CoverUrl     string `json:"cover_url"`
+		PublishedAt  int64  `json:"published_at"`
+	}
+	SearchContentsReq {
+		Query    *string `json:"query,optional" validate:"required,min=1,max=50"`
+		Cursor   *int64  `json:"cursor,optional"`
+		PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+	}
+	SearchContentsRes {
+		Items      []SearchContentItem `json:"items"`
+		NextCursor int64               `json:"next_cursor"`
+		HasMore    bool                `json:"has_more"`
+	}
+)
+
+@server (
+	tags:   search
+	group:  search
+	prefix: /v1/search
+	middleware: OptionalLoginMiddleware
+)
+service front-api {
+	@doc (
+		description: "搜索用户"
+	)
+	@handler SearchUsers
+	post /users (SearchUsersReq) returns (SearchUsersRes)
+
+	@doc (
+		description: "搜索内容"
+	)
+	@handler SearchContents
+	post /contents (SearchContentsReq) returns (SearchContentsRes)
+}

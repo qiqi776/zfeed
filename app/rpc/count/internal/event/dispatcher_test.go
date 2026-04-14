@@ -18,6 +18,18 @@ import (
 	"zfeed/app/rpc/count/internal/svc"
 )
 
+type dispatcherTestContent struct {
+	ID         int64 `gorm:"column:id;primaryKey"`
+	UserID     int64 `gorm:"column:user_id"`
+	Status     int32 `gorm:"column:status"`
+	Visibility int32 `gorm:"column:visibility"`
+	IsDeleted  int32 `gorm:"column:is_deleted"`
+}
+
+func (dispatcherTestContent) TableName() string {
+	return "zfeed_content"
+}
+
 func TestDispatcherLikeEventUpdatesCountAndInvalidatesCache(t *testing.T) {
 	svcCtx := newDispatcherTestServiceContext(t)
 	ctx := context.Background()
@@ -174,7 +186,7 @@ func newDispatcherTestServiceContext(t *testing.T) *svc.ServiceContext {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.ZfeedCountValue{}, &model.ZfeedMqConsumeDedup{}); err != nil {
+	if err := db.AutoMigrate(&model.ZfeedCountValue{}, &model.ZfeedMqConsumeDedup{}, &dispatcherTestContent{}); err != nil {
 		t.Fatalf("auto migrate count models: %v", err)
 	}
 

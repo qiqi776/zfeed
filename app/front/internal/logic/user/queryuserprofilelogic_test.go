@@ -34,6 +34,7 @@ func TestQueryUserProfileLoadsCountsFromCountRPC(t *testing.T) {
 				FollowedCount:  22,
 				LikeCount:      33,
 				FavoriteCount:  44,
+				ContentCount:   55,
 			},
 		},
 	})
@@ -49,7 +50,8 @@ func TestQueryUserProfileLoadsCountsFromCountRPC(t *testing.T) {
 	if resp.UserProfileCounts.FolloweeCount != 11 ||
 		resp.UserProfileCounts.FollowerCount != 22 ||
 		resp.UserProfileCounts.LikeReceivedCount != 33 ||
-		resp.UserProfileCounts.FavoriteReceivedCount != 44 {
+		resp.UserProfileCounts.FavoriteReceivedCount != 44 ||
+		resp.UserProfileCounts.ContentCount != 55 {
 		t.Fatalf("unexpected user profile counts: %+v", resp.UserProfileCounts)
 	}
 }

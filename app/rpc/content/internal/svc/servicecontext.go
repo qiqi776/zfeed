@@ -4,6 +4,7 @@ import (
 	"zfeed/app/rpc/content/internal/config"
 	"zfeed/app/rpc/interaction/client/favoriteservice"
 	"zfeed/app/rpc/interaction/client/followservice"
+	"zfeed/app/rpc/interaction/client/likeservice"
 	"zfeed/app/rpc/user/client/userservice"
 	"zfeed/orm"
 
@@ -18,6 +19,7 @@ type ServiceContext struct {
 	MysqlDb     *gorm.DB
 	FollowRpc   followservice.FollowService
 	FavoriteRpc favoriteservice.FavoriteService
+	LikeRpc     likeservice.LikeService
 	UserRpc     userservice.UserService
 }
 
@@ -30,6 +32,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	interactionRpcClient := zrpc.MustNewClient(c.InteractionRpcClientConf)
 	followRpc := followservice.NewFollowService(interactionRpcClient)
 	favoriteRpc := favoriteservice.NewFavoriteService(interactionRpcClient)
+	likeRpc := likeservice.NewLikeService(interactionRpcClient)
 	userRpc := userservice.NewUserService(zrpc.MustNewClient(c.UserRpcClientConf))
 
 	return &ServiceContext{
@@ -38,6 +41,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		MysqlDb:     db,
 		FollowRpc:   followRpc,
 		FavoriteRpc: favoriteRpc,
+		LikeRpc:     likeRpc,
 		UserRpc:     userRpc,
 	}
 }

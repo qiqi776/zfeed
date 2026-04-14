@@ -52,6 +52,12 @@ func (i *DelayedCacheInvalidator) Schedule(cacheKey string, desc string) bool {
 	select {
 	case <-i.stopCh:
 		return false
+	default:
+	}
+
+	select {
+	case <-i.stopCh:
+		return false
 	case i.tasks <- delayedCacheDeleteTask{cacheKey: cacheKey, desc: desc}:
 		return true
 	default:

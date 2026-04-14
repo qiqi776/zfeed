@@ -688,6 +688,7 @@ type GetUserProfileCountsRes struct {
 	FollowedCount  int64                  `protobuf:"varint,2,opt,name=followed_count,json=followedCount,proto3" json:"followed_count,omitempty"`
 	LikeCount      int64                  `protobuf:"varint,3,opt,name=like_count,json=likeCount,proto3" json:"like_count,omitempty"`
 	FavoriteCount  int64                  `protobuf:"varint,4,opt,name=favorite_count,json=favoriteCount,proto3" json:"favorite_count,omitempty"`
+	ContentCount   int64                  `protobuf:"varint,5,opt,name=content_count,json=contentCount,proto3" json:"content_count,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -750,6 +751,13 @@ func (x *GetUserProfileCountsRes) GetFavoriteCount() int64 {
 	return 0
 }
 
+func (x *GetUserProfileCountsRes) GetContentCount() int64 {
+	if x != nil {
+		return x.ContentCount
+	}
+	return 0
+}
+
 var File_app_rpc_count_proto_count_proto protoreflect.FileDescriptor
 
 const file_app_rpc_count_proto_count_proto_rawDesc = "" +
@@ -787,13 +795,14 @@ const file_app_rpc_count_proto_count_proto_rawDesc = "" +
 	"\ttarget_id\x18\x03 \x01(\x03R\btargetId\"\b\n" +
 	"\x06DecRes\"2\n" +
 	"\x17GetUserProfileCountsReq\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\x03R\x06userId\"\xaf\x01\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\"\xd4\x01\n" +
 	"\x17GetUserProfileCountsRes\x12'\n" +
 	"\x0ffollowing_count\x18\x01 \x01(\x03R\x0efollowingCount\x12%\n" +
 	"\x0efollowed_count\x18\x02 \x01(\x03R\rfollowedCount\x12\x1d\n" +
 	"\n" +
 	"like_count\x18\x03 \x01(\x03R\tlikeCount\x12%\n" +
-	"\x0efavorite_count\x18\x04 \x01(\x03R\rfavoriteCount*a\n" +
+	"\x0efavorite_count\x18\x04 \x01(\x03R\rfavoriteCount\x12#\n" +
+	"\rcontent_count\x18\x05 \x01(\x03R\fcontentCount*a\n" +
 	"\aBizType\x12\x14\n" +
 	"\x10BIZ_TYPE_UNKNOWN\x10\x00\x12\b\n" +
 	"\x04LIKE\x10\n" +

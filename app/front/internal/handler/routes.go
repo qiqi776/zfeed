@@ -9,6 +9,7 @@ import (
 	content "zfeed/app/front/internal/handler/content"
 	feed "zfeed/app/front/internal/handler/feed"
 	interaction "zfeed/app/front/internal/handler/interaction"
+	search "zfeed/app/front/internal/handler/search"
 	user "zfeed/app/front/internal/handler/user"
 	"zfeed/app/front/internal/svc"
 
@@ -26,6 +27,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Handler: content.DeleteContentHandler(serverCtx),
 				},
 				{
+					Method:  http.MethodPut,
+					Path:    "/article/:content_id",
+					Handler: content.EditArticleHandler(serverCtx),
+				},
+				{
 					Method:  http.MethodPost,
 					Path:    "/article/publish",
 					Handler: content.PublishArticleHandler(serverCtx),
@@ -39,6 +45,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodPost,
 					Path:    "/video/publish",
 					Handler: content.PublishVideoHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/video/:content_id",
+					Handler: content.EditVideoHandler(serverCtx),
 				},
 			}...,
 		),
@@ -169,6 +180,39 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.OptionalLoginMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/followers",
+					Handler: user.QueryFollowersHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/v1"),
+	)
+
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.OptionalLoginMiddleware},
+			[]rest.Route{
+				{
+					Method:  http.MethodPost,
+					Path:    "/contents",
+					Handler: search.SearchContentsHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/users",
+					Handler: search.SearchUsersHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithPrefix("/v1/search"),
+	)
+
+	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
@@ -207,6 +251,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Method:  http.MethodGet,
 					Path:    "/users/me",
 					Handler: user.GetMeHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPut,
+					Path:    "/users/me/profile",
+					Handler: user.UpdateProfileHandler(serverCtx),
 				},
 			}...,
 		),

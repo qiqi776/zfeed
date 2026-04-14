@@ -14,7 +14,7 @@ import (
 func UploadAvatarHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		l := user.NewUploadAvatarLogic(r.Context(), svcCtx)
-		resp, err := l.UploadAvatar()
+		resp, err := l.UploadAvatar(r)
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {

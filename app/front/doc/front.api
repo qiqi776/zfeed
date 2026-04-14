@@ -2,6 +2,7 @@ syntax = "v1"
 
 import "content/content.api"
 import "interaction/interaction.api"
+import "search/search.api"
 import "user/user.api"
 import "feed/feed.api"
 
@@ -14,4 +15,3 @@ info (
 	basePath:     "/v1"
 	schemes:      "https/http"
 )
-

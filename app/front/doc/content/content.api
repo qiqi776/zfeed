@@ -11,6 +11,7 @@ type (
 	}
 	ContentUploadsCredentialsRes {
 		ObjectKey string      `json:"object_key"`
+		Url       string      `json:"url"`
 		FormData  OssFormData `json:"form_data"`
 		ExpiredAt int64       `json:"expired_at"`
 	}
@@ -43,6 +44,27 @@ type (
 		Visibility  *int32  `json:"visibility,optional" validate:"required"`
 	}
 	PublishVideoRes {
+		ContentId int64 `json:"content_id"`
+	}
+	EditArticleReq {
+		ContentId   int64   `path:"content_id"`
+		Title       *string `json:"title,optional" validate:"max=100"`
+		Description *string `json:"description,optional" validate:"max=255"`
+		Cover       *string `json:"cover,optional" validate:"url"`
+		Content     *string `json:"content,optional" validate:"max=1000000"`
+	}
+	EditArticleRes {
+		ContentId int64 `json:"content_id"`
+	}
+	EditVideoReq {
+		ContentId   int64   `path:"content_id"`
+		Title       *string `json:"title,optional" validate:"max=100"`
+		Description *string `json:"description,optional" validate:"max=500"`
+		VideoUrl    *string `json:"video_url,optional" validate:"url"`
+		CoverUrl    *string `json:"cover_url,optional" validate:"url"`
+		Duration    *int32  `json:"duration,optional" validate:"min=1,max=7200"`
+	}
+	EditVideoRes {
 		ContentId int64 `json:"content_id"`
 	}
 	DeleteContentReq {
@@ -103,6 +125,18 @@ service front-api {
 	post /video/publish (PublishVideoReq) returns (PublishVideoRes)
 
 	@doc (
+		description: "编辑文章"
+	)
+	@handler EditArticle
+	put /article/:content_id (EditArticleReq) returns (EditArticleRes)
+
+	@doc (
+		description: "编辑视频"
+	)
+	@handler EditVideo
+	put /video/:content_id (EditVideoReq) returns (EditVideoRes)
+
+	@doc (
 		description: "删除已发布内容"
 	)
 	@handler DeleteContent
@@ -122,4 +156,3 @@ service front-api {
 	@handler GetContentDetail
 	post /detail (GetContentDetailReq) returns (GetContentDetailRes)
 }
-

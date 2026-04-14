@@ -19,6 +19,18 @@ import (
 	"zfeed/app/rpc/count/internal/svc"
 )
 
+type countTestContent struct {
+	ID         int64 `gorm:"column:id;primaryKey"`
+	UserID     int64 `gorm:"column:user_id"`
+	Status     int32 `gorm:"column:status"`
+	Visibility int32 `gorm:"column:visibility"`
+	IsDeleted  int32 `gorm:"column:is_deleted"`
+}
+
+func (countTestContent) TableName() string {
+	return "zfeed_content"
+}
+
 func TestGetCountCacheHitUsesCache(t *testing.T) {
 	svcCtx, _, db := newCountLogicTestServiceContext(t)
 	ctx := context.Background()
@@ -132,13 +144,16 @@ func TestGetUserProfileCountsRebuildsCacheFromDB(t *testing.T) {
 	seedCountValue(t, db, count.BizType_FAVORITE, count.TargetType_CONTENT, 1203, 3001, 4)
 	seedCountValue(t, db, count.BizType_FOLLOWING, count.TargetType_USER, 3001, 0, 5)
 	seedCountValue(t, db, count.BizType_FOLLOWED, count.TargetType_USER, 3001, 0, 6)
+	seedContentRow(t, db, 2201, 3001, userProfileContentStatusPublished, userProfileContentVisibilityPublic, 0)
+	seedContentRow(t, db, 2202, 3001, userProfileContentStatusPublished, userProfileContentVisibilityPublic, 0)
+	seedContentRow(t, db, 2203, 3001, userProfileContentStatusPublished, 20, 0)
 
 	logic := NewGetUserProfileCountsLogic(ctx, svcCtx)
 	resp, err := logic.GetUserProfileCounts(&count.GetUserProfileCountsReq{UserId: 3001})
 	if err != nil {
 		t.Fatalf("get user profile counts: %v", err)
 	}
-	if resp.GetLikeCount() != 5 || resp.GetFavoriteCount() != 4 || resp.GetFollowingCount() != 5 || resp.GetFollowedCount() != 6 {
+	if resp.GetLikeCount() != 5 || resp.GetFavoriteCount() != 4 || resp.GetFollowingCount() != 5 || resp.GetFollowedCount() != 6 || resp.GetContentCount() != 2 {
 		t.Fatalf("unexpected user profile counts: %+v", resp)
 	}
 
@@ -147,6 +162,38 @@ func TestGetUserProfileCountsRebuildsCacheFromDB(t *testing.T) {
 		t.Fatalf("read rebuilt user profile cache: %v", err)
 	} else if cached == "" {
 		t.Fatal("user profile counts cache should be rebuilt")
+	}
+}
+
+func TestGetUserProfileCountsCacheHitLoadsLiveContentCount(t *testing.T) {
+	svcCtx, _, db := newCountLogicTestServiceContext(t)
+	ctx := context.Background()
+
+	cacheKey := buildUserProfileCountsCacheKey(3101)
+	payload, err := marshalUserProfileCounts(&count.GetUserProfileCountsRes{
+		FollowingCount: 8,
+		FollowedCount:  9,
+		LikeCount:      10,
+		FavoriteCount:  11,
+		ContentCount:   999,
+	})
+	if err != nil {
+		t.Fatalf("marshal cached user profile counts: %v", err)
+	}
+	if err := svcCtx.Redis.SetexCtx(ctx, cacheKey, payload, 300); err != nil {
+		t.Fatalf("seed user profile counts cache: %v", err)
+	}
+
+	seedContentRow(t, db, 2301, 3101, userProfileContentStatusPublished, userProfileContentVisibilityPublic, 0)
+	seedContentRow(t, db, 2302, 3101, userProfileContentStatusPublished, 20, 0)
+
+	logic := NewGetUserProfileCountsLogic(ctx, svcCtx)
+	resp, err := logic.GetUserProfileCounts(&count.GetUserProfileCountsReq{UserId: 3101})
+	if err != nil {
+		t.Fatalf("get user profile counts from cache: %v", err)
+	}
+	if resp.GetFollowingCount() != 8 || resp.GetFollowedCount() != 9 || resp.GetLikeCount() != 10 || resp.GetFavoriteCount() != 11 || resp.GetContentCount() != 1 {
+		t.Fatalf("unexpected cached user profile counts: %+v", resp)
 	}
 }
 
@@ -259,7 +306,7 @@ func newCountLogicTestServiceContext(t *testing.T) (*svc.ServiceContext, *minire
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.ZfeedCountValue{}, &model.ZfeedMqConsumeDedup{}); err != nil {
+	if err := db.AutoMigrate(&model.ZfeedCountValue{}, &model.ZfeedMqConsumeDedup{}, &countTestContent{}); err != nil {
 		t.Fatalf("auto migrate count models: %v", err)
 	}
 
@@ -296,6 +343,20 @@ func seedCountValue(
 		UpdatedAt:  time.Now(),
 	}).Error; err != nil {
 		t.Fatalf("seed count value: %v", err)
+	}
+}
+
+func seedContentRow(t *testing.T, db *gorm.DB, id int64, userID int64, status int32, visibility int32, isDeleted int32) {
+	t.Helper()
+
+	if err := db.Create(&countTestContent{
+		ID:         id,
+		UserID:     userID,
+		Status:     status,
+		Visibility: visibility,
+		IsDeleted:  isDeleted,
+	}).Error; err != nil {
+		t.Fatalf("seed content row: %v", err)
 	}
 }
 

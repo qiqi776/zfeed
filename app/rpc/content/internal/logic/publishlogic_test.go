@@ -168,6 +168,59 @@ func TestPublishVideo_PersistsRowsAndUpdatesCache(t *testing.T) {
 	}
 }
 
+type publishFollowRow struct {
+	ID           int64 `gorm:"column:id;primaryKey;autoIncrement"`
+	UserID       int64 `gorm:"column:user_id"`
+	FollowUserID int64 `gorm:"column:follow_user_id"`
+	Status       int32 `gorm:"column:status"`
+	IsDeleted    int32 `gorm:"column:is_deleted"`
+}
+
+func (publishFollowRow) TableName() string {
+	return "zfeed_follow"
+}
+
+func TestPublishArticle_UpdatesFollowerInbox(t *testing.T) {
+	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{}, &publishFollowRow{})
+	store, client := newTestRedis(t)
+	defer store.Close()
+
+	if err := db.Create(&[]publishFollowRow{
+		{UserID: 901, FollowUserID: 101, Status: 10, IsDeleted: 0},
+		{UserID: 902, FollowUserID: 101, Status: 10, IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed follow rows: %v", err)
+	}
+
+	logic := NewPublishArticleLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   client,
+	})
+
+	resp, err := logic.PublishArticle(&contentpb.ArticlePublishReq{
+		UserId:     101,
+		Title:      "fanout-article",
+		Cover:      "https://example.com/a.png",
+		Content:    "body",
+		Visibility: contentpb.Visibility_VISIBILITY_PUBLIC,
+	})
+	if err != nil {
+		t.Fatalf("PublishArticle returned error: %v", err)
+	}
+
+	member := strconv.FormatInt(resp.GetContentId(), 10)
+	for _, followerID := range []int64{901, 902} {
+		inboxKey := redisconsts.BuildFollowInboxKey(followerID)
+		score, scoreErr := store.ZScore(inboxKey, member)
+		if scoreErr != nil {
+			t.Fatalf("query follower inbox %d: %v", followerID, scoreErr)
+		}
+		if score != float64(resp.GetContentId()) {
+			t.Fatalf("follower %d score = %v, want %d", followerID, score, resp.GetContentId())
+		}
+	}
+}
+
 func TestPublishArticle_RollsBackWhenSubTableInsertFails(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{})
 	store, client := newTestRedis(t)

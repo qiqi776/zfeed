@@ -37,7 +37,8 @@ func (l *GetContentDetailLogic) GetContentDetail(req *types.GetContentDetailReq)
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
-	contentRow, err := l.queryContent(*req.ContentId)
+	viewerID := utils.GetContextUserIdWithDefault(l.ctx)
+	contentRow, err := l.queryContent(*req.ContentId, viewerID)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,6 @@ func (l *GetContentDetailLogic) GetContentDetail(req *types.GetContentDetailReq)
 		detail.CommentCount = counts.CommentCount
 	}
 
-	viewerID := utils.GetContextUserIdWithDefault(l.ctx)
 	if viewerID > 0 {
 		isLiked, likeErr := l.queryIsLiked(viewerID, contentRow.ID)
 		if likeErr != nil {
@@ -115,13 +115,14 @@ func (l *GetContentDetailLogic) GetContentDetail(req *types.GetContentDetailReq)
 }
 
 const (
-	contentTypeArticle      = 10
-	contentTypeVideo        = 20
-	contentStatusPublish    = 30
-	contentVisibilityPublic = 10
-	likeStatusActive        = 10
-	favoriteStatusActive    = 10
-	followStatusActive      = 10
+	contentTypeArticle       = 10
+	contentTypeVideo         = 20
+	contentStatusPublish     = 30
+	contentVisibilityPublic  = 10
+	contentVisibilityPrivate = 20
+	likeStatusActive         = 10
+	favoriteStatusActive     = 10
+	followStatusActive       = 10
 )
 
 var defaultContentCountTimeout = 200 * time.Millisecond
@@ -165,13 +166,24 @@ type contentCounts struct {
 	CommentCount  int64
 }
 
-func (l *GetContentDetailLogic) queryContent(contentID int64) (*contentBaseRow, error) {
+func (l *GetContentDetailLogic) queryContent(contentID int64, viewerID int64) (*contentBaseRow, error) {
 	var row contentBaseRow
-	err := l.svcCtx.MysqlDb.WithContext(l.ctx).
+	query := l.svcCtx.MysqlDb.WithContext(l.ctx).
 		Table("zfeed_content").
 		Select("id", "user_id", "content_type", "like_count", "favorite_count", "comment_count", "published_at").
-		Where("id = ? AND status = ? AND visibility = ? AND is_deleted = 0", contentID, contentStatusPublish, contentVisibilityPublic).
-		Take(&row).Error
+		Where("id = ? AND status = ? AND is_deleted = 0", contentID, contentStatusPublish)
+	if viewerID > 0 {
+		query = query.Where(
+			"(visibility = ? OR (visibility = ? AND user_id = ?))",
+			contentVisibilityPublic,
+			contentVisibilityPrivate,
+			viewerID,
+		)
+	} else {
+		query = query.Where("visibility = ?", contentVisibilityPublic)
+	}
+
+	err := query.Take(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, errorx.NewNotFound("内容不存在")

@@ -36,6 +36,8 @@ type (
 		Bio      string `json:"bio"`
 		Gender   int32  `json:"gender"`
 		Status   int32  `json:"status"`
+		Email    string `json:"email"`
+		Birthday int64  `json:"birthday"`
 	}
 	GetMeRes {
 		UserInfo UserInfo `json:"user_info"`
@@ -43,12 +45,24 @@ type (
 		FollowerCount int64 `json:"follower_count"`
 	    LikeReceivedCount int64 `json:"like_received_count"`
 		FavoriteReceivedCount int64 `json:"favorite_received_count"`
+		ContentCount int64 `json:"content_count"`
 	}
 	UploadAvatarRes {
 		Url       string `json:"url"`
 		ObjectKey string `json:"object_key"`
 		Mime      string `json:"mime"`
 		Size      int64  `json:"size"`
+	}
+	UpdateProfileReq {
+		Nickname *string `json:"nickname,optional" validate:"max=64"`
+		Avatar   *string `json:"avatar,optional"`
+		Bio      *string `json:"bio,optional" validate:"max=255"`
+		Gender   *int32  `json:"gender,optional" validate:"oneof=0 1 2"`
+		Email    *string `json:"email,optional" validate:"email"`
+		Birthday *int64  `json:"birthday,optional"`
+	}
+	UpdateProfileRes {
+		UserInfo UserInfo `json:"user_info"`
 	}
 	QueryUserProfileReq {
 		UserId int64 `json:"user_id,optional" validate:"required"`
@@ -74,6 +88,23 @@ type (
 	}
 	ViewerProfileState {
 		IsFollowing bool `json:"is_following"`
+	}
+	QueryFollowersReq {
+		UserId   *int64  `json:"user_id,string,optional" validate:"required"`
+		Cursor   *int64  `json:"cursor,optional"`
+		PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=50"`
+	}
+	FollowerItem {
+		UserId      int64  `json:"user_id"`
+		Nickname    string `json:"nickname"`
+		Avatar      string `json:"avatar"`
+		Bio         string `json:"bio"`
+		IsFollowing bool   `json:"is_following"`
+	}
+	QueryFollowersRes {
+		Items      []FollowerItem `json:"items"`
+		NextCursor int64          `json:"next_cursor"`
+		HasMore    bool           `json:"has_more"`
 	}
 )
 
@@ -126,4 +157,24 @@ service front-api {
 	)
 	@handler QueryUserProfile
 	get /user/profile/:userId (QueryUserProfileReq) returns (QueryUserProfileRes)
+
+	@doc (
+		description: "更新当前登录用户资料"
+	)
+	@handler UpdateProfile
+	put /users/me/profile (UpdateProfileReq) returns (UpdateProfileRes)
+}
+
+@server (
+	tags:   user
+	group:  user
+	prefix: /v1
+	middleware: OptionalLoginMiddleware
+)
+service front-api {
+	@doc (
+		description: "查询用户粉丝列表"
+	)
+	@handler QueryFollowers
+	post /user/followers (QueryFollowersReq) returns (QueryFollowersRes)
 }

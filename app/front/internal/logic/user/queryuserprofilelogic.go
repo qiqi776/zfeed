@@ -5,7 +5,6 @@ package user
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"zfeed/app/front/internal/svc"
@@ -17,7 +16,6 @@ import (
 	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/gorm"
 )
 
 type QueryUserProfileLogic struct {
@@ -40,20 +38,18 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 	}
 
 	var (
-		userResp        *user.GetUserProfileRes
-		userErr         error
-		countResp       *count.GetUserProfileCountsRes
-		countErr        error
-		followResp      *followservicepb.GetFollowSummaryRes
-		followErr       error
-		contentCount    int64
-		contentCountErr error
-		wg              sync.WaitGroup
+		userResp   *user.GetUserProfileRes
+		userErr    error
+		countResp  *count.GetUserProfileCountsRes
+		countErr   error
+		followResp *followservicepb.GetFollowSummaryRes
+		followErr  error
+		wg         sync.WaitGroup
 	)
 
 	viewerID := utils.GetContextUserIdWithDefault(l.ctx)
 
-	wg.Add(4)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -79,11 +75,6 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 		})
 	}()
 
-	go func() {
-		defer wg.Done()
-		contentCount, contentCountErr = l.queryContentCount(req.UserId)
-	}()
-
 	wg.Wait()
 
 	if userErr != nil {
@@ -107,10 +98,6 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 	if followResp == nil {
 		followResp = &followservicepb.GetFollowSummaryRes{}
 	}
-	if contentCountErr != nil {
-		l.Errorf("query user content count failed, user_id=%d, err=%v", req.UserId, contentCountErr)
-		contentCount = 0
-	}
 
 	return &types.QueryUserProfileRes{
 		UserProfileInfo: types.UserProfileInfo{
@@ -125,29 +112,10 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 			FollowerCount:         countResp.GetFollowedCount(),
 			LikeReceivedCount:     countResp.GetLikeCount(),
 			FavoriteReceivedCount: countResp.GetFavoriteCount(),
-			ContentCount:          contentCount,
+			ContentCount:          countResp.GetContentCount(),
 		},
 		ViewerProfileState: types.ViewerProfileState{
 			IsFollowing: followResp.GetIsFollowing(),
 		},
 	}, nil
-}
-
-func (l *QueryUserProfileLogic) queryContentCount(userID int64) (int64, error) {
-	if l.svcCtx == nil || l.svcCtx.MysqlDb == nil {
-		return 0, nil
-	}
-
-	var countValue int64
-	err := l.svcCtx.MysqlDb.WithContext(l.ctx).
-		Table("zfeed_content").
-		Where("user_id = ? AND status = ? AND visibility = ? AND is_deleted = 0", userID, 30, 10).
-		Count(&countValue).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, nil
-		}
-		return 0, err
-	}
-	return countValue, nil
 }

@@ -70,6 +70,7 @@ type ContentUploadsCredentialsReq struct {
 
 type ContentUploadsCredentialsRes struct {
 	ObjectKey string      `json:"object_key"`
+	Url       string      `json:"url"`
 	FormData  OssFormData `json:"form_data"`
 	ExpiredAt int64       `json:"expired_at"`
 }
@@ -90,6 +91,31 @@ type DeleteContentReq struct {
 }
 
 type DeleteContentRes struct {
+}
+
+type EditArticleReq struct {
+	ContentId   int64   `path:"content_id"`
+	Title       *string `json:"title,optional" validate:"max=100"`
+	Description *string `json:"description,optional" validate:"max=255"`
+	Cover       *string `json:"cover,optional" validate:"url"`
+	Content     *string `json:"content,optional" validate:"max=1000000"`
+}
+
+type EditArticleRes struct {
+	ContentId int64 `json:"content_id"`
+}
+
+type EditVideoReq struct {
+	ContentId   int64   `path:"content_id"`
+	Title       *string `json:"title,optional" validate:"max=100"`
+	Description *string `json:"description,optional" validate:"max=500"`
+	VideoUrl    *string `json:"video_url,optional" validate:"url"`
+	CoverUrl    *string `json:"cover_url,optional" validate:"url"`
+	Duration    *int32  `json:"duration,optional" validate:"min=1,max=7200"`
+}
+
+type EditVideoRes struct {
+	ContentId int64 `json:"content_id"`
 }
 
 type FavoriteReq struct {
@@ -133,6 +159,14 @@ type FollowUserRes struct {
 	IsFollowed bool `json:"is_followed"`
 }
 
+type FollowerItem struct {
+	UserId      int64  `json:"user_id"`
+	Nickname    string `json:"nickname"`
+	Avatar      string `json:"avatar"`
+	Bio         string `json:"bio"`
+	IsFollowing bool   `json:"is_following"`
+}
+
 type GetContentDetailReq struct {
 	ContentId *int64 `json:"content_id,string,optional" validate:"required"`
 }
@@ -147,6 +181,7 @@ type GetMeRes struct {
 	FollowerCount         int64    `json:"follower_count"`
 	LikeReceivedCount     int64    `json:"like_received_count"`
 	FavoriteReceivedCount int64    `json:"favorite_received_count"`
+	ContentCount          int64    `json:"content_count"`
 }
 
 type LikeReq struct {
@@ -172,6 +207,18 @@ type LoginRes struct {
 }
 
 type LogoutRes struct {
+}
+
+type QueryFollowersReq struct {
+	UserId   *int64  `json:"user_id,string,optional" validate:"required"`
+	Cursor   *int64  `json:"cursor,optional"`
+	PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=50"`
+}
+
+type QueryFollowersRes struct {
+	Items      []FollowerItem `json:"items"`
+	NextCursor int64          `json:"next_cursor"`
+	HasMore    bool           `json:"has_more"`
 }
 
 type OssFormData struct {
@@ -306,6 +353,49 @@ type RecommendFeedRes struct {
 	SnapshotId string              `json:"snapshot_id"`
 }
 
+type SearchContentItem struct {
+	ContentId    int64  `json:"content_id,string"`
+	ContentType  int32  `json:"content_type"`
+	AuthorId     int64  `json:"author_id,string"`
+	AuthorName   string `json:"author_name"`
+	AuthorAvatar string `json:"author_avatar"`
+	Title        string `json:"title"`
+	CoverUrl     string `json:"cover_url"`
+	PublishedAt  int64  `json:"published_at"`
+}
+
+type SearchContentsReq struct {
+	Query    *string `json:"query,optional" validate:"required,min=1,max=50"`
+	Cursor   *int64  `json:"cursor,optional"`
+	PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+}
+
+type SearchContentsRes struct {
+	Items      []SearchContentItem `json:"items"`
+	NextCursor int64               `json:"next_cursor"`
+	HasMore    bool                `json:"has_more"`
+}
+
+type SearchUserItem struct {
+	UserId      int64  `json:"user_id"`
+	Nickname    string `json:"nickname"`
+	Avatar      string `json:"avatar"`
+	Bio         string `json:"bio"`
+	IsFollowing bool   `json:"is_following"`
+}
+
+type SearchUsersReq struct {
+	Query    *string `json:"query,optional" validate:"required,min=1,max=50"`
+	Cursor   *int64  `json:"cursor,optional"`
+	PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+}
+
+type SearchUsersRes struct {
+	Items      []SearchUserItem `json:"items"`
+	NextCursor int64            `json:"next_cursor"`
+	HasMore    bool             `json:"has_more"`
+}
+
 type RegisterReq struct {
 	Mobile   *string `json:"mobile,optional" validate:"required,e164"`
 	Password *string `json:"password,optional" validate:"required"`
@@ -345,6 +435,19 @@ type UnlikeReq struct {
 }
 
 type UnlikeRes struct {
+}
+
+type UpdateProfileReq struct {
+	Nickname *string `json:"nickname,optional" validate:"max=64"`
+	Avatar   *string `json:"avatar,optional"`
+	Bio      *string `json:"bio,optional" validate:"max=255"`
+	Gender   *int32  `json:"gender,optional" validate:"oneof=0 1 2"`
+	Email    *string `json:"email,optional" validate:"email"`
+	Birthday *int64  `json:"birthday,optional"`
+}
+
+type UpdateProfileRes struct {
+	UserInfo UserInfo `json:"user_info"`
 }
 
 type UploadAvatarRes struct {
@@ -387,6 +490,8 @@ type UserInfo struct {
 	Bio      string `json:"bio"`
 	Gender   int32  `json:"gender"`
 	Status   int32  `json:"status"`
+	Email    string `json:"email"`
+	Birthday int64  `json:"birthday"`
 }
 
 type UserProfileCounts struct {

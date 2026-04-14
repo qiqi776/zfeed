@@ -89,6 +89,7 @@ message GetUserProfileCountsRes {
   int64 followed_count = 2;
   int64 like_count = 3;
   int64 favorite_count = 4;
+  int64 content_count = 5;
 }
 
 service CounterService {

@@ -83,6 +83,7 @@ func (l *PublishArticleLogic) PublishArticle(in *contentpb.ArticlePublishReq) (*
 	}
 
 	l.tryUpdateUserPublishZSet(in.GetUserId(), contentID)
+	tryFanoutFollowInbox(l.ctx, l.svcCtx, in.GetUserId(), contentID)
 
 	return &contentpb.ArticlePublishRes{
 		ContentId: contentID,

@@ -9,6 +9,8 @@ import (
 	"zfeed/app/rpc/content/internal/model"
 	"zfeed/app/rpc/content/internal/repositories"
 	"zfeed/app/rpc/content/internal/svc"
+	likeservice "zfeed/app/rpc/interaction/client/likeservice"
+	interactionpb "zfeed/app/rpc/interaction/interaction"
 	userservice "zfeed/app/rpc/user/client/userservice"
 	"zfeed/pkg/errorx"
 )
@@ -49,8 +51,6 @@ func (b *FeedItemBuilder) LoadContentsByIDs(ids []int64) ([]*model.ZfeedContent,
 }
 
 func (b *FeedItemBuilder) BuildContentItems(contents []*model.ZfeedContent, viewerID *int64) ([]*contentpb.ContentItem, error) {
-	_ = viewerID
-
 	articleMap, videoMap, err := b.buildBriefMaps(contents)
 	if err != nil {
 		return nil, err
@@ -59,6 +59,7 @@ func (b *FeedItemBuilder) BuildContentItems(contents []*model.ZfeedContent, view
 	if err != nil {
 		return nil, err
 	}
+	likedMap := b.buildLikedMap(contents, viewerID)
 
 	items := make([]*contentpb.ContentItem, 0, len(contents))
 	for _, row := range contents {
@@ -75,6 +76,7 @@ func (b *FeedItemBuilder) BuildContentItems(contents []*model.ZfeedContent, view
 		if row.PublishedAt != nil {
 			item.PublishedAt = row.PublishedAt.Unix()
 		}
+		item.IsLiked = likedMap[row.ID]
 
 		if author, ok := authorMap[row.UserID]; ok && author != nil {
 			item.AuthorName = author.GetNickname()
@@ -97,6 +99,65 @@ func (b *FeedItemBuilder) BuildContentItems(contents []*model.ZfeedContent, view
 		items = append(items, item)
 	}
 	return items, nil
+}
+
+func (b *FeedItemBuilder) buildLikedMap(contents []*model.ZfeedContent, viewerID *int64) map[int64]bool {
+	result := make(map[int64]bool)
+	if viewerID == nil || *viewerID <= 0 || b.svcCtx == nil || b.svcCtx.LikeRpc == nil || len(contents) == 0 {
+		return result
+	}
+
+	likeInfos := make([]*likeservice.LikeInfo, 0, len(contents))
+	for _, row := range contents {
+		if row == nil || row.ID <= 0 {
+			continue
+		}
+
+		scene, ok := contentTypeToScene(row.ContentType)
+		if !ok {
+			continue
+		}
+
+		likeInfos = append(likeInfos, &likeservice.LikeInfo{
+			ContentId: row.ID,
+			Scene:     scene,
+		})
+	}
+	if len(likeInfos) == 0 {
+		return result
+	}
+
+	resp, err := b.svcCtx.LikeRpc.BatchQueryIsLiked(b.ctx, &likeservice.BatchQueryIsLikedReq{
+		UserId:    viewerID,
+		LikeInfos: likeInfos,
+	})
+	if err != nil {
+		b.Errorf("batch query is liked failed, viewer_id=%d, err=%v", *viewerID, err)
+		return result
+	}
+	if resp == nil {
+		return result
+	}
+
+	for _, item := range resp.GetIsLikedInfos() {
+		if item == nil || item.GetContentId() <= 0 {
+			continue
+		}
+		result[item.GetContentId()] = item.GetIsLiked()
+	}
+
+	return result
+}
+
+func contentTypeToScene(contentType int32) (interactionpb.Scene, bool) {
+	switch contentpb.ContentType(contentType) {
+	case contentpb.ContentType_CONTENT_TYPE_ARTICLE:
+		return interactionpb.Scene_ARTICLE, true
+	case contentpb.ContentType_CONTENT_TYPE_VIDEO:
+		return interactionpb.Scene_VIDEO, true
+	default:
+		return interactionpb.Scene_SCENE_UNKNOWN, false
+	}
 }
 
 func ContentItemsToFollowItems(items []*contentpb.ContentItem) []*contentpb.FollowFeedItem {

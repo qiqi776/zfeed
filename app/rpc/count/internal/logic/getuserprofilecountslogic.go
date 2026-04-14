@@ -15,6 +15,11 @@ import (
 	redislock "github.com/zeromicro/go-zero/core/stores/redis"
 )
 
+const (
+	userProfileContentStatusPublished  = 30
+	userProfileContentVisibilityPublic = 10
+)
+
 type GetUserProfileCountsLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
@@ -38,10 +43,14 @@ func (l *GetUserProfileCountsLogic) GetUserProfileCounts(in *count.GetUserProfil
 
 	cacheKey := buildUserProfileCountsCacheKey(in.GetUserId())
 	if cacheValue, cacheResult := l.queryFromCache(cacheKey); cacheResult == cacheHit {
-		return cacheValue, nil
+		return l.attachContentCount(cacheValue, in.GetUserId())
 	}
 
-	return l.rebuildCacheWithLock(in.GetUserId(), cacheKey)
+	resp, err := l.rebuildCacheWithLock(in.GetUserId(), cacheKey)
+	if err != nil {
+		return nil, err
+	}
+	return l.attachContentCount(resp, in.GetUserId())
 }
 
 func (l *GetUserProfileCountsLogic) queryFromCache(cacheKey string) (*count.GetUserProfileCountsRes, cacheQueryResult) {
@@ -160,4 +169,38 @@ func (l *GetUserProfileCountsLogic) queryFromDB(userID int64) (*count.GetUserPro
 		LikeCount:      likeCount,
 		FavoriteCount:  favoriteCount,
 	}, nil
+}
+
+func (l *GetUserProfileCountsLogic) attachContentCount(resp *count.GetUserProfileCountsRes, userID int64) (*count.GetUserProfileCountsRes, error) {
+	if resp == nil {
+		resp = &count.GetUserProfileCountsRes{}
+	}
+
+	contentCount, err := l.queryContentCount(userID)
+	if err != nil {
+		return nil, err
+	}
+	resp.ContentCount = contentCount
+	return resp, nil
+}
+
+func (l *GetUserProfileCountsLogic) queryContentCount(userID int64) (int64, error) {
+	if userID <= 0 || l.svcCtx == nil || l.svcCtx.MysqlDb == nil {
+		return 0, nil
+	}
+
+	var value int64
+	err := l.svcCtx.MysqlDb.WithContext(l.ctx).
+		Table("zfeed_content").
+		Where(
+			"user_id = ? AND status = ? AND visibility = ? AND is_deleted = 0",
+			userID,
+			userProfileContentStatusPublished,
+			userProfileContentVisibilityPublic,
+		).
+		Count(&value).Error
+	if err != nil {
+		return 0, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询主页计数失败"))
+	}
+	return value, nil
 }

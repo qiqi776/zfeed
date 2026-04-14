@@ -85,6 +85,7 @@ func (l *PublishVideoLogic) PublishVideo(in *contentpb.VideoPublishReq) (*conten
 	}
 
 	l.tryUpdateUserPublishZSet(in.GetUserId(), contentID)
+	tryFanoutFollowInbox(l.ctx, l.svcCtx, in.GetUserId(), contentID)
 
 	return &contentpb.VideoPublishRes{
 		ContentId: contentID,
