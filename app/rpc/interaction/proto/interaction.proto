@@ -236,6 +236,41 @@ message ListFolloweesRes{
   bool has_more = 3;
 }
 
+message ListFollowersReq{
+  int64 user_id = 1;
+  int64 cursor = 2;
+  uint32 page_size = 3;
+  optional int64 viewer_id = 4;
+}
+
+message FollowerProfile{
+  int64 user_id = 1;
+  string nickname = 2;
+  string avatar = 3;
+  string bio = 4;
+  bool is_following = 5;
+}
+
+message ListFollowersRes{
+  repeated FollowerProfile items = 1;
+  int64 next_cursor = 2;
+  bool has_more = 3;
+}
+
+message BatchQueryFollowingReq{
+  int64 user_id = 1;
+  repeated int64 follow_user_ids = 2;
+}
+
+message FollowingState{
+  int64 user_id = 1;
+  bool is_following = 2;
+}
+
+message BatchQueryFollowingRes{
+  repeated FollowingState items = 1;
+}
+
 message GetFollowSummaryReq{
   int64 user_id = 1;
   optional int64 viewer_id = 2;
@@ -273,5 +308,7 @@ service FollowService {
   rpc FollowUser(FollowUserReq) returns (FollowUserRes);
   rpc UnfollowUser(UnfollowUserReq) returns (UnfollowUserRes);
   rpc ListFollowees(ListFolloweesReq) returns (ListFolloweesRes);
+  rpc ListFollowers(ListFollowersReq) returns (ListFollowersRes);
+  rpc BatchQueryFollowing(BatchQueryFollowingReq) returns (BatchQueryFollowingRes);
   rpc GetFollowSummary(GetFollowSummaryReq) returns (GetFollowSummaryRes);
 }

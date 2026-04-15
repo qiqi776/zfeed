@@ -42,15 +42,6 @@ func (l *GetMeLogic) GetMe(in *user.GetMeReq) (*user.GetMeRes, error) {
 
 	// Count fields stay at zero until follow/count services are wired in.
 	return &user.GetMeRes{
-		UserInfo: &user.UserInfo{
-			UserId:   userDO.ID,
-			Username: userDO.Username,
-			Mobile:   userDO.Mobile,
-			Nickname: userDO.Nickname,
-			Avatar:   userDO.Avatar,
-			Bio:      userDO.Bio,
-			Gender:   user.Gender(userDO.Gender),
-			Status:   user.UserStatus(userDO.Status),
-		},
+		UserInfo: buildPrivateUserInfo(userDO),
 	}, nil
 }

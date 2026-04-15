@@ -42,6 +42,14 @@ func (f *fakeFollowService) ListFollowees(ctx context.Context, in *followservice
 	return f.listFolloweesFunc(ctx, in, opts...)
 }
 
+func (f *fakeFollowService) ListFollowers(context.Context, *followservice.ListFollowersReq, ...grpc.CallOption) (*followservice.ListFollowersRes, error) {
+	return nil, errors.New("unexpected ListFollowers call")
+}
+
+func (f *fakeFollowService) BatchQueryFollowing(context.Context, *followservice.BatchQueryFollowingReq, ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error) {
+	return nil, errors.New("unexpected BatchQueryFollowing call")
+}
+
 func (f *fakeFollowService) GetFollowSummary(context.Context, *followservice.GetFollowSummaryReq, ...grpc.CallOption) (*followservice.GetFollowSummaryRes, error) {
 	return nil, errors.New("unexpected GetFollowSummary call")
 }

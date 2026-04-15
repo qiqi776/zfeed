@@ -3,23 +3,163 @@ package user
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"testing"
 
-	"zfeed/app/front/internal/config"
+	"google.golang.org/grpc"
+
 	"zfeed/app/front/internal/svc"
+	contentpb "zfeed/app/rpc/content/content"
+	contentservice "zfeed/app/rpc/content/contentservice"
 )
 
-func TestUploadAvatarStoresFileAndReturnsURL(t *testing.T) {
-	tmpDir := t.TempDir()
+type avatarContentServiceStub struct {
+	getUploadCredentialsFunc func(ctx context.Context, in *contentservice.GetUploadCredentialsReq, opts ...grpc.CallOption) (*contentservice.GetUploadCredentialsRes, error)
+}
+
+func (s *avatarContentServiceStub) PublishArticle(context.Context, *contentservice.ArticlePublishReq, ...grpc.CallOption) (*contentservice.ArticlePublishRes, error) {
+	return nil, errors.New("unexpected PublishArticle call")
+}
+
+func (s *avatarContentServiceStub) PublishVideo(context.Context, *contentservice.VideoPublishReq, ...grpc.CallOption) (*contentservice.VideoPublishRes, error) {
+	return nil, errors.New("unexpected PublishVideo call")
+}
+
+func (s *avatarContentServiceStub) BackfillFollowInbox(context.Context, *contentservice.BackfillFollowInboxReq, ...grpc.CallOption) (*contentservice.BackfillFollowInboxRes, error) {
+	return nil, errors.New("unexpected BackfillFollowInbox call")
+}
+
+func (s *avatarContentServiceStub) GetUploadCredentials(ctx context.Context, in *contentservice.GetUploadCredentialsReq, opts ...grpc.CallOption) (*contentservice.GetUploadCredentialsRes, error) {
+	if s.getUploadCredentialsFunc == nil {
+		return nil, errors.New("unexpected GetUploadCredentials call")
+	}
+	return s.getUploadCredentialsFunc(ctx, in, opts...)
+}
+
+func (s *avatarContentServiceStub) GetContentDetail(context.Context, *contentservice.GetContentDetailReq, ...grpc.CallOption) (*contentservice.GetContentDetailRes, error) {
+	return nil, errors.New("unexpected GetContentDetail call")
+}
+
+func (s *avatarContentServiceStub) EditArticle(context.Context, *contentservice.EditArticleReq, ...grpc.CallOption) (*contentservice.EditArticleRes, error) {
+	return nil, errors.New("unexpected EditArticle call")
+}
+
+func (s *avatarContentServiceStub) EditVideo(context.Context, *contentservice.EditVideoReq, ...grpc.CallOption) (*contentservice.EditVideoRes, error) {
+	return nil, errors.New("unexpected EditVideo call")
+}
+
+func (s *avatarContentServiceStub) DeleteContent(context.Context, *contentservice.DeleteContentReq, ...grpc.CallOption) (*contentservice.DeleteContentRes, error) {
+	return nil, errors.New("unexpected DeleteContent call")
+}
+
+func TestUploadAvatarUploadsToObjectStorageAndReturnsURL(t *testing.T) {
 	payload := makePNGFixture()
+	uploaded := false
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.String() != "https://upload.example.com" {
+			t.Fatalf("unexpected upload url: %s", r.URL.String())
+		}
+		reader, err := r.MultipartReader()
+		if err != nil {
+			t.Fatalf("multipart reader: %v", err)
+		}
+		fields := map[string]string{}
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("next multipart part: %v", err)
+			}
+			data, err := io.ReadAll(part)
+			if err != nil {
+				t.Fatalf("read multipart part: %v", err)
+			}
+			if part.FormName() == "file" {
+				if !bytes.Equal(data, payload) {
+					t.Fatalf("uploaded payload mismatch")
+				}
+				continue
+			}
+			fields[part.FormName()] = string(data)
+		}
+		if fields["key"] != "avatar/2026/04/15/test.png" {
+			t.Fatalf("key = %q, want %q", fields["key"], "avatar/2026/04/15/test.png")
+		}
+		uploaded = true
+		return &http.Response{
+			StatusCode: http.StatusNoContent,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+			Header:     make(http.Header),
+		}, nil
+	})
+	defer func() {
+		http.DefaultTransport = oldTransport
+	}()
+
+	req := newAvatarUploadRequest(t, "avatar.png", payload)
+	logic := NewUploadAvatarLogic(context.Background(), &svc.ServiceContext{
+		ContentRpc: &avatarContentServiceStub{
+			getUploadCredentialsFunc: func(_ context.Context, in *contentservice.GetUploadCredentialsReq, _ ...grpc.CallOption) (*contentservice.GetUploadCredentialsRes, error) {
+				if in.GetScene() != "avatar" || in.GetFileExt() != ".png" || in.GetFileName() != "avatar.png" {
+					t.Fatalf("unexpected credentials request: %+v", in)
+				}
+				return &contentpb.GetUploadCredentialsRes{
+					ObjectKey: "avatar/2026/04/15/test.png",
+					Url:       "https://cdn.example.com/avatar/2026/04/15/test.png",
+					FormData: &contentpb.OssFormData{
+						Host:             "https://upload.example.com",
+						Policy:           "policy",
+						Signature:        "signature",
+						SignatureVersion: "OSS4-HMAC-SHA256",
+						Credential:       "credential",
+						Date:             "20260415T000000Z",
+						Key:              "avatar/2026/04/15/test.png",
+					},
+				}, nil
+			},
+		},
+	})
+
+	resp, err := logic.UploadAvatar(req)
+	if err != nil {
+		t.Fatalf("UploadAvatar returned error: %v", err)
+	}
+	if !uploaded {
+		t.Fatal("expected avatar to be uploaded to object storage")
+	}
+	if resp.Url != "https://cdn.example.com/avatar/2026/04/15/test.png" || resp.ObjectKey != "avatar/2026/04/15/test.png" {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+	if resp.Mime != "image/png" || resp.Size != int64(len(payload)) {
+		t.Fatalf("unexpected asset metadata: %+v", resp)
+	}
+}
+
+func TestUploadAvatarRejectsUnsupportedFile(t *testing.T) {
+	req := newAvatarUploadRequest(t, "avatar.txt", []byte("not-an-image"))
+	logic := NewUploadAvatarLogic(context.Background(), &svc.ServiceContext{
+		ContentRpc: &avatarContentServiceStub{},
+	})
+
+	if _, err := logic.UploadAvatar(req); err == nil {
+		t.Fatal("expected unsupported file error")
+	}
+}
+
+func newAvatarUploadRequest(t *testing.T, fileName string, payload []byte) *http.Request {
+	t.Helper()
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("file", "avatar.png")
+	part, err := writer.CreateFormFile("file", fileName)
 	if err != nil {
 		t.Fatalf("create form file: %v", err)
 	}
@@ -30,66 +170,9 @@ func TestUploadAvatarStoresFileAndReturnsURL(t *testing.T) {
 		t.Fatalf("close writer: %v", err)
 	}
 
-	req := httptest.NewRequest("POST", "/v1/users/avatar/upload", &body)
+	req := httptest.NewRequest(http.MethodPost, "/v1/users/avatar/upload", &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	logic := NewUploadAvatarLogic(context.Background(), &svc.ServiceContext{
-		Config: config.Config{
-			Oss: config.OssConfig{
-				UploadDir:  tmpDir,
-				PublicHost: "https://cdn.example.com",
-			},
-		},
-	})
-
-	resp, err := logic.UploadAvatar(req)
-	if err != nil {
-		t.Fatalf("UploadAvatar returned error: %v", err)
-	}
-	if resp.Mime != "image/png" {
-		t.Fatalf("mime = %q, want %q", resp.Mime, "image/png")
-	}
-	if resp.Size <= 0 {
-		t.Fatalf("size = %d, want > 0", resp.Size)
-	}
-	if resp.Url == "" || resp.ObjectKey == "" {
-		t.Fatalf("unexpected response: %+v", resp)
-	}
-
-	targetPath := filepath.Join(tmpDir, filepath.FromSlash(resp.ObjectKey))
-	if _, err := os.Stat(targetPath); err != nil {
-		t.Fatalf("saved file missing: %v", err)
-	}
-}
-
-func TestUploadAvatarRejectsUnsupportedFile(t *testing.T) {
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("file", "avatar.txt")
-	if err != nil {
-		t.Fatalf("create form file: %v", err)
-	}
-	if _, err := part.Write([]byte("not-an-image")); err != nil {
-		t.Fatalf("write payload: %v", err)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close writer: %v", err)
-	}
-
-	req := httptest.NewRequest("POST", "/v1/users/avatar/upload", &body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	logic := NewUploadAvatarLogic(context.Background(), &svc.ServiceContext{
-		Config: config.Config{
-			Oss: config.OssConfig{
-				UploadDir: t.TempDir(),
-			},
-		},
-	})
-
-	if _, err := logic.UploadAvatar(req); err == nil {
-		t.Fatal("expected unsupported file error")
-	}
+	return req
 }
 
 func makePNGFixture() []byte {
@@ -104,4 +187,10 @@ func makePNGFixture() []byte {
 		0x18, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
 		0x44, 0xAE, 0x42, 0x60, 0x82,
 	}
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
 }

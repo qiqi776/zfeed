@@ -19,3 +19,13 @@ type UserDO struct {
 	CreatedBy    int64
 	UpdatedBy    int64
 }
+
+type UserProfilePatch struct {
+	Nickname  *string
+	Avatar    *string
+	Bio       *string
+	Gender    *int32
+	Email     *string
+	Birthday  *time.Time
+	UpdatedBy int64
+}

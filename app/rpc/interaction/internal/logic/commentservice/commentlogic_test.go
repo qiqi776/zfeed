@@ -583,6 +583,10 @@ func (f *fakeCommentUserService) GetMe(context.Context, *userservice.GetMeReq, .
 	return nil, errors.New("unexpected GetMe call")
 }
 
+func (f *fakeCommentUserService) UpdateProfile(context.Context, *userservice.UpdateProfileReq, ...grpc.CallOption) (*userservice.UpdateProfileRes, error) {
+	return nil, errors.New("unexpected UpdateProfile call")
+}
+
 func (f *fakeCommentUserService) GetUser(context.Context, *userservice.GetUserReq, ...grpc.CallOption) (*userservice.GetUserRes, error) {
 	return nil, errors.New("unexpected GetUser call")
 }

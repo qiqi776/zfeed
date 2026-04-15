@@ -16,6 +16,7 @@ type UserRepository interface {
 	GetByID(userID int64) (*do.UserDO, error)
 	BatchGetByIDs(userIDs []int64) (map[int64]*do.UserDO, error)
 	Create(userDO *do.UserDO) (int64, error)
+	UpdateProfile(userID int64, patch *do.UserProfilePatch) (*do.UserDO, error)
 }
 
 type userRepositoryImpl struct {
@@ -109,6 +110,58 @@ func (r *userRepositoryImpl) Create(userDO *do.UserDO) (int64, error) {
 	}
 
 	return row.ID, nil
+}
+
+func (r *userRepositoryImpl) UpdateProfile(userID int64, patch *do.UserProfilePatch) (*do.UserDO, error) {
+	if userID <= 0 || patch == nil {
+		return nil, nil
+	}
+
+	updates := map[string]any{
+		"updated_by": patch.UpdatedBy,
+	}
+	hasUpdate := false
+
+	if patch.Nickname != nil {
+		updates["nickname"] = *patch.Nickname
+		hasUpdate = true
+	}
+	if patch.Avatar != nil {
+		updates["avatar"] = *patch.Avatar
+		hasUpdate = true
+	}
+	if patch.Bio != nil {
+		updates["bio"] = *patch.Bio
+		hasUpdate = true
+	}
+	if patch.Gender != nil {
+		updates["gender"] = *patch.Gender
+		hasUpdate = true
+	}
+	if patch.Email != nil {
+		updates["email"] = *patch.Email
+		hasUpdate = true
+	}
+	if patch.Birthday != nil {
+		updates["birthday"] = patch.Birthday
+		hasUpdate = true
+	}
+	if !hasUpdate {
+		return r.GetByID(userID)
+	}
+
+	result := r.db.WithContext(r.ctx).
+		Model(&model.ZfeedUser{}).
+		Where("id = ? AND is_deleted = 0", userID).
+		Updates(updates)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, nil
+	}
+
+	return r.GetByID(userID)
 }
 
 func modelToDO(row *model.ZfeedUser) *do.UserDO {

@@ -18,6 +18,18 @@ type (
 	ArticlePublishRes      = content.ArticlePublishRes
 	BackfillFollowInboxReq = content.BackfillFollowInboxReq
 	BackfillFollowInboxRes = content.BackfillFollowInboxRes
+	ContentDetail          = content.ContentDetail
+	DeleteContentReq       = content.DeleteContentReq
+	DeleteContentRes       = content.DeleteContentRes
+	EditArticleReq         = content.EditArticleReq
+	EditArticleRes         = content.EditArticleRes
+	EditVideoReq           = content.EditVideoReq
+	EditVideoRes           = content.EditVideoRes
+	GetContentDetailReq    = content.GetContentDetailReq
+	GetContentDetailRes    = content.GetContentDetailRes
+	GetUploadCredentialsReq = content.GetUploadCredentialsReq
+	GetUploadCredentialsRes = content.GetUploadCredentialsRes
+	OssFormData            = content.OssFormData
 	VideoPublishReq        = content.VideoPublishReq
 	VideoPublishRes        = content.VideoPublishRes
 
@@ -25,6 +37,11 @@ type (
 		PublishArticle(ctx context.Context, in *ArticlePublishReq, opts ...grpc.CallOption) (*ArticlePublishRes, error)
 		PublishVideo(ctx context.Context, in *VideoPublishReq, opts ...grpc.CallOption) (*VideoPublishRes, error)
 		BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error)
+		GetUploadCredentials(ctx context.Context, in *GetUploadCredentialsReq, opts ...grpc.CallOption) (*GetUploadCredentialsRes, error)
+		GetContentDetail(ctx context.Context, in *GetContentDetailReq, opts ...grpc.CallOption) (*GetContentDetailRes, error)
+		EditArticle(ctx context.Context, in *EditArticleReq, opts ...grpc.CallOption) (*EditArticleRes, error)
+		EditVideo(ctx context.Context, in *EditVideoReq, opts ...grpc.CallOption) (*EditVideoRes, error)
+		DeleteContent(ctx context.Context, in *DeleteContentReq, opts ...grpc.CallOption) (*DeleteContentRes, error)
 	}
 
 	defaultContentService struct {
@@ -51,4 +68,29 @@ func (m *defaultContentService) PublishVideo(ctx context.Context, in *VideoPubli
 func (m *defaultContentService) BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error) {
 	client := content.NewContentServiceClient(m.cli.Conn())
 	return client.BackfillFollowInbox(ctx, in, opts...)
+}
+
+func (m *defaultContentService) GetUploadCredentials(ctx context.Context, in *GetUploadCredentialsReq, opts ...grpc.CallOption) (*GetUploadCredentialsRes, error) {
+	client := content.NewContentServiceClient(m.cli.Conn())
+	return client.GetUploadCredentials(ctx, in, opts...)
+}
+
+func (m *defaultContentService) GetContentDetail(ctx context.Context, in *GetContentDetailReq, opts ...grpc.CallOption) (*GetContentDetailRes, error) {
+	client := content.NewContentServiceClient(m.cli.Conn())
+	return client.GetContentDetail(ctx, in, opts...)
+}
+
+func (m *defaultContentService) EditArticle(ctx context.Context, in *EditArticleReq, opts ...grpc.CallOption) (*EditArticleRes, error) {
+	client := content.NewContentServiceClient(m.cli.Conn())
+	return client.EditArticle(ctx, in, opts...)
+}
+
+func (m *defaultContentService) EditVideo(ctx context.Context, in *EditVideoReq, opts ...grpc.CallOption) (*EditVideoRes, error) {
+	client := content.NewContentServiceClient(m.cli.Conn())
+	return client.EditVideo(ctx, in, opts...)
+}
+
+func (m *defaultContentService) DeleteContent(ctx context.Context, in *DeleteContentReq, opts ...grpc.CallOption) (*DeleteContentRes, error) {
+	client := content.NewContentServiceClient(m.cli.Conn())
+	return client.DeleteContent(ctx, in, opts...)
 }

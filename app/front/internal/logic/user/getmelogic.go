@@ -5,9 +5,7 @@ package user
 
 import (
 	"context"
-	"errors"
 	"sync"
-	"time"
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
@@ -16,7 +14,6 @@ import (
 	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"gorm.io/gorm"
 )
 
 type GetMeLogic struct {
@@ -44,12 +41,10 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 		userErr   error
 		countResp = defaultUserProfileCounts()
 		countErr  error
-		extraResp *meProfileExtra
-		extraErr  error
 		wg        sync.WaitGroup
 	)
 
-	wg.Add(3)
+	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
@@ -59,11 +54,6 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 	go func() {
 		defer wg.Done()
 		countResp, countErr = loadUserProfileCounts(l.ctx, l.svcCtx, userID)
-	}()
-
-	go func() {
-		defer wg.Done()
-		extraResp, extraErr = l.queryProfileExtra(userID)
 	}()
 
 	wg.Wait()
@@ -81,13 +71,6 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 	if countResp == nil {
 		countResp = defaultUserProfileCounts()
 	}
-	if extraErr != nil {
-		l.Errorf("query me profile extra failed, user_id=%d, err=%v", userID, extraErr)
-		extraResp = &meProfileExtra{}
-	}
-	if extraResp == nil {
-		extraResp = &meProfileExtra{}
-	}
 
 	return &types.GetMeRes{
 		UserInfo: types.UserInfo{
@@ -98,8 +81,8 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 			Bio:      userResp.GetUserInfo().GetBio(),
 			Gender:   int32(userResp.GetUserInfo().GetGender()),
 			Status:   int32(userResp.GetUserInfo().GetStatus()),
-			Email:    extraResp.Email,
-			Birthday: unixOrZero(extraResp.Birthday),
+			Email:    userResp.GetUserInfo().GetEmail(),
+			Birthday: userResp.GetUserInfo().GetBirthday(),
 		},
 		FolloweeCount:         countResp.GetFollowingCount(),
 		FollowerCount:         countResp.GetFollowedCount(),
@@ -107,36 +90,4 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 		FavoriteReceivedCount: countResp.GetFavoriteCount(),
 		ContentCount:          countResp.GetContentCount(),
 	}, nil
-}
-
-type meProfileExtra struct {
-	Email    string     `gorm:"column:email"`
-	Birthday *time.Time `gorm:"column:birthday"`
-}
-
-func (l *GetMeLogic) queryProfileExtra(userID int64) (*meProfileExtra, error) {
-	if userID <= 0 || l.svcCtx == nil || l.svcCtx.MysqlDb == nil {
-		return &meProfileExtra{}, nil
-	}
-
-	var row meProfileExtra
-	err := l.svcCtx.MysqlDb.WithContext(l.ctx).
-		Table("zfeed_user").
-		Select("email", "birthday").
-		Where("id = ? AND is_deleted = 0", userID).
-		Take(&row).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return &meProfileExtra{}, nil
-		}
-		return nil, err
-	}
-	return &row, nil
-}
-
-func unixOrZero(value *time.Time) int64 {
-	if value == nil {
-		return 0
-	}
-	return value.Unix()
 }

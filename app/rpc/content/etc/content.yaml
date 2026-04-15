@@ -48,6 +48,23 @@ UserRpcClientConf:
     Key: user.rpc
   NonBlock: true
 
+CountRpcClientConf:
+  Etcd:
+    Hosts:
+      - "${ETCD_HOST}:${ETCD_PORT}"
+    Key: count.rpc
+  NonBlock: true
+
+Oss:
+  Provider: ""
+  Region: ""
+  BucketName: ""
+  AccessKeyId: ""
+  AccessKeySecret: ""
+  Endpoint: ""
+  UploadDir: ""
+  PublicHost: ""
+
 RedisConfig:
   Host: "${REDIS_HOST}:${REDIS_PORT}"
   Type: node

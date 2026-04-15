@@ -1286,6 +1286,870 @@ func (x *FollowFeedItem) GetLikeCount() int64 {
 	return 0
 }
 
+type GetContentDetailReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     int64                  `protobuf:"varint,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	ViewerId      *int64                 `protobuf:"varint,2,opt,name=viewer_id,json=viewerId,proto3,oneof" json:"viewer_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContentDetailReq) Reset() {
+	*x = GetContentDetailReq{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContentDetailReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContentDetailReq) ProtoMessage() {}
+
+func (x *GetContentDetailReq) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContentDetailReq.ProtoReflect.Descriptor instead.
+func (*GetContentDetailReq) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetContentDetailReq) GetContentId() int64 {
+	if x != nil {
+		return x.ContentId
+	}
+	return 0
+}
+
+func (x *GetContentDetailReq) GetViewerId() int64 {
+	if x != nil && x.ViewerId != nil {
+		return *x.ViewerId
+	}
+	return 0
+}
+
+type ContentDetail struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ContentId         int64                  `protobuf:"varint,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	ContentType       ContentType            `protobuf:"varint,2,opt,name=content_type,json=contentType,proto3,enum=content.ContentType" json:"content_type,omitempty"`
+	AuthorId          int64                  `protobuf:"varint,3,opt,name=author_id,json=authorId,proto3" json:"author_id,omitempty"`
+	AuthorName        string                 `protobuf:"bytes,4,opt,name=author_name,json=authorName,proto3" json:"author_name,omitempty"`
+	AuthorAvatar      string                 `protobuf:"bytes,5,opt,name=author_avatar,json=authorAvatar,proto3" json:"author_avatar,omitempty"`
+	Title             string                 `protobuf:"bytes,6,opt,name=title,proto3" json:"title,omitempty"`
+	Description       string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
+	CoverUrl          string                 `protobuf:"bytes,8,opt,name=cover_url,json=coverUrl,proto3" json:"cover_url,omitempty"`
+	ArticleContent    string                 `protobuf:"bytes,9,opt,name=article_content,json=articleContent,proto3" json:"article_content,omitempty"`
+	VideoUrl          string                 `protobuf:"bytes,10,opt,name=video_url,json=videoUrl,proto3" json:"video_url,omitempty"`
+	VideoDuration     int32                  `protobuf:"varint,11,opt,name=video_duration,json=videoDuration,proto3" json:"video_duration,omitempty"`
+	PublishedAt       int64                  `protobuf:"varint,12,opt,name=published_at,json=publishedAt,proto3" json:"published_at,omitempty"`
+	LikeCount         int64                  `protobuf:"varint,13,opt,name=like_count,json=likeCount,proto3" json:"like_count,omitempty"`
+	FavoriteCount     int64                  `protobuf:"varint,14,opt,name=favorite_count,json=favoriteCount,proto3" json:"favorite_count,omitempty"`
+	CommentCount      int64                  `protobuf:"varint,15,opt,name=comment_count,json=commentCount,proto3" json:"comment_count,omitempty"`
+	IsLiked           bool                   `protobuf:"varint,16,opt,name=is_liked,json=isLiked,proto3" json:"is_liked,omitempty"`
+	IsFavorited       bool                   `protobuf:"varint,17,opt,name=is_favorited,json=isFavorited,proto3" json:"is_favorited,omitempty"`
+	IsFollowingAuthor bool                   `protobuf:"varint,18,opt,name=is_following_author,json=isFollowingAuthor,proto3" json:"is_following_author,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ContentDetail) Reset() {
+	*x = ContentDetail{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ContentDetail) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ContentDetail) ProtoMessage() {}
+
+func (x *ContentDetail) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ContentDetail.ProtoReflect.Descriptor instead.
+func (*ContentDetail) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ContentDetail) GetContentId() int64 {
+	if x != nil {
+		return x.ContentId
+	}
+	return 0
+}
+
+func (x *ContentDetail) GetContentType() ContentType {
+	if x != nil {
+		return x.ContentType
+	}
+	return ContentType_CONTENT_TYPE_UNKNOWN
+}
+
+func (x *ContentDetail) GetAuthorId() int64 {
+	if x != nil {
+		return x.AuthorId
+	}
+	return 0
+}
+
+func (x *ContentDetail) GetAuthorName() string {
+	if x != nil {
+		return x.AuthorName
+	}
+	return ""
+}
+
+func (x *ContentDetail) GetAuthorAvatar() string {
+	if x != nil {
+		return x.AuthorAvatar
+	}
+	return ""
+}
+
+func (x *ContentDetail) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *ContentDetail) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ContentDetail) GetCoverUrl() string {
+	if x != nil {
+		return x.CoverUrl
+	}
+	return ""
+}
+
+func (x *ContentDetail) GetArticleContent() string {
+	if x != nil {
+		return x.ArticleContent
+	}
+	return ""
+}
+
+func (x *ContentDetail) GetVideoUrl() string {
+	if x != nil {
+		return x.VideoUrl
+	}
+	return ""
+}
+
+func (x *ContentDetail) GetVideoDuration() int32 {
+	if x != nil {
+		return x.VideoDuration
+	}
+	return 0
+}
+
+func (x *ContentDetail) GetPublishedAt() int64 {
+	if x != nil {
+		return x.PublishedAt
+	}
+	return 0
+}
+
+func (x *ContentDetail) GetLikeCount() int64 {
+	if x != nil {
+		return x.LikeCount
+	}
+	return 0
+}
+
+func (x *ContentDetail) GetFavoriteCount() int64 {
+	if x != nil {
+		return x.FavoriteCount
+	}
+	return 0
+}
+
+func (x *ContentDetail) GetCommentCount() int64 {
+	if x != nil {
+		return x.CommentCount
+	}
+	return 0
+}
+
+func (x *ContentDetail) GetIsLiked() bool {
+	if x != nil {
+		return x.IsLiked
+	}
+	return false
+}
+
+func (x *ContentDetail) GetIsFavorited() bool {
+	if x != nil {
+		return x.IsFavorited
+	}
+	return false
+}
+
+func (x *ContentDetail) GetIsFollowingAuthor() bool {
+	if x != nil {
+		return x.IsFollowingAuthor
+	}
+	return false
+}
+
+type GetContentDetailRes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Detail        *ContentDetail         `protobuf:"bytes,1,opt,name=detail,proto3" json:"detail,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContentDetailRes) Reset() {
+	*x = GetContentDetailRes{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContentDetailRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContentDetailRes) ProtoMessage() {}
+
+func (x *GetContentDetailRes) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContentDetailRes.ProtoReflect.Descriptor instead.
+func (*GetContentDetailRes) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *GetContentDetailRes) GetDetail() *ContentDetail {
+	if x != nil {
+		return x.Detail
+	}
+	return nil
+}
+
+type OssFormData struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Host             string                 `protobuf:"bytes,1,opt,name=host,proto3" json:"host,omitempty"`
+	Policy           string                 `protobuf:"bytes,2,opt,name=policy,proto3" json:"policy,omitempty"`
+	Signature        string                 `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	SecurityToken    string                 `protobuf:"bytes,4,opt,name=security_token,json=securityToken,proto3" json:"security_token,omitempty"`
+	SignatureVersion string                 `protobuf:"bytes,5,opt,name=signature_version,json=signatureVersion,proto3" json:"signature_version,omitempty"`
+	Credential       string                 `protobuf:"bytes,6,opt,name=credential,proto3" json:"credential,omitempty"`
+	Date             string                 `protobuf:"bytes,7,opt,name=date,proto3" json:"date,omitempty"`
+	Key              string                 `protobuf:"bytes,8,opt,name=key,proto3" json:"key,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *OssFormData) Reset() {
+	*x = OssFormData{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OssFormData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OssFormData) ProtoMessage() {}
+
+func (x *OssFormData) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OssFormData.ProtoReflect.Descriptor instead.
+func (*OssFormData) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *OssFormData) GetHost() string {
+	if x != nil {
+		return x.Host
+	}
+	return ""
+}
+
+func (x *OssFormData) GetPolicy() string {
+	if x != nil {
+		return x.Policy
+	}
+	return ""
+}
+
+func (x *OssFormData) GetSignature() string {
+	if x != nil {
+		return x.Signature
+	}
+	return ""
+}
+
+func (x *OssFormData) GetSecurityToken() string {
+	if x != nil {
+		return x.SecurityToken
+	}
+	return ""
+}
+
+func (x *OssFormData) GetSignatureVersion() string {
+	if x != nil {
+		return x.SignatureVersion
+	}
+	return ""
+}
+
+func (x *OssFormData) GetCredential() string {
+	if x != nil {
+		return x.Credential
+	}
+	return ""
+}
+
+func (x *OssFormData) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *OssFormData) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type GetUploadCredentialsReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Scene         string                 `protobuf:"bytes,1,opt,name=scene,proto3" json:"scene,omitempty"`
+	FileExt       string                 `protobuf:"bytes,2,opt,name=file_ext,json=fileExt,proto3" json:"file_ext,omitempty"`
+	FileSize      int64                  `protobuf:"varint,3,opt,name=file_size,json=fileSize,proto3" json:"file_size,omitempty"`
+	FileName      string                 `protobuf:"bytes,4,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUploadCredentialsReq) Reset() {
+	*x = GetUploadCredentialsReq{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUploadCredentialsReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUploadCredentialsReq) ProtoMessage() {}
+
+func (x *GetUploadCredentialsReq) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUploadCredentialsReq.ProtoReflect.Descriptor instead.
+func (*GetUploadCredentialsReq) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *GetUploadCredentialsReq) GetScene() string {
+	if x != nil {
+		return x.Scene
+	}
+	return ""
+}
+
+func (x *GetUploadCredentialsReq) GetFileExt() string {
+	if x != nil {
+		return x.FileExt
+	}
+	return ""
+}
+
+func (x *GetUploadCredentialsReq) GetFileSize() int64 {
+	if x != nil {
+		return x.FileSize
+	}
+	return 0
+}
+
+func (x *GetUploadCredentialsReq) GetFileName() string {
+	if x != nil {
+		return x.FileName
+	}
+	return ""
+}
+
+type GetUploadCredentialsRes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ObjectKey     string                 `protobuf:"bytes,1,opt,name=object_key,json=objectKey,proto3" json:"object_key,omitempty"`
+	Url           string                 `protobuf:"bytes,2,opt,name=url,proto3" json:"url,omitempty"`
+	FormData      *OssFormData           `protobuf:"bytes,3,opt,name=form_data,json=formData,proto3" json:"form_data,omitempty"`
+	ExpiredAt     int64                  `protobuf:"varint,4,opt,name=expired_at,json=expiredAt,proto3" json:"expired_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetUploadCredentialsRes) Reset() {
+	*x = GetUploadCredentialsRes{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetUploadCredentialsRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetUploadCredentialsRes) ProtoMessage() {}
+
+func (x *GetUploadCredentialsRes) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetUploadCredentialsRes.ProtoReflect.Descriptor instead.
+func (*GetUploadCredentialsRes) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *GetUploadCredentialsRes) GetObjectKey() string {
+	if x != nil {
+		return x.ObjectKey
+	}
+	return ""
+}
+
+func (x *GetUploadCredentialsRes) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *GetUploadCredentialsRes) GetFormData() *OssFormData {
+	if x != nil {
+		return x.FormData
+	}
+	return nil
+}
+
+func (x *GetUploadCredentialsRes) GetExpiredAt() int64 {
+	if x != nil {
+		return x.ExpiredAt
+	}
+	return 0
+}
+
+type EditArticleReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ContentId     int64                  `protobuf:"varint,2,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	Cover         *string                `protobuf:"bytes,5,opt,name=cover,proto3,oneof" json:"cover,omitempty"`
+	Content       *string                `protobuf:"bytes,6,opt,name=content,proto3,oneof" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EditArticleReq) Reset() {
+	*x = EditArticleReq{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EditArticleReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EditArticleReq) ProtoMessage() {}
+
+func (x *EditArticleReq) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EditArticleReq.ProtoReflect.Descriptor instead.
+func (*EditArticleReq) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *EditArticleReq) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *EditArticleReq) GetContentId() int64 {
+	if x != nil {
+		return x.ContentId
+	}
+	return 0
+}
+
+func (x *EditArticleReq) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *EditArticleReq) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *EditArticleReq) GetCover() string {
+	if x != nil && x.Cover != nil {
+		return *x.Cover
+	}
+	return ""
+}
+
+func (x *EditArticleReq) GetContent() string {
+	if x != nil && x.Content != nil {
+		return *x.Content
+	}
+	return ""
+}
+
+type EditArticleRes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     int64                  `protobuf:"varint,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EditArticleRes) Reset() {
+	*x = EditArticleRes{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EditArticleRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EditArticleRes) ProtoMessage() {}
+
+func (x *EditArticleRes) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EditArticleRes.ProtoReflect.Descriptor instead.
+func (*EditArticleRes) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *EditArticleRes) GetContentId() int64 {
+	if x != nil {
+		return x.ContentId
+	}
+	return 0
+}
+
+type EditVideoReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ContentId     int64                  `protobuf:"varint,2,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	Title         *string                `protobuf:"bytes,3,opt,name=title,proto3,oneof" json:"title,omitempty"`
+	Description   *string                `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
+	OriginUrl     *string                `protobuf:"bytes,5,opt,name=origin_url,json=originUrl,proto3,oneof" json:"origin_url,omitempty"`
+	CoverUrl      *string                `protobuf:"bytes,6,opt,name=cover_url,json=coverUrl,proto3,oneof" json:"cover_url,omitempty"`
+	Duration      *int32                 `protobuf:"varint,7,opt,name=duration,proto3,oneof" json:"duration,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EditVideoReq) Reset() {
+	*x = EditVideoReq{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EditVideoReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EditVideoReq) ProtoMessage() {}
+
+func (x *EditVideoReq) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EditVideoReq.ProtoReflect.Descriptor instead.
+func (*EditVideoReq) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *EditVideoReq) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *EditVideoReq) GetContentId() int64 {
+	if x != nil {
+		return x.ContentId
+	}
+	return 0
+}
+
+func (x *EditVideoReq) GetTitle() string {
+	if x != nil && x.Title != nil {
+		return *x.Title
+	}
+	return ""
+}
+
+func (x *EditVideoReq) GetDescription() string {
+	if x != nil && x.Description != nil {
+		return *x.Description
+	}
+	return ""
+}
+
+func (x *EditVideoReq) GetOriginUrl() string {
+	if x != nil && x.OriginUrl != nil {
+		return *x.OriginUrl
+	}
+	return ""
+}
+
+func (x *EditVideoReq) GetCoverUrl() string {
+	if x != nil && x.CoverUrl != nil {
+		return *x.CoverUrl
+	}
+	return ""
+}
+
+func (x *EditVideoReq) GetDuration() int32 {
+	if x != nil && x.Duration != nil {
+		return *x.Duration
+	}
+	return 0
+}
+
+type EditVideoRes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ContentId     int64                  `protobuf:"varint,1,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EditVideoRes) Reset() {
+	*x = EditVideoRes{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EditVideoRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EditVideoRes) ProtoMessage() {}
+
+func (x *EditVideoRes) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EditVideoRes.ProtoReflect.Descriptor instead.
+func (*EditVideoRes) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *EditVideoRes) GetContentId() int64 {
+	if x != nil {
+		return x.ContentId
+	}
+	return 0
+}
+
+type DeleteContentReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	ContentId     int64                  `protobuf:"varint,2,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteContentReq) Reset() {
+	*x = DeleteContentReq{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteContentReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteContentReq) ProtoMessage() {}
+
+func (x *DeleteContentReq) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteContentReq.ProtoReflect.Descriptor instead.
+func (*DeleteContentReq) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *DeleteContentReq) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *DeleteContentReq) GetContentId() int64 {
+	if x != nil {
+		return x.ContentId
+	}
+	return 0
+}
+
+type DeleteContentRes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteContentRes) Reset() {
+	*x = DeleteContentRes{}
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteContentRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteContentRes) ProtoMessage() {}
+
+func (x *DeleteContentRes) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_content_proto_content_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteContentRes.ProtoReflect.Descriptor instead.
+func (*DeleteContentRes) Descriptor() ([]byte, []int) {
+	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{27}
+}
+
 var File_app_rpc_content_proto_content_proto protoreflect.FileDescriptor
 
 const file_app_rpc_content_proto_content_proto_rawDesc = "" +
@@ -1406,7 +2270,101 @@ const file_app_rpc_content_proto_content_proto_rawDesc = "" +
 	"\bis_liked\x18\t \x01(\bR\aisLiked\x12\x1d\n" +
 	"\n" +
 	"like_count\x18\n" +
-	" \x01(\x03R\tlikeCount*Y\n" +
+	" \x01(\x03R\tlikeCount\"d\n" +
+	"\x13GetContentDetailReq\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\x03R\tcontentId\x12 \n" +
+	"\tviewer_id\x18\x02 \x01(\x03H\x00R\bviewerId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_viewer_id\"\x88\x05\n" +
+	"\rContentDetail\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\x03R\tcontentId\x127\n" +
+	"\fcontent_type\x18\x02 \x01(\x0e2\x14.content.ContentTypeR\vcontentType\x12\x1b\n" +
+	"\tauthor_id\x18\x03 \x01(\x03R\bauthorId\x12\x1f\n" +
+	"\vauthor_name\x18\x04 \x01(\tR\n" +
+	"authorName\x12#\n" +
+	"\rauthor_avatar\x18\x05 \x01(\tR\fauthorAvatar\x12\x14\n" +
+	"\x05title\x18\x06 \x01(\tR\x05title\x12 \n" +
+	"\vdescription\x18\a \x01(\tR\vdescription\x12\x1b\n" +
+	"\tcover_url\x18\b \x01(\tR\bcoverUrl\x12'\n" +
+	"\x0farticle_content\x18\t \x01(\tR\x0earticleContent\x12\x1b\n" +
+	"\tvideo_url\x18\n" +
+	" \x01(\tR\bvideoUrl\x12%\n" +
+	"\x0evideo_duration\x18\v \x01(\x05R\rvideoDuration\x12!\n" +
+	"\fpublished_at\x18\f \x01(\x03R\vpublishedAt\x12\x1d\n" +
+	"\n" +
+	"like_count\x18\r \x01(\x03R\tlikeCount\x12%\n" +
+	"\x0efavorite_count\x18\x0e \x01(\x03R\rfavoriteCount\x12#\n" +
+	"\rcomment_count\x18\x0f \x01(\x03R\fcommentCount\x12\x19\n" +
+	"\bis_liked\x18\x10 \x01(\bR\aisLiked\x12!\n" +
+	"\fis_favorited\x18\x11 \x01(\bR\visFavorited\x12.\n" +
+	"\x13is_following_author\x18\x12 \x01(\bR\x11isFollowingAuthor\"E\n" +
+	"\x13GetContentDetailRes\x12.\n" +
+	"\x06detail\x18\x01 \x01(\v2\x16.content.ContentDetailR\x06detail\"\xf1\x01\n" +
+	"\vOssFormData\x12\x12\n" +
+	"\x04host\x18\x01 \x01(\tR\x04host\x12\x16\n" +
+	"\x06policy\x18\x02 \x01(\tR\x06policy\x12\x1c\n" +
+	"\tsignature\x18\x03 \x01(\tR\tsignature\x12%\n" +
+	"\x0esecurity_token\x18\x04 \x01(\tR\rsecurityToken\x12+\n" +
+	"\x11signature_version\x18\x05 \x01(\tR\x10signatureVersion\x12\x1e\n" +
+	"\n" +
+	"credential\x18\x06 \x01(\tR\n" +
+	"credential\x12\x12\n" +
+	"\x04date\x18\a \x01(\tR\x04date\x12\x10\n" +
+	"\x03key\x18\b \x01(\tR\x03key\"\x84\x01\n" +
+	"\x17GetUploadCredentialsReq\x12\x14\n" +
+	"\x05scene\x18\x01 \x01(\tR\x05scene\x12\x19\n" +
+	"\bfile_ext\x18\x02 \x01(\tR\afileExt\x12\x1b\n" +
+	"\tfile_size\x18\x03 \x01(\x03R\bfileSize\x12\x1b\n" +
+	"\tfile_name\x18\x04 \x01(\tR\bfileName\"\x9c\x01\n" +
+	"\x17GetUploadCredentialsRes\x12\x1d\n" +
+	"\n" +
+	"object_key\x18\x01 \x01(\tR\tobjectKey\x12\x10\n" +
+	"\x03url\x18\x02 \x01(\tR\x03url\x121\n" +
+	"\tform_data\x18\x03 \x01(\v2\x14.content.OssFormDataR\bformData\x12\x1d\n" +
+	"\n" +
+	"expired_at\x18\x04 \x01(\x03R\texpiredAt\"\xf4\x01\n" +
+	"\x0eEditArticleReq\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x02 \x01(\x03R\tcontentId\x12\x19\n" +
+	"\x05title\x18\x03 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x04 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\x19\n" +
+	"\x05cover\x18\x05 \x01(\tH\x02R\x05cover\x88\x01\x01\x12\x1d\n" +
+	"\acontent\x18\x06 \x01(\tH\x03R\acontent\x88\x01\x01B\b\n" +
+	"\x06_titleB\x0e\n" +
+	"\f_descriptionB\b\n" +
+	"\x06_coverB\n" +
+	"\n" +
+	"\b_content\"/\n" +
+	"\x0eEditArticleRes\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\x03R\tcontentId\"\xb3\x02\n" +
+	"\fEditVideoReq\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x02 \x01(\x03R\tcontentId\x12\x19\n" +
+	"\x05title\x18\x03 \x01(\tH\x00R\x05title\x88\x01\x01\x12%\n" +
+	"\vdescription\x18\x04 \x01(\tH\x01R\vdescription\x88\x01\x01\x12\"\n" +
+	"\n" +
+	"origin_url\x18\x05 \x01(\tH\x02R\toriginUrl\x88\x01\x01\x12 \n" +
+	"\tcover_url\x18\x06 \x01(\tH\x03R\bcoverUrl\x88\x01\x01\x12\x1f\n" +
+	"\bduration\x18\a \x01(\x05H\x04R\bduration\x88\x01\x01B\b\n" +
+	"\x06_titleB\x0e\n" +
+	"\f_descriptionB\r\n" +
+	"\v_origin_urlB\f\n" +
+	"\n" +
+	"_cover_urlB\v\n" +
+	"\t_duration\"-\n" +
+	"\fEditVideoRes\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x01 \x01(\x03R\tcontentId\"J\n" +
+	"\x10DeleteContentReq\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
+	"\n" +
+	"content_id\x18\x02 \x01(\x03R\tcontentId\"\x12\n" +
+	"\x10DeleteContentRes*Y\n" +
 	"\vContentType\x12\x18\n" +
 	"\x14CONTENT_TYPE_UNKNOWN\x10\x00\x12\x18\n" +
 	"\x14CONTENT_TYPE_ARTICLE\x10\n" +
@@ -1424,11 +2382,16 @@ const file_app_rpc_content_proto_content_proto_rawDesc = "" +
 	"\x12VISIBILITY_UNKNOWN\x10\x00\x12\x15\n" +
 	"\x11VISIBILITY_PUBLIC\x10\n" +
 	"\x12\x16\n" +
-	"\x12VISIBILITY_PRIVATE\x10\x142\xf7\x01\n" +
+	"\x12VISIBILITY_PRIVATE\x10\x142\xe6\x04\n" +
 	"\x0eContentService\x12H\n" +
 	"\x0ePublishArticle\x12\x1a.content.ArticlePublishReq\x1a\x1a.content.ArticlePublishRes\x12B\n" +
 	"\fPublishVideo\x12\x18.content.VideoPublishReq\x1a\x18.content.VideoPublishRes\x12W\n" +
-	"\x13BackfillFollowInbox\x12\x1f.content.BackfillFollowInboxReq\x1a\x1f.content.BackfillFollowInboxRes2\xaf\x02\n" +
+	"\x13BackfillFollowInbox\x12\x1f.content.BackfillFollowInboxReq\x1a\x1f.content.BackfillFollowInboxRes\x12Z\n" +
+	"\x14GetUploadCredentials\x12 .content.GetUploadCredentialsReq\x1a .content.GetUploadCredentialsRes\x12N\n" +
+	"\x10GetContentDetail\x12\x1c.content.GetContentDetailReq\x1a\x1c.content.GetContentDetailRes\x12?\n" +
+	"\vEditArticle\x12\x17.content.EditArticleReq\x1a\x17.content.EditArticleRes\x129\n" +
+	"\tEditVideo\x12\x15.content.EditVideoReq\x1a\x15.content.EditVideoRes\x12E\n" +
+	"\rDeleteContent\x12\x19.content.DeleteContentReq\x1a\x19.content.DeleteContentRes2\xaf\x02\n" +
 	"\vFeedService\x12E\n" +
 	"\rRecommendFeed\x12\x19.content.RecommendFeedReq\x1a\x19.content.RecommendFeedRes\x12<\n" +
 	"\n" +
@@ -1449,27 +2412,39 @@ func file_app_rpc_content_proto_content_proto_rawDescGZIP() []byte {
 }
 
 var file_app_rpc_content_proto_content_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_app_rpc_content_proto_content_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_app_rpc_content_proto_content_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_app_rpc_content_proto_content_proto_goTypes = []any{
-	(ContentType)(0),               // 0: content.ContentType
-	(ContentStatus)(0),             // 1: content.ContentStatus
-	(Visibility)(0),                // 2: content.Visibility
-	(*ArticlePublishReq)(nil),      // 3: content.ArticlePublishReq
-	(*ArticlePublishRes)(nil),      // 4: content.ArticlePublishRes
-	(*VideoPublishReq)(nil),        // 5: content.VideoPublishReq
-	(*VideoPublishRes)(nil),        // 6: content.VideoPublishRes
-	(*BackfillFollowInboxReq)(nil), // 7: content.BackfillFollowInboxReq
-	(*BackfillFollowInboxRes)(nil), // 8: content.BackfillFollowInboxRes
-	(*RecommendFeedReq)(nil),       // 9: content.RecommendFeedReq
-	(*RecommendFeedRes)(nil),       // 10: content.RecommendFeedRes
-	(*FollowFeedReq)(nil),          // 11: content.FollowFeedReq
-	(*FollowFeedRes)(nil),          // 12: content.FollowFeedRes
-	(*UserPublishFeedReq)(nil),     // 13: content.UserPublishFeedReq
-	(*UserPublishFeedRes)(nil),     // 14: content.UserPublishFeedRes
-	(*UserFavoriteFeedReq)(nil),    // 15: content.UserFavoriteFeedReq
-	(*UserFavoriteFeedRes)(nil),    // 16: content.UserFavoriteFeedRes
-	(*ContentItem)(nil),            // 17: content.ContentItem
-	(*FollowFeedItem)(nil),         // 18: content.FollowFeedItem
+	(ContentType)(0),                // 0: content.ContentType
+	(ContentStatus)(0),              // 1: content.ContentStatus
+	(Visibility)(0),                 // 2: content.Visibility
+	(*ArticlePublishReq)(nil),       // 3: content.ArticlePublishReq
+	(*ArticlePublishRes)(nil),       // 4: content.ArticlePublishRes
+	(*VideoPublishReq)(nil),         // 5: content.VideoPublishReq
+	(*VideoPublishRes)(nil),         // 6: content.VideoPublishRes
+	(*BackfillFollowInboxReq)(nil),  // 7: content.BackfillFollowInboxReq
+	(*BackfillFollowInboxRes)(nil),  // 8: content.BackfillFollowInboxRes
+	(*RecommendFeedReq)(nil),        // 9: content.RecommendFeedReq
+	(*RecommendFeedRes)(nil),        // 10: content.RecommendFeedRes
+	(*FollowFeedReq)(nil),           // 11: content.FollowFeedReq
+	(*FollowFeedRes)(nil),           // 12: content.FollowFeedRes
+	(*UserPublishFeedReq)(nil),      // 13: content.UserPublishFeedReq
+	(*UserPublishFeedRes)(nil),      // 14: content.UserPublishFeedRes
+	(*UserFavoriteFeedReq)(nil),     // 15: content.UserFavoriteFeedReq
+	(*UserFavoriteFeedRes)(nil),     // 16: content.UserFavoriteFeedRes
+	(*ContentItem)(nil),             // 17: content.ContentItem
+	(*FollowFeedItem)(nil),          // 18: content.FollowFeedItem
+	(*GetContentDetailReq)(nil),     // 19: content.GetContentDetailReq
+	(*ContentDetail)(nil),           // 20: content.ContentDetail
+	(*GetContentDetailRes)(nil),     // 21: content.GetContentDetailRes
+	(*OssFormData)(nil),             // 22: content.OssFormData
+	(*GetUploadCredentialsReq)(nil), // 23: content.GetUploadCredentialsReq
+	(*GetUploadCredentialsRes)(nil), // 24: content.GetUploadCredentialsRes
+	(*EditArticleReq)(nil),          // 25: content.EditArticleReq
+	(*EditArticleRes)(nil),          // 26: content.EditArticleRes
+	(*EditVideoReq)(nil),            // 27: content.EditVideoReq
+	(*EditVideoRes)(nil),            // 28: content.EditVideoRes
+	(*DeleteContentReq)(nil),        // 29: content.DeleteContentReq
+	(*DeleteContentRes)(nil),        // 30: content.DeleteContentRes
 }
 var file_app_rpc_content_proto_content_proto_depIdxs = []int32{
 	2,  // 0: content.ArticlePublishReq.visibility:type_name -> content.Visibility
@@ -1480,25 +2455,38 @@ var file_app_rpc_content_proto_content_proto_depIdxs = []int32{
 	17, // 5: content.UserFavoriteFeedRes.items:type_name -> content.ContentItem
 	0,  // 6: content.ContentItem.content_type:type_name -> content.ContentType
 	0,  // 7: content.FollowFeedItem.content_type:type_name -> content.ContentType
-	3,  // 8: content.ContentService.PublishArticle:input_type -> content.ArticlePublishReq
-	5,  // 9: content.ContentService.PublishVideo:input_type -> content.VideoPublishReq
-	7,  // 10: content.ContentService.BackfillFollowInbox:input_type -> content.BackfillFollowInboxReq
-	9,  // 11: content.FeedService.RecommendFeed:input_type -> content.RecommendFeedReq
-	11, // 12: content.FeedService.FollowFeed:input_type -> content.FollowFeedReq
-	13, // 13: content.FeedService.UserPublishFeed:input_type -> content.UserPublishFeedReq
-	15, // 14: content.FeedService.UserFavoriteFeed:input_type -> content.UserFavoriteFeedReq
-	4,  // 15: content.ContentService.PublishArticle:output_type -> content.ArticlePublishRes
-	6,  // 16: content.ContentService.PublishVideo:output_type -> content.VideoPublishRes
-	8,  // 17: content.ContentService.BackfillFollowInbox:output_type -> content.BackfillFollowInboxRes
-	10, // 18: content.FeedService.RecommendFeed:output_type -> content.RecommendFeedRes
-	12, // 19: content.FeedService.FollowFeed:output_type -> content.FollowFeedRes
-	14, // 20: content.FeedService.UserPublishFeed:output_type -> content.UserPublishFeedRes
-	16, // 21: content.FeedService.UserFavoriteFeed:output_type -> content.UserFavoriteFeedRes
-	15, // [15:22] is the sub-list for method output_type
-	8,  // [8:15] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	0,  // 8: content.ContentDetail.content_type:type_name -> content.ContentType
+	20, // 9: content.GetContentDetailRes.detail:type_name -> content.ContentDetail
+	22, // 10: content.GetUploadCredentialsRes.form_data:type_name -> content.OssFormData
+	3,  // 11: content.ContentService.PublishArticle:input_type -> content.ArticlePublishReq
+	5,  // 12: content.ContentService.PublishVideo:input_type -> content.VideoPublishReq
+	7,  // 13: content.ContentService.BackfillFollowInbox:input_type -> content.BackfillFollowInboxReq
+	23, // 14: content.ContentService.GetUploadCredentials:input_type -> content.GetUploadCredentialsReq
+	19, // 15: content.ContentService.GetContentDetail:input_type -> content.GetContentDetailReq
+	25, // 16: content.ContentService.EditArticle:input_type -> content.EditArticleReq
+	27, // 17: content.ContentService.EditVideo:input_type -> content.EditVideoReq
+	29, // 18: content.ContentService.DeleteContent:input_type -> content.DeleteContentReq
+	9,  // 19: content.FeedService.RecommendFeed:input_type -> content.RecommendFeedReq
+	11, // 20: content.FeedService.FollowFeed:input_type -> content.FollowFeedReq
+	13, // 21: content.FeedService.UserPublishFeed:input_type -> content.UserPublishFeedReq
+	15, // 22: content.FeedService.UserFavoriteFeed:input_type -> content.UserFavoriteFeedReq
+	4,  // 23: content.ContentService.PublishArticle:output_type -> content.ArticlePublishRes
+	6,  // 24: content.ContentService.PublishVideo:output_type -> content.VideoPublishRes
+	8,  // 25: content.ContentService.BackfillFollowInbox:output_type -> content.BackfillFollowInboxRes
+	24, // 26: content.ContentService.GetUploadCredentials:output_type -> content.GetUploadCredentialsRes
+	21, // 27: content.ContentService.GetContentDetail:output_type -> content.GetContentDetailRes
+	26, // 28: content.ContentService.EditArticle:output_type -> content.EditArticleRes
+	28, // 29: content.ContentService.EditVideo:output_type -> content.EditVideoRes
+	30, // 30: content.ContentService.DeleteContent:output_type -> content.DeleteContentRes
+	10, // 31: content.FeedService.RecommendFeed:output_type -> content.RecommendFeedRes
+	12, // 32: content.FeedService.FollowFeed:output_type -> content.FollowFeedRes
+	14, // 33: content.FeedService.UserPublishFeed:output_type -> content.UserPublishFeedRes
+	16, // 34: content.FeedService.UserFavoriteFeed:output_type -> content.UserFavoriteFeedRes
+	23, // [23:35] is the sub-list for method output_type
+	11, // [11:23] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_app_rpc_content_proto_content_proto_init() }
@@ -1511,13 +2499,16 @@ func file_app_rpc_content_proto_content_proto_init() {
 	file_app_rpc_content_proto_content_proto_msgTypes[6].OneofWrappers = []any{}
 	file_app_rpc_content_proto_content_proto_msgTypes[10].OneofWrappers = []any{}
 	file_app_rpc_content_proto_content_proto_msgTypes[12].OneofWrappers = []any{}
+	file_app_rpc_content_proto_content_proto_msgTypes[16].OneofWrappers = []any{}
+	file_app_rpc_content_proto_content_proto_msgTypes[22].OneofWrappers = []any{}
+	file_app_rpc_content_proto_content_proto_msgTypes[24].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_rpc_content_proto_content_proto_rawDesc), len(file_app_rpc_content_proto_content_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   16,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

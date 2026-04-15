@@ -28,6 +28,8 @@ message UserInfo {
   string bio = 6;
   Gender gender = 7;
   UserStatus status = 8;
+  string email = 9;
+  int64 birthday = 10;
 }
 
 // 用户主页资料
@@ -94,6 +96,20 @@ message GetMeRes {
   int64 favorite_received_count = 5;
 }
 
+message UpdateProfileReq {
+  int64 user_id = 1;
+  optional string nickname = 2;
+  optional string avatar = 3;
+  optional string bio = 4;
+  optional Gender gender = 5;
+  optional string email = 6;
+  optional int64 birthday = 7;
+}
+
+message UpdateProfileRes {
+  UserInfo user_info = 1;
+}
+
 // 根据 user_id 查询单个用户
 message GetUserReq {
   int64 user_id = 1;
@@ -126,6 +142,7 @@ service UserService {
   rpc Login(LoginReq) returns (LoginRes);
   rpc Logout(LogoutReq) returns (LogoutRes);
   rpc GetMe(GetMeReq) returns (GetMeRes);
+  rpc UpdateProfile(UpdateProfileReq) returns (UpdateProfileRes);
   rpc GetUser(GetUserReq) returns (GetUserRes);
   rpc GetUserProfile(GetUserProfileReq) returns (GetUserProfileRes);
   rpc BatchGetUser(BatchGetUserReq) returns (BatchGetUserRes);

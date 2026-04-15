@@ -42,6 +42,26 @@ func (f *fakeContentService) BackfillFollowInbox(ctx context.Context, in *conten
 	return f.backfillFunc(ctx, in, opts...)
 }
 
+func (f *fakeContentService) GetUploadCredentials(context.Context, *contentpb.GetUploadCredentialsReq, ...grpc.CallOption) (*contentpb.GetUploadCredentialsRes, error) {
+	return nil, errors.New("unexpected GetUploadCredentials call")
+}
+
+func (f *fakeContentService) GetContentDetail(context.Context, *contentpb.GetContentDetailReq, ...grpc.CallOption) (*contentpb.GetContentDetailRes, error) {
+	return nil, errors.New("unexpected GetContentDetail call")
+}
+
+func (f *fakeContentService) EditArticle(context.Context, *contentpb.EditArticleReq, ...grpc.CallOption) (*contentpb.EditArticleRes, error) {
+	return nil, errors.New("unexpected EditArticle call")
+}
+
+func (f *fakeContentService) EditVideo(context.Context, *contentpb.EditVideoReq, ...grpc.CallOption) (*contentpb.EditVideoRes, error) {
+	return nil, errors.New("unexpected EditVideo call")
+}
+
+func (f *fakeContentService) DeleteContent(context.Context, *contentpb.DeleteContentReq, ...grpc.CallOption) (*contentpb.DeleteContentRes, error) {
+	return nil, errors.New("unexpected DeleteContent call")
+}
+
 func newFollowTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 

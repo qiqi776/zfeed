@@ -132,6 +132,8 @@ type UserInfo struct {
 	Bio           string                 `protobuf:"bytes,6,opt,name=bio,proto3" json:"bio,omitempty"`
 	Gender        Gender                 `protobuf:"varint,7,opt,name=gender,proto3,enum=user.Gender" json:"gender,omitempty"`
 	Status        UserStatus             `protobuf:"varint,8,opt,name=status,proto3,enum=user.UserStatus" json:"status,omitempty"`
+	Email         string                 `protobuf:"bytes,9,opt,name=email,proto3" json:"email,omitempty"`
+	Birthday      int64                  `protobuf:"varint,10,opt,name=birthday,proto3" json:"birthday,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -220,6 +222,20 @@ func (x *UserInfo) GetStatus() UserStatus {
 		return x.Status
 	}
 	return UserStatus_USER_STATUS_UNKNOWN
+}
+
+func (x *UserInfo) GetEmail() string {
+	if x != nil {
+		return x.Email
+	}
+	return ""
+}
+
+func (x *UserInfo) GetBirthday() int64 {
+	if x != nil {
+		return x.Birthday
+	}
+	return 0
 }
 
 // 用户主页资料
@@ -807,6 +823,142 @@ func (x *GetMeRes) GetFavoriteReceivedCount() int64 {
 	return 0
 }
 
+type UpdateProfileReq struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Nickname      *string                `protobuf:"bytes,2,opt,name=nickname,proto3,oneof" json:"nickname,omitempty"`
+	Avatar        *string                `protobuf:"bytes,3,opt,name=avatar,proto3,oneof" json:"avatar,omitempty"`
+	Bio           *string                `protobuf:"bytes,4,opt,name=bio,proto3,oneof" json:"bio,omitempty"`
+	Gender        *Gender                `protobuf:"varint,5,opt,name=gender,proto3,enum=user.Gender,oneof" json:"gender,omitempty"`
+	Email         *string                `protobuf:"bytes,6,opt,name=email,proto3,oneof" json:"email,omitempty"`
+	Birthday      *int64                 `protobuf:"varint,7,opt,name=birthday,proto3,oneof" json:"birthday,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateProfileReq) Reset() {
+	*x = UpdateProfileReq{}
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateProfileReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateProfileReq) ProtoMessage() {}
+
+func (x *UpdateProfileReq) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateProfileReq.ProtoReflect.Descriptor instead.
+func (*UpdateProfileReq) Descriptor() ([]byte, []int) {
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *UpdateProfileReq) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *UpdateProfileReq) GetNickname() string {
+	if x != nil && x.Nickname != nil {
+		return *x.Nickname
+	}
+	return ""
+}
+
+func (x *UpdateProfileReq) GetAvatar() string {
+	if x != nil && x.Avatar != nil {
+		return *x.Avatar
+	}
+	return ""
+}
+
+func (x *UpdateProfileReq) GetBio() string {
+	if x != nil && x.Bio != nil {
+		return *x.Bio
+	}
+	return ""
+}
+
+func (x *UpdateProfileReq) GetGender() Gender {
+	if x != nil && x.Gender != nil {
+		return *x.Gender
+	}
+	return Gender_GENDER_UNKNOWN
+}
+
+func (x *UpdateProfileReq) GetEmail() string {
+	if x != nil && x.Email != nil {
+		return *x.Email
+	}
+	return ""
+}
+
+func (x *UpdateProfileReq) GetBirthday() int64 {
+	if x != nil && x.Birthday != nil {
+		return *x.Birthday
+	}
+	return 0
+}
+
+type UpdateProfileRes struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserInfo      *UserInfo              `protobuf:"bytes,1,opt,name=user_info,json=userInfo,proto3" json:"user_info,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateProfileRes) Reset() {
+	*x = UpdateProfileRes{}
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateProfileRes) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateProfileRes) ProtoMessage() {}
+
+func (x *UpdateProfileRes) ProtoReflect() protoreflect.Message {
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateProfileRes.ProtoReflect.Descriptor instead.
+func (*UpdateProfileRes) Descriptor() ([]byte, []int) {
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *UpdateProfileRes) GetUserInfo() *UserInfo {
+	if x != nil {
+		return x.UserInfo
+	}
+	return nil
+}
+
 // 根据 user_id 查询单个用户
 type GetUserReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -817,7 +969,7 @@ type GetUserReq struct {
 
 func (x *GetUserReq) Reset() {
 	*x = GetUserReq{}
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[10]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -829,7 +981,7 @@ func (x *GetUserReq) String() string {
 func (*GetUserReq) ProtoMessage() {}
 
 func (x *GetUserReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[10]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -842,7 +994,7 @@ func (x *GetUserReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserReq.ProtoReflect.Descriptor instead.
 func (*GetUserReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{10}
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetUserReq) GetUserId() int64 {
@@ -861,7 +1013,7 @@ type GetUserRes struct {
 
 func (x *GetUserRes) Reset() {
 	*x = GetUserRes{}
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[11]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -873,7 +1025,7 @@ func (x *GetUserRes) String() string {
 func (*GetUserRes) ProtoMessage() {}
 
 func (x *GetUserRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[11]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -886,7 +1038,7 @@ func (x *GetUserRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserRes.ProtoReflect.Descriptor instead.
 func (*GetUserRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{11}
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetUserRes) GetUserInfo() *UserInfo {
@@ -906,7 +1058,7 @@ type GetUserProfileReq struct {
 
 func (x *GetUserProfileReq) Reset() {
 	*x = GetUserProfileReq{}
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[12]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -918,7 +1070,7 @@ func (x *GetUserProfileReq) String() string {
 func (*GetUserProfileReq) ProtoMessage() {}
 
 func (x *GetUserProfileReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[12]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -931,7 +1083,7 @@ func (x *GetUserProfileReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserProfileReq.ProtoReflect.Descriptor instead.
 func (*GetUserProfileReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{12}
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetUserProfileReq) GetUserId() int64 {
@@ -950,7 +1102,7 @@ type GetUserProfileRes struct {
 
 func (x *GetUserProfileRes) Reset() {
 	*x = GetUserProfileRes{}
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[13]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -962,7 +1114,7 @@ func (x *GetUserProfileRes) String() string {
 func (*GetUserProfileRes) ProtoMessage() {}
 
 func (x *GetUserProfileRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[13]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -975,7 +1127,7 @@ func (x *GetUserProfileRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUserProfileRes.ProtoReflect.Descriptor instead.
 func (*GetUserProfileRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{13}
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetUserProfileRes) GetUserProfile() *UserProfile {
@@ -995,7 +1147,7 @@ type BatchGetUserReq struct {
 
 func (x *BatchGetUserReq) Reset() {
 	*x = BatchGetUserReq{}
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[14]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1007,7 +1159,7 @@ func (x *BatchGetUserReq) String() string {
 func (*BatchGetUserReq) ProtoMessage() {}
 
 func (x *BatchGetUserReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[14]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1020,7 +1172,7 @@ func (x *BatchGetUserReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetUserReq.ProtoReflect.Descriptor instead.
 func (*BatchGetUserReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{14}
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *BatchGetUserReq) GetUserIds() []int64 {
@@ -1039,7 +1191,7 @@ type BatchGetUserRes struct {
 
 func (x *BatchGetUserRes) Reset() {
 	*x = BatchGetUserRes{}
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[15]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1051,7 +1203,7 @@ func (x *BatchGetUserRes) String() string {
 func (*BatchGetUserRes) ProtoMessage() {}
 
 func (x *BatchGetUserRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_user_proto_user_proto_msgTypes[15]
+	mi := &file_app_rpc_user_proto_user_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1064,7 +1216,7 @@ func (x *BatchGetUserRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchGetUserRes.ProtoReflect.Descriptor instead.
 func (*BatchGetUserRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{15}
+	return file_app_rpc_user_proto_user_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *BatchGetUserRes) GetUsers() []*UserInfo {
@@ -1078,7 +1230,7 @@ var File_app_rpc_user_proto_user_proto protoreflect.FileDescriptor
 
 const file_app_rpc_user_proto_user_proto_rawDesc = "" +
 	"\n" +
-	"\x1dapp/rpc/user/proto/user.proto\x12\x04user\"\xed\x01\n" +
+	"\x1dapp/rpc/user/proto/user.proto\x12\x04user\"\x9f\x02\n" +
 	"\bUserInfo\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x16\n" +
@@ -1087,7 +1239,10 @@ const file_app_rpc_user_proto_user_proto_rawDesc = "" +
 	"\x06avatar\x18\x05 \x01(\tR\x06avatar\x12\x10\n" +
 	"\x03bio\x18\x06 \x01(\tR\x03bio\x12$\n" +
 	"\x06gender\x18\a \x01(\x0e2\f.user.GenderR\x06gender\x12(\n" +
-	"\x06status\x18\b \x01(\x0e2\x10.user.UserStatusR\x06status\"\xbc\x01\n" +
+	"\x06status\x18\b \x01(\x0e2\x10.user.UserStatusR\x06status\x12\x14\n" +
+	"\x05email\x18\t \x01(\tR\x05email\x12\x1a\n" +
+	"\bbirthday\x18\n" +
+	" \x01(\x03R\bbirthday\"\xbc\x01\n" +
 	"\vUserProfile\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x16\n" +
@@ -1131,7 +1286,23 @@ const file_app_rpc_user_proto_user_proto_rawDesc = "" +
 	"\x0efollowee_count\x18\x02 \x01(\x03R\rfolloweeCount\x12%\n" +
 	"\x0efollower_count\x18\x03 \x01(\x03R\rfollowerCount\x12.\n" +
 	"\x13like_received_count\x18\x04 \x01(\x03R\x11likeReceivedCount\x126\n" +
-	"\x17favorite_received_count\x18\x05 \x01(\x03R\x15favoriteReceivedCount\"%\n" +
+	"\x17favorite_received_count\x18\x05 \x01(\x03R\x15favoriteReceivedCount\"\xa9\x02\n" +
+	"\x10UpdateProfileReq\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1f\n" +
+	"\bnickname\x18\x02 \x01(\tH\x00R\bnickname\x88\x01\x01\x12\x1b\n" +
+	"\x06avatar\x18\x03 \x01(\tH\x01R\x06avatar\x88\x01\x01\x12\x15\n" +
+	"\x03bio\x18\x04 \x01(\tH\x02R\x03bio\x88\x01\x01\x12)\n" +
+	"\x06gender\x18\x05 \x01(\x0e2\f.user.GenderH\x03R\x06gender\x88\x01\x01\x12\x19\n" +
+	"\x05email\x18\x06 \x01(\tH\x04R\x05email\x88\x01\x01\x12\x1f\n" +
+	"\bbirthday\x18\a \x01(\x03H\x05R\bbirthday\x88\x01\x01B\v\n" +
+	"\t_nicknameB\t\n" +
+	"\a_avatarB\x06\n" +
+	"\x04_bioB\t\n" +
+	"\a_genderB\b\n" +
+	"\x06_emailB\v\n" +
+	"\t_birthday\"?\n" +
+	"\x10UpdateProfileRes\x12+\n" +
+	"\tuser_info\x18\x01 \x01(\v2\x0e.user.UserInfoR\buserInfo\"%\n" +
 	"\n" +
 	"GetUserReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\"9\n" +
@@ -1155,12 +1326,13 @@ const file_app_rpc_user_proto_user_proto_rawDesc = "" +
 	"\x13USER_STATUS_UNKNOWN\x10\x00\x12\x16\n" +
 	"\x12USER_STATUS_ACTIVE\x10\n" +
 	"\x12\x18\n" +
-	"\x14USER_STATUS_DISABLED\x10\x142\xee\x02\n" +
+	"\x14USER_STATUS_DISABLED\x10\x142\xaf\x03\n" +
 	"\vUserService\x120\n" +
 	"\bRegister\x12\x11.user.RegisterReq\x1a\x11.user.RegisterRes\x12'\n" +
 	"\x05Login\x12\x0e.user.LoginReq\x1a\x0e.user.LoginRes\x12*\n" +
 	"\x06Logout\x12\x0f.user.LogoutReq\x1a\x0f.user.LogoutRes\x12'\n" +
-	"\x05GetMe\x12\x0e.user.GetMeReq\x1a\x0e.user.GetMeRes\x12-\n" +
+	"\x05GetMe\x12\x0e.user.GetMeReq\x1a\x0e.user.GetMeRes\x12?\n" +
+	"\rUpdateProfile\x12\x16.user.UpdateProfileReq\x1a\x16.user.UpdateProfileRes\x12-\n" +
 	"\aGetUser\x12\x10.user.GetUserReq\x1a\x10.user.GetUserRes\x12B\n" +
 	"\x0eGetUserProfile\x12\x17.user.GetUserProfileReq\x1a\x17.user.GetUserProfileRes\x12<\n" +
 	"\fBatchGetUser\x12\x15.user.BatchGetUserReq\x1a\x15.user.BatchGetUserResB\bZ\x06./userb\x06proto3"
@@ -1178,7 +1350,7 @@ func file_app_rpc_user_proto_user_proto_rawDescGZIP() []byte {
 }
 
 var file_app_rpc_user_proto_user_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_app_rpc_user_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_app_rpc_user_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_app_rpc_user_proto_user_proto_goTypes = []any{
 	(Gender)(0),               // 0: user.Gender
 	(UserStatus)(0),           // 1: user.UserStatus
@@ -1192,12 +1364,14 @@ var file_app_rpc_user_proto_user_proto_goTypes = []any{
 	(*LogoutRes)(nil),         // 9: user.LogoutRes
 	(*GetMeReq)(nil),          // 10: user.GetMeReq
 	(*GetMeRes)(nil),          // 11: user.GetMeRes
-	(*GetUserReq)(nil),        // 12: user.GetUserReq
-	(*GetUserRes)(nil),        // 13: user.GetUserRes
-	(*GetUserProfileReq)(nil), // 14: user.GetUserProfileReq
-	(*GetUserProfileRes)(nil), // 15: user.GetUserProfileRes
-	(*BatchGetUserReq)(nil),   // 16: user.BatchGetUserReq
-	(*BatchGetUserRes)(nil),   // 17: user.BatchGetUserRes
+	(*UpdateProfileReq)(nil),  // 12: user.UpdateProfileReq
+	(*UpdateProfileRes)(nil),  // 13: user.UpdateProfileRes
+	(*GetUserReq)(nil),        // 14: user.GetUserReq
+	(*GetUserRes)(nil),        // 15: user.GetUserRes
+	(*GetUserProfileReq)(nil), // 16: user.GetUserProfileReq
+	(*GetUserProfileRes)(nil), // 17: user.GetUserProfileRes
+	(*BatchGetUserReq)(nil),   // 18: user.BatchGetUserReq
+	(*BatchGetUserRes)(nil),   // 19: user.BatchGetUserRes
 }
 var file_app_rpc_user_proto_user_proto_depIdxs = []int32{
 	0,  // 0: user.UserInfo.gender:type_name -> user.Gender
@@ -1206,28 +1380,32 @@ var file_app_rpc_user_proto_user_proto_depIdxs = []int32{
 	1,  // 3: user.UserProfile.status:type_name -> user.UserStatus
 	0,  // 4: user.RegisterReq.gender:type_name -> user.Gender
 	2,  // 5: user.GetMeRes.user_info:type_name -> user.UserInfo
-	2,  // 6: user.GetUserRes.user_info:type_name -> user.UserInfo
-	3,  // 7: user.GetUserProfileRes.user_profile:type_name -> user.UserProfile
-	2,  // 8: user.BatchGetUserRes.users:type_name -> user.UserInfo
-	4,  // 9: user.UserService.Register:input_type -> user.RegisterReq
-	6,  // 10: user.UserService.Login:input_type -> user.LoginReq
-	8,  // 11: user.UserService.Logout:input_type -> user.LogoutReq
-	10, // 12: user.UserService.GetMe:input_type -> user.GetMeReq
-	12, // 13: user.UserService.GetUser:input_type -> user.GetUserReq
-	14, // 14: user.UserService.GetUserProfile:input_type -> user.GetUserProfileReq
-	16, // 15: user.UserService.BatchGetUser:input_type -> user.BatchGetUserReq
-	5,  // 16: user.UserService.Register:output_type -> user.RegisterRes
-	7,  // 17: user.UserService.Login:output_type -> user.LoginRes
-	9,  // 18: user.UserService.Logout:output_type -> user.LogoutRes
-	11, // 19: user.UserService.GetMe:output_type -> user.GetMeRes
-	13, // 20: user.UserService.GetUser:output_type -> user.GetUserRes
-	15, // 21: user.UserService.GetUserProfile:output_type -> user.GetUserProfileRes
-	17, // 22: user.UserService.BatchGetUser:output_type -> user.BatchGetUserRes
-	16, // [16:23] is the sub-list for method output_type
-	9,  // [9:16] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	0,  // 6: user.UpdateProfileReq.gender:type_name -> user.Gender
+	2,  // 7: user.UpdateProfileRes.user_info:type_name -> user.UserInfo
+	2,  // 8: user.GetUserRes.user_info:type_name -> user.UserInfo
+	3,  // 9: user.GetUserProfileRes.user_profile:type_name -> user.UserProfile
+	2,  // 10: user.BatchGetUserRes.users:type_name -> user.UserInfo
+	4,  // 11: user.UserService.Register:input_type -> user.RegisterReq
+	6,  // 12: user.UserService.Login:input_type -> user.LoginReq
+	8,  // 13: user.UserService.Logout:input_type -> user.LogoutReq
+	10, // 14: user.UserService.GetMe:input_type -> user.GetMeReq
+	12, // 15: user.UserService.UpdateProfile:input_type -> user.UpdateProfileReq
+	14, // 16: user.UserService.GetUser:input_type -> user.GetUserReq
+	16, // 17: user.UserService.GetUserProfile:input_type -> user.GetUserProfileReq
+	18, // 18: user.UserService.BatchGetUser:input_type -> user.BatchGetUserReq
+	5,  // 19: user.UserService.Register:output_type -> user.RegisterRes
+	7,  // 20: user.UserService.Login:output_type -> user.LoginRes
+	9,  // 21: user.UserService.Logout:output_type -> user.LogoutRes
+	11, // 22: user.UserService.GetMe:output_type -> user.GetMeRes
+	13, // 23: user.UserService.UpdateProfile:output_type -> user.UpdateProfileRes
+	15, // 24: user.UserService.GetUser:output_type -> user.GetUserRes
+	17, // 25: user.UserService.GetUserProfile:output_type -> user.GetUserProfileRes
+	19, // 26: user.UserService.BatchGetUser:output_type -> user.BatchGetUserRes
+	19, // [19:27] is the sub-list for method output_type
+	11, // [11:19] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_app_rpc_user_proto_user_proto_init() }
@@ -1236,13 +1414,14 @@ func file_app_rpc_user_proto_user_proto_init() {
 		return
 	}
 	file_app_rpc_user_proto_user_proto_msgTypes[2].OneofWrappers = []any{}
+	file_app_rpc_user_proto_user_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_rpc_user_proto_user_proto_rawDesc), len(file_app_rpc_user_proto_user_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

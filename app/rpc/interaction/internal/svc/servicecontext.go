@@ -10,6 +10,7 @@ import (
 	"zfeed/app/rpc/interaction/internal/config"
 	"zfeed/app/rpc/interaction/internal/mq/producer"
 	"zfeed/app/rpc/user/client/userservice"
+	"zfeed/pkg/grpcx"
 	"zfeed/orm"
 )
 
@@ -34,8 +35,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if maxRetries <= 0 {
 		maxRetries = 3
 	}
-	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf)
-	contentRpcClient := zrpc.MustNewClient(c.ContentRpcClientConf)
+	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf, grpcx.ClientInterceptorOption())
+	contentRpcClient := zrpc.MustNewClient(c.ContentRpcClientConf, grpcx.ClientInterceptorOption())
 
 	return &ServiceContext{
 		Config:       c,

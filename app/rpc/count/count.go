@@ -11,6 +11,7 @@ import (
 	"zfeed/app/rpc/count/internal/server"
 	"zfeed/app/rpc/count/internal/svc"
 	"zfeed/pkg/envx"
+	"zfeed/pkg/grpcx"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -37,6 +38,7 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+	grpcx.InstallServerInterceptors(s)
 	defer s.Stop()
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)

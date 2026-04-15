@@ -43,6 +43,11 @@ func (s *UserServiceServer) GetMe(ctx context.Context, in *user.GetMeReq) (*user
 	return l.GetMe(in)
 }
 
+func (s *UserServiceServer) UpdateProfile(ctx context.Context, in *user.UpdateProfileReq) (*user.UpdateProfileRes, error) {
+	l := logic.NewUpdateProfileLogic(ctx, s.svcCtx)
+	return l.UpdateProfile(in)
+}
+
 func (s *UserServiceServer) GetUser(ctx context.Context, in *user.GetUserReq) (*user.GetUserRes, error) {
 	l := logic.NewGetUserLogic(ctx, s.svcCtx)
 	return l.GetUser(in)

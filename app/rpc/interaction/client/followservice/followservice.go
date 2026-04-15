@@ -14,55 +14,63 @@ import (
 )
 
 type (
-	BatchGetCommentsReq   = interaction.BatchGetCommentsReq
-	BatchGetCommentsRes   = interaction.BatchGetCommentsRes
-	BatchQueryIsLikedReq  = interaction.BatchQueryIsLikedReq
-	BatchQueryIsLikedRes  = interaction.BatchQueryIsLikedRes
-	BatchQueryLikeInfoReq = interaction.BatchQueryLikeInfoReq
-	BatchQueryLikeInfoRes = interaction.BatchQueryLikeInfoRes
-	CommentItem           = interaction.CommentItem
-	CommentReq            = interaction.CommentReq
-	CommentRes            = interaction.CommentRes
-	DeleteCommentReq      = interaction.DeleteCommentReq
-	DeleteCommentRes      = interaction.DeleteCommentRes
-	FavoriteItem          = interaction.FavoriteItem
-	FavoriteReq           = interaction.FavoriteReq
-	FavoriteRes           = interaction.FavoriteRes
-	FollowUserReq         = interaction.FollowUserReq
-	FollowUserRes         = interaction.FollowUserRes
-	GetFollowSummaryReq   = interaction.GetFollowSummaryReq
-	GetFollowSummaryRes   = interaction.GetFollowSummaryRes
-	IsLikedInfo           = interaction.IsLikedInfo
-	LikeInfo              = interaction.LikeInfo
-	LikeReq               = interaction.LikeReq
-	LikeRes               = interaction.LikeRes
-	ListFolloweesReq      = interaction.ListFolloweesReq
-	ListFolloweesRes      = interaction.ListFolloweesRes
-	PageReq               = interaction.PageReq
-	PageRes               = interaction.PageRes
-	QueryCommentListReq   = interaction.QueryCommentListReq
-	QueryCommentListRes   = interaction.QueryCommentListRes
-	QueryFavoriteInfoReq  = interaction.QueryFavoriteInfoReq
-	QueryFavoriteInfoRes  = interaction.QueryFavoriteInfoRes
-	QueryFavoriteListReq  = interaction.QueryFavoriteListReq
-	QueryFavoriteListRes  = interaction.QueryFavoriteListRes
-	QueryLikeInfoReq      = interaction.QueryLikeInfoReq
-	QueryLikeInfoRes      = interaction.QueryLikeInfoRes
-	QueryReplyListReq     = interaction.QueryReplyListReq
-	QueryReplyListRes     = interaction.QueryReplyListRes
-	RefillCommentCacheReq = interaction.RefillCommentCacheReq
-	RefillCommentCacheRes = interaction.RefillCommentCacheRes
-	RemoveFavoriteReq     = interaction.RemoveFavoriteReq
-	RemoveFavoriteRes     = interaction.RemoveFavoriteRes
-	UnfollowUserReq       = interaction.UnfollowUserReq
-	UnfollowUserRes       = interaction.UnfollowUserRes
-	UnlikeReq             = interaction.UnlikeReq
-	UnlikeRes             = interaction.UnlikeRes
+	BatchGetCommentsReq    = interaction.BatchGetCommentsReq
+	BatchGetCommentsRes    = interaction.BatchGetCommentsRes
+	BatchQueryFollowingReq = interaction.BatchQueryFollowingReq
+	BatchQueryFollowingRes = interaction.BatchQueryFollowingRes
+	BatchQueryIsLikedReq   = interaction.BatchQueryIsLikedReq
+	BatchQueryIsLikedRes   = interaction.BatchQueryIsLikedRes
+	BatchQueryLikeInfoReq  = interaction.BatchQueryLikeInfoReq
+	BatchQueryLikeInfoRes  = interaction.BatchQueryLikeInfoRes
+	CommentItem            = interaction.CommentItem
+	CommentReq             = interaction.CommentReq
+	CommentRes             = interaction.CommentRes
+	DeleteCommentReq       = interaction.DeleteCommentReq
+	DeleteCommentRes       = interaction.DeleteCommentRes
+	FavoriteItem           = interaction.FavoriteItem
+	FavoriteReq            = interaction.FavoriteReq
+	FavoriteRes            = interaction.FavoriteRes
+	FollowUserReq          = interaction.FollowUserReq
+	FollowUserRes          = interaction.FollowUserRes
+	FollowerProfile        = interaction.FollowerProfile
+	FollowingState         = interaction.FollowingState
+	GetFollowSummaryReq    = interaction.GetFollowSummaryReq
+	GetFollowSummaryRes    = interaction.GetFollowSummaryRes
+	IsLikedInfo            = interaction.IsLikedInfo
+	LikeInfo               = interaction.LikeInfo
+	LikeReq                = interaction.LikeReq
+	LikeRes                = interaction.LikeRes
+	ListFolloweesReq       = interaction.ListFolloweesReq
+	ListFolloweesRes       = interaction.ListFolloweesRes
+	ListFollowersReq       = interaction.ListFollowersReq
+	ListFollowersRes       = interaction.ListFollowersRes
+	PageReq                = interaction.PageReq
+	PageRes                = interaction.PageRes
+	QueryCommentListReq    = interaction.QueryCommentListReq
+	QueryCommentListRes    = interaction.QueryCommentListRes
+	QueryFavoriteInfoReq   = interaction.QueryFavoriteInfoReq
+	QueryFavoriteInfoRes   = interaction.QueryFavoriteInfoRes
+	QueryFavoriteListReq   = interaction.QueryFavoriteListReq
+	QueryFavoriteListRes   = interaction.QueryFavoriteListRes
+	QueryLikeInfoReq       = interaction.QueryLikeInfoReq
+	QueryLikeInfoRes       = interaction.QueryLikeInfoRes
+	QueryReplyListReq      = interaction.QueryReplyListReq
+	QueryReplyListRes      = interaction.QueryReplyListRes
+	RefillCommentCacheReq  = interaction.RefillCommentCacheReq
+	RefillCommentCacheRes  = interaction.RefillCommentCacheRes
+	RemoveFavoriteReq      = interaction.RemoveFavoriteReq
+	RemoveFavoriteRes      = interaction.RemoveFavoriteRes
+	UnfollowUserReq        = interaction.UnfollowUserReq
+	UnfollowUserRes        = interaction.UnfollowUserRes
+	UnlikeReq              = interaction.UnlikeReq
+	UnlikeRes              = interaction.UnlikeRes
 
 	FollowService interface {
 		FollowUser(ctx context.Context, in *FollowUserReq, opts ...grpc.CallOption) (*FollowUserRes, error)
 		UnfollowUser(ctx context.Context, in *UnfollowUserReq, opts ...grpc.CallOption) (*UnfollowUserRes, error)
 		ListFollowees(ctx context.Context, in *ListFolloweesReq, opts ...grpc.CallOption) (*ListFolloweesRes, error)
+		ListFollowers(ctx context.Context, in *ListFollowersReq, opts ...grpc.CallOption) (*ListFollowersRes, error)
+		BatchQueryFollowing(ctx context.Context, in *BatchQueryFollowingReq, opts ...grpc.CallOption) (*BatchQueryFollowingRes, error)
 		GetFollowSummary(ctx context.Context, in *GetFollowSummaryReq, opts ...grpc.CallOption) (*GetFollowSummaryRes, error)
 	}
 
@@ -90,6 +98,16 @@ func (m *defaultFollowService) UnfollowUser(ctx context.Context, in *UnfollowUse
 func (m *defaultFollowService) ListFollowees(ctx context.Context, in *ListFolloweesReq, opts ...grpc.CallOption) (*ListFolloweesRes, error) {
 	client := interaction.NewFollowServiceClient(m.cli.Conn())
 	return client.ListFollowees(ctx, in, opts...)
+}
+
+func (m *defaultFollowService) ListFollowers(ctx context.Context, in *ListFollowersReq, opts ...grpc.CallOption) (*ListFollowersRes, error) {
+	client := interaction.NewFollowServiceClient(m.cli.Conn())
+	return client.ListFollowers(ctx, in, opts...)
+}
+
+func (m *defaultFollowService) BatchQueryFollowing(ctx context.Context, in *BatchQueryFollowingReq, opts ...grpc.CallOption) (*BatchQueryFollowingRes, error) {
+	client := interaction.NewFollowServiceClient(m.cli.Conn())
+	return client.BatchQueryFollowing(ctx, in, opts...)
 }
 
 func (m *defaultFollowService) GetFollowSummary(ctx context.Context, in *GetFollowSummaryReq, opts ...grpc.CallOption) (*GetFollowSummaryRes, error) {

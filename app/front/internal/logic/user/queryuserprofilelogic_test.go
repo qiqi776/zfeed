@@ -136,6 +136,7 @@ func TestQueryUserProfileFailsWhenUserRPCFails(t *testing.T) {
 type stubUserService struct {
 	profile *userservice.GetUserProfileRes
 	me      *userservice.GetMeRes
+	update  *userservice.UpdateProfileRes
 	err     error
 }
 
@@ -156,6 +157,16 @@ func (s *stubUserService) GetMe(ctx context.Context, in *userservice.GetMeReq, o
 		return nil, s.err
 	}
 	return s.me, nil
+}
+
+func (s *stubUserService) UpdateProfile(ctx context.Context, in *userservice.UpdateProfileReq, opts ...grpc.CallOption) (*userservice.UpdateProfileRes, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.update == nil {
+		return &userservice.UpdateProfileRes{}, nil
+	}
+	return s.update, nil
 }
 
 func (s *stubUserService) GetUser(ctx context.Context, in *userservice.GetUserReq, opts ...grpc.CallOption) (*userservice.GetUserRes, error) {

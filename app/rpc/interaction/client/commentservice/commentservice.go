@@ -30,6 +30,7 @@ type (
 	FavoriteRes           = interaction.FavoriteRes
 	FollowUserReq         = interaction.FollowUserReq
 	FollowUserRes         = interaction.FollowUserRes
+	FollowerProfile       = interaction.FollowerProfile
 	GetFollowSummaryReq   = interaction.GetFollowSummaryReq
 	GetFollowSummaryRes   = interaction.GetFollowSummaryRes
 	IsLikedInfo           = interaction.IsLikedInfo
@@ -38,6 +39,8 @@ type (
 	LikeRes               = interaction.LikeRes
 	ListFolloweesReq      = interaction.ListFolloweesReq
 	ListFolloweesRes      = interaction.ListFolloweesRes
+	ListFollowersReq      = interaction.ListFollowersReq
+	ListFollowersRes      = interaction.ListFollowersRes
 	PageReq               = interaction.PageReq
 	PageRes               = interaction.PageRes
 	QueryCommentListReq   = interaction.QueryCommentListReq

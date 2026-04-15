@@ -1,23 +1,19 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package user
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
+
+	contentservice "zfeed/app/rpc/content/contentservice"
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
 	"zfeed/pkg/errorx"
 
-	"github.com/google/uuid"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -35,12 +31,9 @@ func NewUploadAvatarLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Uplo
 	}
 }
 
-func (l *UploadAvatarLogic) UploadAvatar(r *http.Request) (resp *types.UploadAvatarRes, err error) {
+func (l *UploadAvatarLogic) UploadAvatar(r *http.Request) (*types.UploadAvatarRes, error) {
 	if r == nil {
 		return nil, errorx.NewBadRequest("参数错误")
-	}
-	if strings.TrimSpace(l.svcCtx.Config.Oss.UploadDir) == "" {
-		return nil, errorx.NewInternal("上传目录未配置")
 	}
 
 	if err := r.ParseMultipartForm(8 << 20); err != nil {
@@ -53,50 +46,38 @@ func (l *UploadAvatarLogic) UploadAvatar(r *http.Request) (resp *types.UploadAva
 	}
 	defer file.Close()
 
-	sniffBuf := make([]byte, 512)
-	readSize, readErr := io.ReadFull(file, sniffBuf)
-	if readErr != nil && readErr != io.ErrUnexpectedEOF && readErr != io.EOF {
-		return nil, errorx.Wrap(l.ctx, readErr, errorx.NewMsg("保存头像失败"))
-	}
-	sniffBuf = sniffBuf[:readSize]
-
-	mimeType, ext, ok := detectAvatarAsset(sniffBuf)
-	if !ok {
-		return nil, errorx.NewBadRequest("头像文件类型错误")
-	}
-
-	objectKey := buildAvatarObjectKey(ext, time.Now())
-	targetPath := filepath.Join(strings.TrimSpace(l.svcCtx.Config.Oss.UploadDir), filepath.FromSlash(objectKey))
-	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("保存头像失败"))
-	}
-
-	targetFile, err := os.Create(targetPath)
+	payload, mimeType, ext, err := readAvatarPayload(file)
 	if err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("保存头像失败"))
+		return nil, err
 	}
-	defer targetFile.Close()
 
-	if len(sniffBuf) > 0 {
-		if _, err := targetFile.Write(sniffBuf); err != nil {
-			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("保存头像失败"))
-		}
+	fileName := "avatar" + ext
+	if header != nil && strings.TrimSpace(header.Filename) != "" {
+		fileName = header.Filename
 	}
-	written, err := io.Copy(targetFile, file)
+
+	credResp, err := l.svcCtx.ContentRpc.GetUploadCredentials(l.ctx, &contentservice.GetUploadCredentialsReq{
+		Scene:    "avatar",
+		FileExt:  ext,
+		FileSize: int64(len(payload)),
+		FileName: fileName,
+	})
 	if err != nil {
-		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("保存头像失败"))
+		return nil, err
+	}
+	if credResp.GetFormData() == nil {
+		return nil, errorx.NewMsg("上传头像失败")
 	}
 
-	size := written + int64(len(sniffBuf))
-	if header != nil && header.Size > size {
-		size = header.Size
+	if err := uploadAvatarToObjectStorage(l.ctx, credResp.GetFormData(), fileName, mimeType, payload); err != nil {
+		return nil, err
 	}
 
 	return &types.UploadAvatarRes{
-		Url:       buildAvatarPublicURL(l.svcCtx.Config.Oss.PublicHost, objectKey),
-		ObjectKey: filepath.ToSlash(objectKey),
+		Url:       credResp.GetUrl(),
+		ObjectKey: credResp.GetObjectKey(),
 		Mime:      mimeType,
-		Size:      size,
+		Size:      int64(len(payload)),
 	}, nil
 }
 
@@ -108,6 +89,29 @@ func readAvatarFormFile(r *http.Request) (multipart.File, *multipart.FileHeader,
 		}
 	}
 	return nil, nil, errorx.NewBadRequest("头像文件错误")
+}
+
+func readAvatarPayload(file multipart.File) ([]byte, string, string, error) {
+	payload, err := io.ReadAll(io.LimitReader(file, 5<<20+1))
+	if err != nil {
+		return nil, "", "", errorx.NewMsg("上传头像失败")
+	}
+	if len(payload) == 0 {
+		return nil, "", "", errorx.NewBadRequest("头像文件错误")
+	}
+	if len(payload) > 5<<20 {
+		return nil, "", "", errorx.NewBadRequest("头像文件过大")
+	}
+
+	sniffLen := len(payload)
+	if sniffLen > 512 {
+		sniffLen = 512
+	}
+	mimeType, ext, ok := detectAvatarAsset(payload[:sniffLen])
+	if !ok {
+		return nil, "", "", errorx.NewBadRequest("头像文件类型错误")
+	}
+	return payload, mimeType, ext, nil
 }
 
 func detectAvatarAsset(sniff []byte) (mimeType string, ext string, ok bool) {
@@ -124,15 +128,58 @@ func detectAvatarAsset(sniff []byte) (mimeType string, ext string, ok bool) {
 	}
 }
 
-func buildAvatarObjectKey(ext string, now time.Time) string {
-	return filepath.ToSlash(filepath.Join("avatar", now.Format("2006/01/02"), uuid.NewString()+ext))
-}
+func uploadAvatarToObjectStorage(ctx context.Context, form *contentservice.OssFormData, fileName, mimeType string, payload []byte) error {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
 
-func buildAvatarPublicURL(publicHost, objectKey string) string {
-	normalizedKey := filepath.ToSlash(objectKey)
-	host := strings.TrimRight(strings.TrimSpace(publicHost), "/")
-	if host == "" {
-		return "/" + normalizedKey
+	for _, field := range []struct {
+		name  string
+		value string
+	}{
+		{name: "policy", value: form.GetPolicy()},
+		{name: "signature", value: form.GetSignature()},
+		{name: "x-oss-security-token", value: form.GetSecurityToken()},
+		{name: "x-oss-signature-version", value: form.GetSignatureVersion()},
+		{name: "x-oss-credential", value: form.GetCredential()},
+		{name: "x-oss-date", value: form.GetDate()},
+		{name: "key", value: form.GetKey()},
+	} {
+		if field.value == "" {
+			continue
+		}
+		if err := writer.WriteField(field.name, field.value); err != nil {
+			return errorx.NewMsg("上传头像失败")
+		}
 	}
-	return host + "/" + normalizedKey
+
+	part, err := writer.CreateFormFile("file", fileName)
+	if err != nil {
+		return errorx.NewMsg("上传头像失败")
+	}
+	if _, err := part.Write(payload); err != nil {
+		return errorx.NewMsg("上传头像失败")
+	}
+	if err := writer.Close(); err != nil {
+		return errorx.NewMsg("上传头像失败")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, form.GetHost(), &body)
+	if err != nil {
+		return errorx.NewMsg("上传头像失败")
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if mimeType != "" {
+		req.Header.Set("X-Upload-Content-Type", mimeType)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return errorx.Wrap(ctx, err, errorx.NewMsg("上传头像失败"))
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return nil
+	}
+	return errorx.NewMsg("上传头像失败")
 }

@@ -33,6 +33,9 @@ func TestFrontConfigLoadsWithEnv(t *testing.T) {
 	if got := cfg.RedisConfig.Host; got != "127.0.0.1:16379" {
 		t.Fatalf("unexpected redis host: %q", got)
 	}
+	if len(cfg.SearchRpcClientConf.Etcd.Hosts) != 1 || cfg.SearchRpcClientConf.Etcd.Hosts[0] != "127.0.0.1:12379" {
+		t.Fatalf("unexpected search rpc etcd hosts: %v", cfg.SearchRpcClientConf.Etcd.Hosts)
+	}
 	if cfg.Telemetry.Name != "front-api" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)
 	}

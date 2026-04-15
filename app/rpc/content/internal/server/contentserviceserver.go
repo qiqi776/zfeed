@@ -9,6 +9,7 @@ import (
 
 	"zfeed/app/rpc/content/content"
 	"zfeed/app/rpc/content/internal/logic"
+	contentservicelogic "zfeed/app/rpc/content/internal/logic/contentservice"
 	"zfeed/app/rpc/content/internal/svc"
 )
 
@@ -36,4 +37,29 @@ func (s *ContentServiceServer) PublishVideo(ctx context.Context, in *content.Vid
 func (s *ContentServiceServer) BackfillFollowInbox(ctx context.Context, in *content.BackfillFollowInboxReq) (*content.BackfillFollowInboxRes, error) {
 	l := logic.NewBackfillFollowInboxLogic(ctx, s.svcCtx)
 	return l.BackfillFollowInbox(in)
+}
+
+func (s *ContentServiceServer) GetUploadCredentials(ctx context.Context, in *content.GetUploadCredentialsReq) (*content.GetUploadCredentialsRes, error) {
+	l := contentservicelogic.NewGetUploadCredentialsLogic(ctx, s.svcCtx)
+	return l.GetUploadCredentials(in)
+}
+
+func (s *ContentServiceServer) GetContentDetail(ctx context.Context, in *content.GetContentDetailReq) (*content.GetContentDetailRes, error) {
+	l := contentservicelogic.NewGetContentDetailLogic(ctx, s.svcCtx)
+	return l.GetContentDetail(in)
+}
+
+func (s *ContentServiceServer) EditArticle(ctx context.Context, in *content.EditArticleReq) (*content.EditArticleRes, error) {
+	l := contentservicelogic.NewEditArticleLogic(ctx, s.svcCtx)
+	return l.EditArticle(in)
+}
+
+func (s *ContentServiceServer) EditVideo(ctx context.Context, in *content.EditVideoReq) (*content.EditVideoRes, error) {
+	l := contentservicelogic.NewEditVideoLogic(ctx, s.svcCtx)
+	return l.EditVideo(in)
+}
+
+func (s *ContentServiceServer) DeleteContent(ctx context.Context, in *content.DeleteContentReq) (*content.DeleteContentRes, error) {
+	l := contentservicelogic.NewDeleteContentLogic(ctx, s.svcCtx)
+	return l.DeleteContent(in)
 }

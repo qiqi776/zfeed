@@ -11,6 +11,7 @@ import (
 	"zfeed/app/rpc/content/internal/server"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/envx"
+	"zfeed/pkg/grpcx"
 	"zfeed/pkg/xxljob"
 
 	"github.com/zeromicro/go-zero/core/conf"
@@ -40,6 +41,7 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+	grpcx.InstallServerInterceptors(s)
 	defer s.Stop()
 
 	xxlCtx, cancelXxl := context.WithCancel(context.Background())

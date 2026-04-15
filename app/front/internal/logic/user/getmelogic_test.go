@@ -6,9 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/rpc/count/counterservice"
 	"zfeed/app/rpc/user/client/userservice"
@@ -54,45 +51,11 @@ func TestGetMeLoadsCountsFromCountRPC(t *testing.T) {
 	}
 }
 
-type getMeProfileExtraUser struct {
-	ID        int64      `gorm:"column:id;primaryKey"`
-	Email     string     `gorm:"column:email"`
-	Birthday  *time.Time `gorm:"column:birthday"`
-	IsDeleted int32      `gorm:"column:is_deleted"`
-}
-
-func (getMeProfileExtraUser) TableName() string {
-	return "zfeed_user"
-}
-
-func newGetMeTestDB(t *testing.T) *gorm.DB {
-	t.Helper()
-
-	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
-	if err != nil {
-		t.Fatalf("open sqlite: %v", err)
-	}
-	if err := db.AutoMigrate(&getMeProfileExtraUser{}); err != nil {
-		t.Fatalf("auto migrate: %v", err)
-	}
-	return db
-}
-
 func TestGetMeLoadsProfileExtraFields(t *testing.T) {
-	db := newGetMeTestDB(t)
 	birthday := time.Date(2000, 1, 2, 0, 0, 0, 0, time.UTC)
-	if err := db.Create(&getMeProfileExtraUser{
-		ID:        3010,
-		Email:     "me@example.com",
-		Birthday:  &birthday,
-		IsDeleted: 0,
-	}).Error; err != nil {
-		t.Fatalf("seed user: %v", err)
-	}
 
 	ctx := context.WithValue(context.Background(), "user_id", int64(3010))
 	logic := NewGetMeLogic(ctx, &svc.ServiceContext{
-		MysqlDb: db,
 		UserRpc: &stubUserService{
 			me: &userservice.GetMeRes{
 				UserInfo: &userservice.UserInfo{
@@ -100,6 +63,8 @@ func TestGetMeLoadsProfileExtraFields(t *testing.T) {
 					Mobile:   "13800000000",
 					Nickname: "me",
 					Avatar:   "https://example.com/avatar.png",
+					Email:    "me@example.com",
+					Birthday: birthday.Unix(),
 				},
 			},
 		},

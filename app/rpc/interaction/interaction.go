@@ -14,6 +14,7 @@ import (
 	likeserviceServer "zfeed/app/rpc/interaction/internal/server/likeservice"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/envx"
+	"zfeed/pkg/grpcx"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -42,6 +43,7 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+	grpcx.InstallServerInterceptors(rpcServer)
 	defer rpcServer.Stop()
 
 	serviceGroup := service.NewServiceGroup()

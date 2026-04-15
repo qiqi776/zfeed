@@ -59,6 +59,26 @@ func (a *realStoreContentServiceAdapter) BackfillFollowInbox(ctx context.Context
 	return &contentpb.BackfillFollowInboxRes{AddedCount: int32(len(members))}, nil
 }
 
+func (a *realStoreContentServiceAdapter) GetUploadCredentials(context.Context, *contentpb.GetUploadCredentialsReq, ...grpc.CallOption) (*contentpb.GetUploadCredentialsRes, error) {
+	return nil, grpc.ErrClientConnClosing
+}
+
+func (a *realStoreContentServiceAdapter) GetContentDetail(context.Context, *contentpb.GetContentDetailReq, ...grpc.CallOption) (*contentpb.GetContentDetailRes, error) {
+	return nil, grpc.ErrClientConnClosing
+}
+
+func (a *realStoreContentServiceAdapter) EditArticle(context.Context, *contentpb.EditArticleReq, ...grpc.CallOption) (*contentpb.EditArticleRes, error) {
+	return nil, grpc.ErrClientConnClosing
+}
+
+func (a *realStoreContentServiceAdapter) EditVideo(context.Context, *contentpb.EditVideoReq, ...grpc.CallOption) (*contentpb.EditVideoRes, error) {
+	return nil, grpc.ErrClientConnClosing
+}
+
+func (a *realStoreContentServiceAdapter) DeleteContent(context.Context, *contentpb.DeleteContentReq, ...grpc.CallOption) (*contentpb.DeleteContentRes, error) {
+	return nil, grpc.ErrClientConnClosing
+}
+
 func TestRealStoreFavoriteAndFollowFlow(t *testing.T) {
 	if os.Getenv(runRealStoreEnv) != "1" {
 		t.Skipf("set %s=1 to run real MySQL/Redis verification", runRealStoreEnv)

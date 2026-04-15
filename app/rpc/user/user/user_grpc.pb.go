@@ -23,6 +23,7 @@ const (
 	UserService_Login_FullMethodName          = "/user.UserService/Login"
 	UserService_Logout_FullMethodName         = "/user.UserService/Logout"
 	UserService_GetMe_FullMethodName          = "/user.UserService/GetMe"
+	UserService_UpdateProfile_FullMethodName  = "/user.UserService/UpdateProfile"
 	UserService_GetUser_FullMethodName        = "/user.UserService/GetUser"
 	UserService_GetUserProfile_FullMethodName = "/user.UserService/GetUserProfile"
 	UserService_BatchGetUser_FullMethodName   = "/user.UserService/BatchGetUser"
@@ -36,6 +37,7 @@ type UserServiceClient interface {
 	Login(ctx context.Context, in *LoginReq, opts ...grpc.CallOption) (*LoginRes, error)
 	Logout(ctx context.Context, in *LogoutReq, opts ...grpc.CallOption) (*LogoutRes, error)
 	GetMe(ctx context.Context, in *GetMeReq, opts ...grpc.CallOption) (*GetMeRes, error)
+	UpdateProfile(ctx context.Context, in *UpdateProfileReq, opts ...grpc.CallOption) (*UpdateProfileRes, error)
 	GetUser(ctx context.Context, in *GetUserReq, opts ...grpc.CallOption) (*GetUserRes, error)
 	GetUserProfile(ctx context.Context, in *GetUserProfileReq, opts ...grpc.CallOption) (*GetUserProfileRes, error)
 	BatchGetUser(ctx context.Context, in *BatchGetUserReq, opts ...grpc.CallOption) (*BatchGetUserRes, error)
@@ -89,6 +91,16 @@ func (c *userServiceClient) GetMe(ctx context.Context, in *GetMeReq, opts ...grp
 	return out, nil
 }
 
+func (c *userServiceClient) UpdateProfile(ctx context.Context, in *UpdateProfileReq, opts ...grpc.CallOption) (*UpdateProfileRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateProfileRes)
+	err := c.cc.Invoke(ctx, UserService_UpdateProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *userServiceClient) GetUser(ctx context.Context, in *GetUserReq, opts ...grpc.CallOption) (*GetUserRes, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetUserRes)
@@ -127,6 +139,7 @@ type UserServiceServer interface {
 	Login(context.Context, *LoginReq) (*LoginRes, error)
 	Logout(context.Context, *LogoutReq) (*LogoutRes, error)
 	GetMe(context.Context, *GetMeReq) (*GetMeRes, error)
+	UpdateProfile(context.Context, *UpdateProfileReq) (*UpdateProfileRes, error)
 	GetUser(context.Context, *GetUserReq) (*GetUserRes, error)
 	GetUserProfile(context.Context, *GetUserProfileReq) (*GetUserProfileRes, error)
 	BatchGetUser(context.Context, *BatchGetUserReq) (*BatchGetUserRes, error)
@@ -151,6 +164,9 @@ func (UnimplementedUserServiceServer) Logout(context.Context, *LogoutReq) (*Logo
 }
 func (UnimplementedUserServiceServer) GetMe(context.Context, *GetMeReq) (*GetMeRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetMe not implemented")
+}
+func (UnimplementedUserServiceServer) UpdateProfile(context.Context, *UpdateProfileReq) (*UpdateProfileRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateProfile not implemented")
 }
 func (UnimplementedUserServiceServer) GetUser(context.Context, *GetUserReq) (*GetUserRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUser not implemented")
@@ -254,6 +270,24 @@ func _UserService_GetMe_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_UpdateProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProfileReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).UpdateProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_UpdateProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).UpdateProfile(ctx, req.(*UpdateProfileReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _UserService_GetUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetUserReq)
 	if err := dec(in); err != nil {
@@ -330,6 +364,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMe",
 			Handler:    _UserService_GetMe_Handler,
+		},
+		{
+			MethodName: "UpdateProfile",
+			Handler:    _UserService_UpdateProfile_Handler,
 		},
 		{
 			MethodName: "GetUser",

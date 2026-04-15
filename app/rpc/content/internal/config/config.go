@@ -11,9 +11,22 @@ type Config struct {
 	zrpc.RpcServerConf
 	InteractionRpcClientConf zrpc.RpcClientConf
 	UserRpcClientConf        zrpc.RpcClientConf
+	CountRpcClientConf       zrpc.RpcClientConf
+	Oss                      OssConfig
 	RedisConfig              redis.RedisConf
 	MySQL                    MySQLConf
 	XxlJob                   XxlJobConfig
+}
+
+type OssConfig struct {
+	Provider        string
+	Region          string
+	BucketName      string
+	AccessKeyId     string
+	AccessKeySecret string
+	Endpoint        string
+	UploadDir       string
+	PublicHost      string
 }
 
 type MySQLConf struct {

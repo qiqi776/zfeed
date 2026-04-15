@@ -1,0 +1,49 @@
+Name: search.rpc
+ListenOn: "${SEARCH_RPC_LISTEN_ON}"
+
+Telemetry:
+  Name: search-rpc
+  Endpoint: "${OTEL_ENDPOINT}"
+  Batcher: otlpgrpc
+  Sampler: 1.0
+
+Prometheus:
+  Host: "${PROM_HOST}"
+  Port: ${SEARCH_PROM_PORT}
+  Path: /metrics
+
+Log:
+  ServiceName: "search-rpc"
+  Mode: "file"
+  Encoding: "json"
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+  Path: "${LOG_PATH}/search-rpc"
+  Level: "info"
+  MaxContentLength: 0
+  Compress: false
+  Stat: true
+  KeepDays: 1
+  StackCooldownMillis: 100
+  MaxBackups: 0
+  MaxSize: 0
+  Rotation: "daily"
+  FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
+
+Etcd:
+  Hosts:
+    - "${ETCD_HOST}:${ETCD_PORT}"
+  Key: search.rpc
+
+InteractionRpcClientConf:
+  Etcd:
+    Hosts:
+      - "${ETCD_HOST}:${ETCD_PORT}"
+    Key: interaction.rpc
+
+RedisConfig:
+  Host: "${REDIS_HOST}:${REDIS_PORT}"
+  Type: node
+  Pass: ""
+
+MySQL:
+  DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"

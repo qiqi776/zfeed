@@ -15,6 +15,7 @@ import (
 	"zfeed/app/rpc/user/internal/svc"
 	"zfeed/app/rpc/user/user"
 	"zfeed/pkg/envx"
+	"zfeed/pkg/grpcx"
 )
 
 var configFile = flag.String("f", "etc/user.yaml", "the config file")
@@ -34,6 +35,7 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+	grpcx.InstallServerInterceptors(s)
 	defer s.Stop()
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)

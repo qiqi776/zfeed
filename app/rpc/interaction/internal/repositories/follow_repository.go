@@ -25,6 +25,8 @@ type FollowRepository interface {
 	CountFollowees(userID int64) (int64, error)
 	CountFollowers(userID int64) (int64, error)
 	ListFolloweesByCursor(userID int64, cursorFollowUserID int64, limit int) ([]int64, error)
+	ListFollowersByCursor(userID int64, cursorUserID int64, limit int) ([]int64, error)
+	BatchFollowing(userID int64, followUserIDs []int64) (map[int64]bool, error)
 }
 
 type followRepositoryImpl struct {
@@ -171,4 +173,58 @@ func (r *followRepositoryImpl) ListFolloweesByCursor(userID int64, cursorFollowU
 		ids = append(ids, row.FollowUserID)
 	}
 	return ids, nil
+}
+
+func (r *followRepositoryImpl) ListFollowersByCursor(userID int64, cursorUserID int64, limit int) ([]int64, error) {
+	if userID <= 0 || limit <= 0 {
+		return []int64{}, nil
+	}
+
+	query := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedFollow{}).
+		Select("user_id").
+		Where("follow_user_id = ? AND status = ? AND is_deleted = 0", userID, FollowStatusFollow)
+
+	if cursorUserID > 0 {
+		query = query.Where("user_id < ?", cursorUserID)
+	}
+
+	rows := make([]*model.ZfeedFollow, 0, limit)
+	if err := query.Order("user_id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		if row == nil || row.UserID <= 0 {
+			continue
+		}
+		ids = append(ids, row.UserID)
+	}
+	return ids, nil
+}
+
+func (r *followRepositoryImpl) BatchFollowing(userID int64, followUserIDs []int64) (map[int64]bool, error) {
+	result := make(map[int64]bool, len(followUserIDs))
+	if userID <= 0 || len(followUserIDs) == 0 {
+		return result, nil
+	}
+
+	rows := make([]*model.ZfeedFollow, 0, len(followUserIDs))
+	err := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedFollow{}).
+		Select("follow_user_id").
+		Where("user_id = ? AND follow_user_id IN ? AND status = ? AND is_deleted = 0", userID, followUserIDs, FollowStatusFollow).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		if row == nil || row.FollowUserID <= 0 {
+			continue
+		}
+		result[row.FollowUserID] = true
+	}
+	return result, nil
 }

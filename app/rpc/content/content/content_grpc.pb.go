@@ -19,9 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ContentService_PublishArticle_FullMethodName      = "/content.ContentService/PublishArticle"
-	ContentService_PublishVideo_FullMethodName        = "/content.ContentService/PublishVideo"
-	ContentService_BackfillFollowInbox_FullMethodName = "/content.ContentService/BackfillFollowInbox"
+	ContentService_PublishArticle_FullMethodName       = "/content.ContentService/PublishArticle"
+	ContentService_PublishVideo_FullMethodName         = "/content.ContentService/PublishVideo"
+	ContentService_BackfillFollowInbox_FullMethodName  = "/content.ContentService/BackfillFollowInbox"
+	ContentService_GetUploadCredentials_FullMethodName = "/content.ContentService/GetUploadCredentials"
+	ContentService_GetContentDetail_FullMethodName     = "/content.ContentService/GetContentDetail"
+	ContentService_EditArticle_FullMethodName          = "/content.ContentService/EditArticle"
+	ContentService_EditVideo_FullMethodName            = "/content.ContentService/EditVideo"
+	ContentService_DeleteContent_FullMethodName        = "/content.ContentService/DeleteContent"
 )
 
 // ContentServiceClient is the client API for ContentService service.
@@ -31,6 +36,11 @@ type ContentServiceClient interface {
 	PublishArticle(ctx context.Context, in *ArticlePublishReq, opts ...grpc.CallOption) (*ArticlePublishRes, error)
 	PublishVideo(ctx context.Context, in *VideoPublishReq, opts ...grpc.CallOption) (*VideoPublishRes, error)
 	BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error)
+	GetUploadCredentials(ctx context.Context, in *GetUploadCredentialsReq, opts ...grpc.CallOption) (*GetUploadCredentialsRes, error)
+	GetContentDetail(ctx context.Context, in *GetContentDetailReq, opts ...grpc.CallOption) (*GetContentDetailRes, error)
+	EditArticle(ctx context.Context, in *EditArticleReq, opts ...grpc.CallOption) (*EditArticleRes, error)
+	EditVideo(ctx context.Context, in *EditVideoReq, opts ...grpc.CallOption) (*EditVideoRes, error)
+	DeleteContent(ctx context.Context, in *DeleteContentReq, opts ...grpc.CallOption) (*DeleteContentRes, error)
 }
 
 type contentServiceClient struct {
@@ -71,6 +81,56 @@ func (c *contentServiceClient) BackfillFollowInbox(ctx context.Context, in *Back
 	return out, nil
 }
 
+func (c *contentServiceClient) GetUploadCredentials(ctx context.Context, in *GetUploadCredentialsReq, opts ...grpc.CallOption) (*GetUploadCredentialsRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUploadCredentialsRes)
+	err := c.cc.Invoke(ctx, ContentService_GetUploadCredentials_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contentServiceClient) GetContentDetail(ctx context.Context, in *GetContentDetailReq, opts ...grpc.CallOption) (*GetContentDetailRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetContentDetailRes)
+	err := c.cc.Invoke(ctx, ContentService_GetContentDetail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contentServiceClient) EditArticle(ctx context.Context, in *EditArticleReq, opts ...grpc.CallOption) (*EditArticleRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EditArticleRes)
+	err := c.cc.Invoke(ctx, ContentService_EditArticle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contentServiceClient) EditVideo(ctx context.Context, in *EditVideoReq, opts ...grpc.CallOption) (*EditVideoRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EditVideoRes)
+	err := c.cc.Invoke(ctx, ContentService_EditVideo_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contentServiceClient) DeleteContent(ctx context.Context, in *DeleteContentReq, opts ...grpc.CallOption) (*DeleteContentRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeleteContentRes)
+	err := c.cc.Invoke(ctx, ContentService_DeleteContent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ContentServiceServer is the server API for ContentService service.
 // All implementations must embed UnimplementedContentServiceServer
 // for forward compatibility.
@@ -78,6 +138,11 @@ type ContentServiceServer interface {
 	PublishArticle(context.Context, *ArticlePublishReq) (*ArticlePublishRes, error)
 	PublishVideo(context.Context, *VideoPublishReq) (*VideoPublishRes, error)
 	BackfillFollowInbox(context.Context, *BackfillFollowInboxReq) (*BackfillFollowInboxRes, error)
+	GetUploadCredentials(context.Context, *GetUploadCredentialsReq) (*GetUploadCredentialsRes, error)
+	GetContentDetail(context.Context, *GetContentDetailReq) (*GetContentDetailRes, error)
+	EditArticle(context.Context, *EditArticleReq) (*EditArticleRes, error)
+	EditVideo(context.Context, *EditVideoReq) (*EditVideoRes, error)
+	DeleteContent(context.Context, *DeleteContentReq) (*DeleteContentRes, error)
 	mustEmbedUnimplementedContentServiceServer()
 }
 
@@ -96,6 +161,21 @@ func (UnimplementedContentServiceServer) PublishVideo(context.Context, *VideoPub
 }
 func (UnimplementedContentServiceServer) BackfillFollowInbox(context.Context, *BackfillFollowInboxReq) (*BackfillFollowInboxRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method BackfillFollowInbox not implemented")
+}
+func (UnimplementedContentServiceServer) GetUploadCredentials(context.Context, *GetUploadCredentialsReq) (*GetUploadCredentialsRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUploadCredentials not implemented")
+}
+func (UnimplementedContentServiceServer) GetContentDetail(context.Context, *GetContentDetailReq) (*GetContentDetailRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetContentDetail not implemented")
+}
+func (UnimplementedContentServiceServer) EditArticle(context.Context, *EditArticleReq) (*EditArticleRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method EditArticle not implemented")
+}
+func (UnimplementedContentServiceServer) EditVideo(context.Context, *EditVideoReq) (*EditVideoRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method EditVideo not implemented")
+}
+func (UnimplementedContentServiceServer) DeleteContent(context.Context, *DeleteContentReq) (*DeleteContentRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteContent not implemented")
 }
 func (UnimplementedContentServiceServer) mustEmbedUnimplementedContentServiceServer() {}
 func (UnimplementedContentServiceServer) testEmbeddedByValue()                        {}
@@ -172,6 +252,96 @@ func _ContentService_BackfillFollowInbox_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ContentService_GetUploadCredentials_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUploadCredentialsReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).GetUploadCredentials(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_GetUploadCredentials_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).GetUploadCredentials(ctx, req.(*GetUploadCredentialsReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContentService_GetContentDetail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetContentDetailReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).GetContentDetail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_GetContentDetail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).GetContentDetail(ctx, req.(*GetContentDetailReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContentService_EditArticle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EditArticleReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).EditArticle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_EditArticle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).EditArticle(ctx, req.(*EditArticleReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContentService_EditVideo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EditVideoReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).EditVideo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_EditVideo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).EditVideo(ctx, req.(*EditVideoReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContentService_DeleteContent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteContentReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).DeleteContent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_DeleteContent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).DeleteContent(ctx, req.(*DeleteContentReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ContentService_ServiceDesc is the grpc.ServiceDesc for ContentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +360,26 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BackfillFollowInbox",
 			Handler:    _ContentService_BackfillFollowInbox_Handler,
+		},
+		{
+			MethodName: "GetUploadCredentials",
+			Handler:    _ContentService_GetUploadCredentials_Handler,
+		},
+		{
+			MethodName: "GetContentDetail",
+			Handler:    _ContentService_GetContentDetail_Handler,
+		},
+		{
+			MethodName: "EditArticle",
+			Handler:    _ContentService_EditArticle_Handler,
+		},
+		{
+			MethodName: "EditVideo",
+			Handler:    _ContentService_EditVideo_Handler,
+		},
+		{
+			MethodName: "DeleteContent",
+			Handler:    _ContentService_DeleteContent_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

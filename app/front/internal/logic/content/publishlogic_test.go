@@ -19,6 +19,11 @@ type fakeContentService struct {
 	publishArticleFunc func(ctx context.Context, in *contentpb.ArticlePublishReq, opts ...grpc.CallOption) (*contentpb.ArticlePublishRes, error)
 	publishVideoFunc   func(ctx context.Context, in *contentpb.VideoPublishReq, opts ...grpc.CallOption) (*contentpb.VideoPublishRes, error)
 	backfillInboxFunc  func(ctx context.Context, in *contentpb.BackfillFollowInboxReq, opts ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error)
+	uploadCredsFunc    func(ctx context.Context, in *contentpb.GetUploadCredentialsReq, opts ...grpc.CallOption) (*contentpb.GetUploadCredentialsRes, error)
+	getDetailFunc      func(ctx context.Context, in *contentpb.GetContentDetailReq, opts ...grpc.CallOption) (*contentpb.GetContentDetailRes, error)
+	editArticleFunc    func(ctx context.Context, in *contentpb.EditArticleReq, opts ...grpc.CallOption) (*contentpb.EditArticleRes, error)
+	editVideoFunc      func(ctx context.Context, in *contentpb.EditVideoReq, opts ...grpc.CallOption) (*contentpb.EditVideoRes, error)
+	deleteContentFunc  func(ctx context.Context, in *contentpb.DeleteContentReq, opts ...grpc.CallOption) (*contentpb.DeleteContentRes, error)
 }
 
 func (f *fakeContentService) PublishArticle(ctx context.Context, in *contentpb.ArticlePublishReq, opts ...grpc.CallOption) (*contentpb.ArticlePublishRes, error) {
@@ -40,6 +45,41 @@ func (f *fakeContentService) BackfillFollowInbox(ctx context.Context, in *conten
 		return nil, errors.New("unexpected BackfillFollowInbox call")
 	}
 	return f.backfillInboxFunc(ctx, in, opts...)
+}
+
+func (f *fakeContentService) GetUploadCredentials(ctx context.Context, in *contentpb.GetUploadCredentialsReq, opts ...grpc.CallOption) (*contentpb.GetUploadCredentialsRes, error) {
+	if f.uploadCredsFunc == nil {
+		return nil, errors.New("unexpected GetUploadCredentials call")
+	}
+	return f.uploadCredsFunc(ctx, in, opts...)
+}
+
+func (f *fakeContentService) GetContentDetail(ctx context.Context, in *contentpb.GetContentDetailReq, opts ...grpc.CallOption) (*contentpb.GetContentDetailRes, error) {
+	if f.getDetailFunc == nil {
+		return nil, errors.New("unexpected GetContentDetail call")
+	}
+	return f.getDetailFunc(ctx, in, opts...)
+}
+
+func (f *fakeContentService) EditArticle(ctx context.Context, in *contentpb.EditArticleReq, opts ...grpc.CallOption) (*contentpb.EditArticleRes, error) {
+	if f.editArticleFunc == nil {
+		return nil, errors.New("unexpected EditArticle call")
+	}
+	return f.editArticleFunc(ctx, in, opts...)
+}
+
+func (f *fakeContentService) EditVideo(ctx context.Context, in *contentpb.EditVideoReq, opts ...grpc.CallOption) (*contentpb.EditVideoRes, error) {
+	if f.editVideoFunc == nil {
+		return nil, errors.New("unexpected EditVideo call")
+	}
+	return f.editVideoFunc(ctx, in, opts...)
+}
+
+func (f *fakeContentService) DeleteContent(ctx context.Context, in *contentpb.DeleteContentReq, opts ...grpc.CallOption) (*contentpb.DeleteContentRes, error) {
+	if f.deleteContentFunc == nil {
+		return nil, errors.New("unexpected DeleteContent call")
+	}
+	return f.deleteContentFunc(ctx, in, opts...)
 }
 
 func strPtr(v string) *string {
