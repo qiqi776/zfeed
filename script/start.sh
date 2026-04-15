@@ -13,12 +13,14 @@ USER_LOG_DIR="$LOG_DIR/user-rpc"
 CONTENT_LOG_DIR="$LOG_DIR/content-rpc"
 INTERACTION_LOG_DIR="$LOG_DIR/interaction-rpc"
 COUNT_LOG_DIR="$LOG_DIR/count-rpc"
+SEARCH_LOG_DIR="$LOG_DIR/search-rpc"
 
 USER_RPC_PID_FILE="$RUNTIME_DIR/user-rpc.pid"
 CONTENT_RPC_PID_FILE="$RUNTIME_DIR/content-rpc.pid"
 INTERACTION_RPC_PID_FILE="$RUNTIME_DIR/interaction-rpc.pid"
 FRONT_API_PID_FILE="$RUNTIME_DIR/front-api.pid"
 COUNT_RPC_PID_FILE="$RUNTIME_DIR/count-rpc.pid"
+SEARCH_RPC_PID_FILE="$RUNTIME_DIR/search-rpc.pid"
 
 fct_require_env_file() {
   if [ -f "$ENV_FILE_PATH" ]; then
@@ -143,7 +145,8 @@ mkdir -p \
   "$USER_LOG_DIR" \
   "$CONTENT_LOG_DIR" \
   "$INTERACTION_LOG_DIR" \
-  "$COUNT_LOG_DIR"
+  "$COUNT_LOG_DIR" \
+  "$SEARCH_LOG_DIR"
 
 fct_require_env_file
 . "$ENV_FILE_PATH"
@@ -159,6 +162,7 @@ USER_RPC_PORT=$(fct_port_from_listen_on "$USER_RPC_LISTEN_ON")
 CONTENT_RPC_PORT=$(fct_port_from_listen_on "$CONTENT_RPC_LISTEN_ON")
 INTERACTION_RPC_PORT=$(fct_port_from_listen_on "$INTERACTION_RPC_LISTEN_ON")
 COUNT_RPC_PORT=$(fct_port_from_listen_on "$COUNT_RPC_LISTEN_ON")
+SEARCH_RPC_PORT=$(fct_port_from_listen_on "$SEARCH_RPC_LISTEN_ON")
 XXL_EXECUTOR_BIND_PORT=$(fct_port_from_listen_on "$XXL_EXECUTOR_ADDRESS")
 XXL_ADMIN_PORT=$(fct_port_from_url "$XXL_JOB_ADMIN_ADDR")
 KAFKA_PORT=$(fct_port_from_listen_on "$KAFKA_BROKERS")
@@ -167,7 +171,9 @@ CONTENT_PROM_PORT="${CONTENT_PROM_PORT}"
 INTERACTION_PROM_PORT="${INTERACTION_PROM_PORT}"
 COUNT_PROM_PORT="${COUNT_PROM_PORT}"
 USER_PROM_PORT="${USER_PROM_PORT}"
+SEARCH_PROM_PORT="${SEARCH_PROM_PORT}"
 PROMETHEUS_HOST_PORT="${PROMETHEUS_HOST_PORT}"
+GATEWAY_HOST_PORT="${GATEWAY_HOST_PORT:-18080}"
 ENABLE_LOG_PIPELINE="${ENABLE_LOG_PIPELINE:-0}"
 ENABLE_TRACE_PIPELINE="${ENABLE_TRACE_PIPELINE:-1}"
 OTEL_COLLECTOR_GRPC_HOST_PORT="${OTEL_COLLECTOR_GRPC_HOST_PORT:-4317}"
@@ -178,10 +184,12 @@ fct_stop_pid_file "$USER_RPC_PID_FILE"
 fct_stop_pid_file "$CONTENT_RPC_PID_FILE"
 fct_stop_pid_file "$INTERACTION_RPC_PID_FILE"
 fct_stop_pid_file "$COUNT_RPC_PID_FILE"
+fct_stop_pid_file "$SEARCH_RPC_PID_FILE"
 fct_stop_pid_file "$FRONT_API_PID_FILE"
 
 infra_services=(etcd redis mysql kafka canal xxl-job-admin prometheus)
-backend_services=(user-rpc content-rpc interaction-rpc count-rpc front-api)
+backend_services=(user-rpc content-rpc interaction-rpc count-rpc search-rpc front-api)
+delivery_services=(front-web nginx)
 
 if [ "$ENABLE_LOG_PIPELINE" = "1" ]; then
   infra_services+=(logstash filebeat)
@@ -190,8 +198,8 @@ if [ "$ENABLE_TRACE_PIPELINE" = "1" ]; then
   infra_services+=(jaeger otel-collector)
 fi
 
-echo "Starting zfeed Docker backend via Docker Compose..."
-fct_docker_compose up -d --build "${infra_services[@]}" "${backend_services[@]}"
+echo "Starting zfeed Docker stack via Docker Compose..."
+fct_docker_compose up -d --build "${infra_services[@]}" "${backend_services[@]}" "${delivery_services[@]}"
 
 echo "Waiting for infrastructure ports..."
 fct_wait_for_port "$ETCD_PORT" "etcd"
@@ -222,22 +230,27 @@ fct_wait_for_port "$INTERACTION_RPC_PORT" "interaction-rpc"
 fct_wait_for_port "$INTERACTION_PROM_PORT" "interaction-rpc metrics"
 fct_wait_for_port "$COUNT_RPC_PORT" "count-rpc"
 fct_wait_for_port "$COUNT_PROM_PORT" "count-rpc metrics"
+fct_wait_for_port "$SEARCH_RPC_PORT" "search-rpc"
+fct_wait_for_port "$SEARCH_PROM_PORT" "search-rpc metrics"
 fct_wait_for_port "$FRONT_API_PORT" "front-api"
 fct_wait_for_port "$FRONT_PROM_PORT" "front-api metrics"
+fct_wait_for_port "$GATEWAY_HOST_PORT" "nginx gateway"
 
 echo "zfeed docker stack is ready."
 echo "  backend runtime: $BACKEND_RUNTIME"
 echo "  compose file: $DEPLOY_DIR/docker-compose.yml"
 echo "  host logs: $LOG_DIR"
-echo "  service log roots: $FRONT_LOG_DIR $USER_LOG_DIR $CONTENT_LOG_DIR $INTERACTION_LOG_DIR $COUNT_LOG_DIR"
+echo "  service log roots: $FRONT_LOG_DIR $USER_LOG_DIR $CONTENT_LOG_DIR $INTERACTION_LOG_DIR $COUNT_LOG_DIR $SEARCH_LOG_DIR"
 echo "  collected logs: $COLLECTED_DIR"
-echo "  API: http://127.0.0.1:$FRONT_API_PORT"
+echo "  Web: http://127.0.0.1:$GATEWAY_HOST_PORT"
+echo "  API direct: http://127.0.0.1:$FRONT_API_PORT"
 echo "  metrics endpoints:"
 echo "    front-api: http://127.0.0.1:$FRONT_PROM_PORT/metrics"
 echo "    content-rpc: http://127.0.0.1:$CONTENT_PROM_PORT/metrics"
 echo "    interaction-rpc: http://127.0.0.1:$INTERACTION_PROM_PORT/metrics"
 echo "    count-rpc: http://127.0.0.1:$COUNT_PROM_PORT/metrics"
 echo "    user-rpc: http://127.0.0.1:$USER_PROM_PORT/metrics"
+echo "    search-rpc: http://127.0.0.1:$SEARCH_PROM_PORT/metrics"
 echo "  prometheus: http://127.0.0.1:$PROMETHEUS_HOST_PORT"
 echo "  log pipeline enabled: $ENABLE_LOG_PIPELINE"
 echo "  trace pipeline enabled: $ENABLE_TRACE_PIPELINE"
