@@ -1,17 +1,23 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useSessionStore } from "@/entities/session/model/session.store";
 import { publishVideo } from "@/features/content/api/content.api";
+import { uploadContentAsset } from "@/features/content/lib/upload";
 import {
   clearPublishDraft,
   isValidPublicUrl,
   readPublishDraft,
   savePublishDraft,
-  useBeforeUnloadGuard,
+  useUnsavedChangesGuard,
 } from "@/features/publish/lib/publishDraft";
 import { invalidatePublishSurfaces } from "@/shared/lib/query/cacheSync";
+import {
+  contentImageUploadRule,
+  contentVideoUploadRule,
+  describeFileValidationRule,
+} from "@/shared/lib/media/fileValidation";
 import { userKeys } from "@/shared/lib/query/queryKeys";
 import { ImageFallback } from "@/shared/ui/ImageFallback";
 import { InlineNotice } from "@/shared/ui/InlineNotice";
@@ -110,6 +116,8 @@ export function PublishVideoPage() {
   const queryClient = useQueryClient();
   const currentUserId = useSessionStore((state) => state.user?.userId ?? 0);
   const { showToast } = useToast();
+  const coverFileInputRef = useRef<HTMLInputElement | null>(null);
+  const videoFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [draftBootstrap] = useState(() =>
     readPublishDraft<VideoFormState>(VIDEO_DRAFT_STORAGE_KEY, createEmptyVideoForm()),
@@ -153,7 +161,7 @@ export function PublishVideoPage() {
         title: "视频已发布",
         description: "正在跳转到内容详情。",
       });
-      navigate(`/content/${res.content_id}`);
+      allowExit(() => navigate(`/content/${res.content_id}`));
     },
     onError: (nextError: Error) => {
       showToast({
@@ -167,7 +175,45 @@ export function PublishVideoPage() {
     },
   });
 
-  useBeforeUnloadGuard(hasDraftContent && !mutation.isPending);
+  const coverUploadMutation = useMutation({
+    mutationFn: (file: File) => uploadContentAsset(file, "video-cover"),
+    onSuccess: (res) => {
+      updateField("coverUrl", res.url);
+      showToast({
+        tone: "success",
+        title: "视频封面已上传",
+        description: "新的封面地址已经回填到表单。",
+      });
+    },
+    onError: (error: Error) => {
+      showToast({
+        tone: "error",
+        title: "封面上传失败",
+        description: error.message || "请稍后重试。",
+      });
+    },
+  });
+
+  const videoUploadMutation = useMutation({
+    mutationFn: (file: File) => uploadContentAsset(file, "video-source"),
+    onSuccess: (res) => {
+      updateField("videoUrl", res.url);
+      showToast({
+        tone: "success",
+        title: "视频文件已上传",
+        description: "新的视频地址已经回填到表单。",
+      });
+    },
+    onError: (error: Error) => {
+      showToast({
+        tone: "error",
+        title: "视频上传失败",
+        description: error.message || "请稍后重试。",
+      });
+    },
+  });
+
+  const allowExit = useUnsavedChangesGuard(hasDraftContent && !mutation.isPending);
 
   function updateField<Key extends keyof VideoFormState>(key: Key, value: VideoFormState[Key]) {
     setForm((current) => ({
@@ -185,6 +231,18 @@ export function PublishVideoPage() {
       title: "视频草稿已清空",
       description: "当前浏览器中的本地草稿已经移除。",
     });
+  }
+
+  function handleFileChange(
+    event: ChangeEvent<HTMLInputElement>,
+    mutate: (file: File) => void,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+    mutate(file);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -245,7 +303,7 @@ export function PublishVideoPage() {
       <PageHeader
         eyebrow="Video"
         title="发布视频"
-        description="当前先支持填写公开视频地址和封面地址，上传直传与私密内容读链待后端补齐。"
+        description="支持封面和视频源文件直传，也保留手动填写 URL 的兜底方式。"
         aside={
           <Link
             to="/publish"
@@ -258,8 +316,8 @@ export function PublishVideoPage() {
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         <InlineNotice
-          title="当前只支持公开视频发布"
-          description="私密内容虽然有后端字段，但详情页和“我的发布”暂时都不会把它稳定展示出来；同时上传凭证链路仍未补齐，所以这里明确采用“公开 + URL”方案。"
+          title="公开视频链路已经可用"
+          description="当前仍优先聚焦公开视频发布。封面和源文件都可以直传，也可以继续手动填写 URL。"
           tone="soft"
         />
 
@@ -314,6 +372,36 @@ export function PublishVideoPage() {
                       : "封面会出现在推荐流、详情首屏和公开视频列表中。"}
                   </p>
                 </label>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => coverFileInputRef.current?.click()}
+                    aria-describedby="video-cover-upload-hint"
+                    className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    {coverUploadMutation.isPending ? "上传中..." : "上传视频封面"}
+                  </button>
+                  <input
+                    ref={coverFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    tabIndex={-1}
+                    className="hidden"
+                    onChange={(event) => handleFileChange(event, coverUploadMutation.mutate)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateField("coverUrl", "")}
+                    disabled={!trimmedCoverUrl}
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent disabled:opacity-60"
+                  >
+                    清空封面
+                  </button>
+                </div>
+                <p id="video-cover-upload-hint" className="text-xs text-slate-500">
+                  封面文件支持 {describeFileValidationRule(contentImageUploadRule)}。
+                </p>
               </div>
 
               <div className="mt-5 grid gap-5 lg:grid-cols-2">
@@ -336,6 +424,36 @@ export function PublishVideoPage() {
                       : "如果地址可访问，右侧会优先显示视频预览。"}
                   </p>
                 </label>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => videoFileInputRef.current?.click()}
+                    aria-describedby="video-source-upload-hint"
+                    className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    {videoUploadMutation.isPending ? "上传中..." : "上传视频文件"}
+                  </button>
+                  <input
+                    ref={videoFileInputRef}
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    tabIndex={-1}
+                    className="hidden"
+                    onChange={(event) => handleFileChange(event, videoUploadMutation.mutate)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateField("videoUrl", "")}
+                    disabled={!trimmedVideoUrl}
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent disabled:opacity-60"
+                  >
+                    清空视频地址
+                  </button>
+                </div>
+                <p id="video-source-upload-hint" className="text-xs text-slate-500">
+                  视频文件支持 {describeFileValidationRule(contentVideoUploadRule)}。
+                </p>
 
                 <label className="block text-sm text-slate-700">
                   时长（秒）
@@ -386,7 +504,8 @@ export function PublishVideoPage() {
               <ul className="mt-4 space-y-2 text-sm leading-7 text-slate-600">
                 <li>封面和视频都需要可访问的公网 URL。</li>
                 <li>如果时长留空，后端会按默认值处理。</li>
-                <li>后续接入上传后，会把这部分替换成文件选择和进度反馈。</li>
+                <li>封面支持 {describeFileValidationRule(contentImageUploadRule)}。</li>
+                <li>视频支持 {describeFileValidationRule(contentVideoUploadRule)}，上传成功后地址会自动回填。</li>
               </ul>
             </section>
           </div>
@@ -404,7 +523,7 @@ export function PublishVideoPage() {
               title={hasDraftContent ? "草稿会自动保存在当前浏览器" : "开始输入后会自动保存草稿"}
               description={
                 hasDraftContent
-                  ? "如果你中途离开页面，当前内容会保留在本地。发布成功或手动清空后，草稿会自动移除。"
+                  ? "如果你刷新、关闭标签页或切换站内页面，都会先提醒你；当前内容也会继续保留在本地。"
                   : "本地草稿只保存在当前浏览器，不会上传到服务端。"
               }
               tone={hasDraftContent ? "soft" : "neutral"}

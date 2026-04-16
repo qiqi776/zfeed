@@ -39,11 +39,14 @@ export type MeRes = {
     bio: string;
     gender: number;
     status: number;
+    email: string;
+    birthday: number;
   };
   followee_count: number;
   follower_count: number;
   like_received_count: number;
   favorite_received_count: number;
+  content_count: number;
 };
 
 export function login(payload: LoginReq) {

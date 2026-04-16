@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { vi } from "vitest";
 
 import { AppProviders } from "@/app/providers/AppProviders";
@@ -12,7 +12,38 @@ vi.mock("@/features/content/api/content.api", () => ({
   publishArticle: (...args: unknown[]) => publishArticleMock(...args),
 }));
 
+function renderPage() {
+  const router = createMemoryRouter(
+    [
+      { path: "/publish/article", element: <PublishArticlePage /> },
+      { path: "/publish", element: <div>publish</div> },
+      { path: "/studio", element: <div>studio</div> },
+      { path: "/content/:contentId", element: <div>detail</div> },
+    ],
+    {
+      initialEntries: ["/publish/article"],
+    },
+  );
+
+  return render(
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>,
+  );
+}
+
 describe("PublishArticlePage", () => {
+  it("opens the cover file picker from a keyboard-focusable button", () => {
+    const inputClickSpy = vi.spyOn(HTMLInputElement.prototype, "click");
+
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "上传文章封面" }));
+
+    expect(inputClickSpy).toHaveBeenCalledTimes(1);
+    inputClickSpy.mockRestore();
+  });
+
   it("restores local draft and allows clearing it", () => {
     window.localStorage.setItem(
       ARTICLE_DRAFT_STORAGE_KEY,
@@ -27,13 +58,7 @@ describe("PublishArticlePage", () => {
       }),
     );
 
-    render(
-      <AppProviders>
-        <MemoryRouter>
-          <PublishArticlePage />
-        </MemoryRouter>
-      </AppProviders>,
-    );
+    renderPage();
 
     expect(screen.getByText("已恢复上次未发布的文章草稿")).toBeInTheDocument();
     expect(screen.getByLabelText("标题")).toHaveValue("草稿标题");
@@ -53,13 +78,7 @@ describe("PublishArticlePage", () => {
   });
 
   it("blocks submit when cover url is invalid", () => {
-    render(
-      <AppProviders>
-        <MemoryRouter>
-          <PublishArticlePage />
-        </MemoryRouter>
-      </AppProviders>,
-    );
+    renderPage();
 
     fireEvent.change(screen.getByLabelText("标题"), { target: { value: "测试文章" } });
     fireEvent.change(screen.getByRole("textbox", { name: /封面 URL/ }), {

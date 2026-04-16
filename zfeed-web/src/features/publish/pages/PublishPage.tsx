@@ -14,7 +14,7 @@ const publishChoices = [
     to: "/publish/video",
     eyebrow: "Video",
     title: "发布视频",
-    description: "适合已有视频 URL 的内容投递，后续再补完整上传链路。",
+    description: "支持视频源文件直传，也支持继续使用现成 URL 兜底发布。",
   },
 ];
 
@@ -28,8 +28,8 @@ export function PublishPage() {
       />
 
       <StatePanel
-        title="当前版本只支持公开发布"
-        description="内容详情和我的发布读取链路目前都只覆盖公开内容，`upload-credentials` 也还未实现，因此现在仅支持填写现成 URL 并发布公开内容。"
+        title="当前版本仍聚焦公开发布"
+        description="内容详情和我的发布链路已经支持公开内容稳定读取；封面和视频源文件也可以走上传签名链，手填 URL 作为兜底方式保留。"
         tone="soft"
       />
 

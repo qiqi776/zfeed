@@ -47,6 +47,10 @@ export const userKeys = {
     ["user", "profile", userId, normalizeViewerId(viewerId)] as const,
   profilePrefix: (userId?: number) =>
     userId && userId > 0 ? (["user", "profile", userId] as const) : (["user", "profile"] as const),
+  followers: (userId: number, viewerId?: number, pageSize = DEFAULT_FEED_PAGE_SIZE) =>
+    ["user", "followers", userId, normalizeViewerId(viewerId), pageSize] as const,
+  followersPrefix: (userId?: number) =>
+    userId && userId > 0 ? (["user", "followers", userId] as const) : (["user", "followers"] as const),
 };
 
 export const contentKeys = {
@@ -56,4 +60,13 @@ export const contentKeys = {
   comments: (contentId: number) => ["content", "comments", contentId] as const,
   replies: (contentId: number, rootCommentId: number) =>
     ["content", "comments", contentId, "replies", rootCommentId] as const,
+};
+
+export const searchKeys = {
+  users: (query: string, viewerId?: number, pageSize = DEFAULT_FEED_PAGE_SIZE) =>
+    ["search", "users", query, normalizeViewerId(viewerId), pageSize] as const,
+  usersPrefix: () => ["search", "users"] as const,
+  contents: (query: string, viewerId?: number, pageSize = DEFAULT_FEED_PAGE_SIZE) =>
+    ["search", "contents", query, normalizeViewerId(viewerId), pageSize] as const,
+  contentsPrefix: () => ["search", "contents"] as const,
 };

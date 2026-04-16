@@ -1,28 +1,97 @@
+import { type LazyExoticComponent, type ReactNode, Suspense, lazy } from "react";
 import { createBrowserRouter } from "react-router-dom";
 
-import { AppLayout } from "@/app/layout/AppLayout";
-import { LoginPage } from "@/features/auth/pages/LoginPage";
-import { RegisterPage } from "@/features/auth/pages/RegisterPage";
-import { ContentDetailPage } from "@/features/content/pages/ContentDetailPage";
-import { FavoritesPage } from "@/features/favorites/pages/FavoritesPage";
-import { FollowPage } from "@/features/feed/pages/FollowPage";
-import { RecommendPage } from "@/features/feed/pages/RecommendPage";
-import { MePage } from "@/features/me/pages/MePage";
-import { PublishArticlePage } from "@/features/publish/pages/PublishArticlePage";
-import { PublishPage } from "@/features/publish/pages/PublishPage";
-import { PublishVideoPage } from "@/features/publish/pages/PublishVideoPage";
-import { StudioPage } from "@/features/studio/pages/StudioPage";
-import { UserProfilePage } from "@/features/user/pages/UserProfilePage";
-import { NotFoundPage } from "@/pages/not-found/NotFoundPage";
 import { ProtectedRoute } from "@/shared/ui/ProtectedRoute";
 import { PublicOnlyRoute } from "@/shared/ui/PublicOnlyRoute";
+
+const AppLayout = lazy(async () => ({
+  default: (await import("@/app/layout/AppLayout")).AppLayout,
+}));
+const LoginPage = lazy(async () => ({
+  default: (await import("@/features/auth/pages/LoginPage")).LoginPage,
+}));
+const RegisterPage = lazy(async () => ({
+  default: (await import("@/features/auth/pages/RegisterPage")).RegisterPage,
+}));
+const RecommendPage = lazy(async () => ({
+  default: (await import("@/features/feed/pages/RecommendPage")).RecommendPage,
+}));
+const FollowPage = lazy(async () => ({
+  default: (await import("@/features/feed/pages/FollowPage")).FollowPage,
+}));
+const FavoritesPage = lazy(async () => ({
+  default: (await import("@/features/favorites/pages/FavoritesPage")).FavoritesPage,
+}));
+const MePage = lazy(async () => ({
+  default: (await import("@/features/me/pages/MePage")).MePage,
+}));
+const SettingsPage = lazy(async () => ({
+  default: (await import("@/features/user/pages/SettingsPage")).SettingsPage,
+}));
+const PublishPage = lazy(async () => ({
+  default: (await import("@/features/publish/pages/PublishPage")).PublishPage,
+}));
+const SearchPage = lazy(async () => ({
+  default: (await import("@/features/search/pages/SearchPage")).SearchPage,
+}));
+const PublishArticlePage = lazy(async () => ({
+  default: (await import("@/features/publish/pages/PublishArticlePage")).PublishArticlePage,
+}));
+const PublishVideoPage = lazy(async () => ({
+  default: (await import("@/features/publish/pages/PublishVideoPage")).PublishVideoPage,
+}));
+const StudioPage = lazy(async () => ({
+  default: (await import("@/features/studio/pages/StudioPage")).StudioPage,
+}));
+const EditArticlePage = lazy(async () => ({
+  default: (await import("@/features/content/pages/EditArticlePage")).EditArticlePage,
+}));
+const EditVideoPage = lazy(async () => ({
+  default: (await import("@/features/content/pages/EditVideoPage")).EditVideoPage,
+}));
+const UserProfilePage = lazy(async () => ({
+  default: (await import("@/features/user/pages/UserProfilePage")).UserProfilePage,
+}));
+const FollowersPage = lazy(async () => ({
+  default: (await import("@/features/user/pages/FollowersPage")).FollowersPage,
+}));
+const ContentDetailPage = lazy(async () => ({
+  default: (await import("@/features/content/pages/ContentDetailPage")).ContentDetailPage,
+}));
+const NotFoundPage = lazy(async () => ({
+  default: (await import("@/pages/not-found/NotFoundPage")).NotFoundPage,
+}));
+
+function renderRouteLoadingFallback() {
+  return (
+    <section className="space-y-5">
+      <div className="h-12 w-44 rounded-full bg-white shadow-card" />
+      <div className="grid gap-4 md:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="h-40 rounded-[28px] bg-white shadow-card" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function lazyElement(
+  Component: LazyExoticComponent<() => ReactNode>,
+  fallback: ReactNode = renderRouteLoadingFallback(),
+) {
+  return (
+    <Suspense fallback={fallback}>
+      <Component />
+    </Suspense>
+  );
+}
 
 export const router = createBrowserRouter([
   {
     path: "/login",
     element: (
       <PublicOnlyRoute>
-        <LoginPage />
+        {lazyElement(LoginPage)}
       </PublicOnlyRoute>
     ),
   },
@@ -30,7 +99,7 @@ export const router = createBrowserRouter([
     path: "/register",
     element: (
       <PublicOnlyRoute>
-        <RegisterPage />
+        {lazyElement(RegisterPage)}
       </PublicOnlyRoute>
     ),
   },
@@ -38,54 +107,74 @@ export const router = createBrowserRouter([
     path: "/",
     element: (
       <ProtectedRoute>
-        <AppLayout />
+        {lazyElement(AppLayout)}
       </ProtectedRoute>
     ),
     children: [
       {
         index: true,
-        element: <RecommendPage />,
+        element: lazyElement(RecommendPage),
       },
       {
         path: "me",
-        element: <MePage />,
+        element: lazyElement(MePage),
+      },
+      {
+        path: "me/settings",
+        element: lazyElement(SettingsPage),
       },
       {
         path: "following",
-        element: <FollowPage />,
+        element: lazyElement(FollowPage),
       },
       {
         path: "favorites",
-        element: <FavoritesPage />,
+        element: lazyElement(FavoritesPage),
       },
       {
         path: "publish",
-        element: <PublishPage />,
+        element: lazyElement(PublishPage),
+      },
+      {
+        path: "search",
+        element: lazyElement(SearchPage),
       },
       {
         path: "publish/article",
-        element: <PublishArticlePage />,
+        element: lazyElement(PublishArticlePage),
       },
       {
         path: "publish/video",
-        element: <PublishVideoPage />,
+        element: lazyElement(PublishVideoPage),
       },
       {
         path: "studio",
-        element: <StudioPage />,
+        element: lazyElement(StudioPage),
+      },
+      {
+        path: "studio/article/:contentId/edit",
+        element: lazyElement(EditArticlePage),
+      },
+      {
+        path: "studio/video/:contentId/edit",
+        element: lazyElement(EditVideoPage),
       },
       {
         path: "users/:userId",
-        element: <UserProfilePage />,
+        element: lazyElement(UserProfilePage),
+      },
+      {
+        path: "users/:userId/followers",
+        element: lazyElement(FollowersPage),
       },
       {
         path: "content/:contentId",
-        element: <ContentDetailPage />,
+        element: lazyElement(ContentDetailPage),
       },
     ],
   },
   {
     path: "*",
-    element: <NotFoundPage />,
+    element: lazyElement(NotFoundPage),
   },
 ]);

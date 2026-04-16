@@ -5,6 +5,7 @@ import { getRecommend } from "@/features/feed/api/feed.api";
 import { FeedCard } from "@/features/feed/ui/FeedCard";
 import { feedKeys, DEFAULT_FEED_PAGE_SIZE } from "@/shared/lib/query/queryKeys";
 import { FeedGridSkeleton } from "@/shared/ui/FeedGridSkeleton";
+import { PagedQueryFeedback } from "@/shared/ui/PagedQueryFeedback";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { StatePanel } from "@/shared/ui/StatePanel";
 
@@ -43,6 +44,16 @@ export function RecommendPage() {
             已加载 {items.length} 条
           </span>
         }
+      />
+
+      <PagedQueryFeedback
+        hasItems={items.length > 0}
+        isRefreshing={query.isRefetching && !query.isLoading && !query.isFetchingNextPage}
+        isFetchingNextPage={query.isFetchingNextPage}
+        refreshingTitle="推荐流正在同步新内容"
+        refreshingDescription="当前快照在后台刷新，现有内容仍然可以继续浏览。"
+        fetchingNextPageTitle="正在继续加载推荐内容"
+        fetchingNextPageDescription="下一页推荐结果正在拼接到当前列表里。"
       />
 
       {query.isLoading ? <FeedGridSkeleton /> : null}

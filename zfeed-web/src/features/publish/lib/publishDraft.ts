@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { useBlocker } from "react-router-dom";
 
 type DraftEnvelope<T> = {
   value: T;
@@ -77,4 +78,40 @@ export function useBeforeUnloadGuard(enabled: boolean) {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [enabled]);
+}
+
+export function useUnsavedChangesGuard(
+  enabled: boolean,
+  message = "你有未保存的修改，确认现在离开当前页面吗？",
+) {
+  const bypassRef = useRef(false);
+  const blocker = useBlocker(() => enabled && !bypassRef.current);
+
+  useBeforeUnloadGuard(enabled && !bypassRef.current);
+
+  useEffect(() => {
+    if (blocker.state !== "blocked") {
+      return;
+    }
+
+    const shouldLeave = typeof window === "undefined" ? true : window.confirm(message);
+    if (shouldLeave) {
+      blocker.proceed();
+      return;
+    }
+
+    blocker.reset();
+  }, [blocker, message]);
+
+  return useCallback(<T,>(callback: () => T) => {
+    bypassRef.current = true;
+
+    try {
+      return callback();
+    } finally {
+      window.setTimeout(() => {
+        bypassRef.current = false;
+      }, 0);
+    }
+  }, []);
 }

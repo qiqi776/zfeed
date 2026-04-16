@@ -7,6 +7,7 @@ type ImageFallbackProps = {
   alt: string;
   name?: string;
   variant?: ImageFallbackVariant;
+  onErrorChange?: (hasError: boolean) => void;
   containerClassName?: string;
   imageClassName?: string;
   fallbackClassName?: string;
@@ -33,6 +34,7 @@ export function ImageFallback({
   alt,
   name,
   variant = "cover",
+  onErrorChange,
   containerClassName = "",
   imageClassName = "",
   fallbackClassName = "",
@@ -43,6 +45,10 @@ export function ImageFallback({
   useEffect(() => {
     setHasError(false);
   }, [src]);
+
+  useEffect(() => {
+    onErrorChange?.(hasError);
+  }, [hasError, onErrorChange]);
 
   const showImage = Boolean(src) && !hasError;
   const fallbackLabel = variant === "avatar" ? resolveAvatarFallback(name || alt) : "暂无封面";

@@ -54,6 +54,89 @@ export type PublishVideoRes = {
   content_id: number;
 };
 
+export type EditArticleReq = {
+  title?: string;
+  description?: string;
+  cover?: string;
+  content?: string;
+};
+
+export type EditArticleRes = {
+  content_id: number;
+};
+
+export type EditVideoReq = {
+  title?: string;
+  description?: string;
+  video_url?: string;
+  cover_url?: string;
+  duration?: number;
+};
+
+export type EditVideoRes = {
+  content_id: number;
+};
+
+export type ContentUploadScene =
+  | "avatar"
+  | "article-cover"
+  | "video-cover"
+  | "video-source";
+
+export type ContentUploadCredentialsReq = {
+  scene: ContentUploadScene;
+  file_ext: string;
+  file_size: number;
+  file_name: string;
+};
+
+export type ContentUploadCredentialsRes = {
+  object_key: string;
+  url: string;
+  expired_at: number;
+  form_data: {
+    host: string;
+    policy: string;
+    signature: string;
+    "x-oss-security-token": string;
+    "x-oss-signature-version": string;
+    "x-oss-credential": string;
+    "x-oss-date": string;
+    key: string;
+  };
+};
+
+export function deleteContent(contentId: number) {
+  return request<Record<string, never>>({
+    method: "DELETE",
+    url: `/v1/content/${contentId}`,
+  });
+}
+
+export function editArticle(contentId: number, payload: EditArticleReq) {
+  return request<EditArticleRes, EditArticleReq>({
+    method: "PUT",
+    url: `/v1/content/article/${contentId}`,
+    data: payload,
+  });
+}
+
+export function editVideo(contentId: number, payload: EditVideoReq) {
+  return request<EditVideoRes, EditVideoReq>({
+    method: "PUT",
+    url: `/v1/content/video/${contentId}`,
+    data: payload,
+  });
+}
+
+export function getContentUploadCredentials(payload: ContentUploadCredentialsReq) {
+  return request<ContentUploadCredentialsRes, ContentUploadCredentialsReq>({
+    method: "POST",
+    url: "/v1/content/upload-credentials",
+    data: payload,
+  });
+}
+
 export function getContentDetail(payload: GetContentDetailReq) {
   return request<GetContentDetailRes, GetContentDetailReq>({
     method: "POST",

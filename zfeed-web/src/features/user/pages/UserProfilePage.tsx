@@ -8,12 +8,15 @@ import { followUser, unfollowUser } from "@/features/interaction/api/interaction
 import { getUserProfile, type UserProfileRes } from "@/features/user/api/user.api";
 import {
   captureQuerySnapshots,
+  getFollowSyncQueryKeys,
   patchAuthorFollowStateAcrossPages,
   restoreQuerySnapshots,
 } from "@/shared/lib/query/cacheSync";
-import { contentKeys, feedKeys, userKeys, DEFAULT_FEED_PAGE_SIZE } from "@/shared/lib/query/queryKeys";
+import { feedKeys, userKeys, DEFAULT_FEED_PAGE_SIZE } from "@/shared/lib/query/queryKeys";
 import { FeedGridSkeleton } from "@/shared/ui/FeedGridSkeleton";
 import { ImageFallback } from "@/shared/ui/ImageFallback";
+import { InlineNotice } from "@/shared/ui/InlineNotice";
+import { PagedQueryFeedback } from "@/shared/ui/PagedQueryFeedback";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import {
   PersonalMetricGrid,
@@ -76,26 +79,18 @@ export function UserProfilePage() {
   const followMutation = useMutation({
     mutationFn: async (current: UserProfileRes) => {
       if (current.viewer.is_following) {
-        return unfollowUser({ target_user_id: current.user_profile.user_id });
+        const res = await unfollowUser({ target_user_id: current.user_profile.user_id });
+        return res.is_followed;
       }
-      return followUser({ target_user_id: current.user_profile.user_id });
+      const res = await followUser({ target_user_id: current.user_profile.user_id });
+      return res.is_followed;
     },
     onMutate: async (current) => {
-      await Promise.all([
-        queryClient.cancelQueries({
-          queryKey: userKeys.profile(current.user_profile.user_id, currentUserId),
-        }),
-        queryClient.cancelQueries({
-          queryKey: contentKeys.detailPrefix(),
-        }),
-      ]);
+      const queryKeys = getFollowSyncQueryKeys(current.user_profile.user_id, currentUserId);
+      await Promise.all(queryKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
 
+      const previousSnapshots = captureQuerySnapshots(queryClient, queryKeys);
       const nextIsFollowing = !current.viewer.is_following;
-      const previousSnapshots = captureQuerySnapshots(queryClient, [
-        userKeys.profile(current.user_profile.user_id),
-        userKeys.mePrefix(),
-        contentKeys.detailPrefix(),
-      ]);
 
       patchAuthorFollowStateAcrossPages(
         queryClient,
@@ -117,8 +112,24 @@ export function UserProfilePage() {
           error.message && error.message !== "关注操作失败" ? error.message : "请稍后重试。",
       });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: feedKeys.followPrefix(currentUserId) });
+    onSuccess: async (isFollowed, current) => {
+      if (isFollowed !== !current.viewer.is_following) {
+        patchAuthorFollowStateAcrossPages(
+          queryClient,
+          current.user_profile.user_id,
+          currentUserId,
+          isFollowed,
+        );
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: feedKeys.followPrefix(currentUserId) }),
+        queryClient.invalidateQueries({
+          queryKey: userKeys.profilePrefix(current.user_profile.user_id),
+        }),
+        queryClient.invalidateQueries({ queryKey: userKeys.profilePrefix(currentUserId) }),
+        queryClient.invalidateQueries({ queryKey: userKeys.mePrefix() }),
+      ]);
     },
   });
 
@@ -192,9 +203,17 @@ export function UserProfilePage() {
         aside={
           <div className="flex flex-wrap gap-3 lg:max-w-sm lg:justify-end">
             {isOwnProfile ? (
-              <span className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">
-                这是你的公开主页
-              </span>
+              <>
+                <span className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600">
+                  这是你的公开主页
+                </span>
+                <Link
+                  to="/me/settings"
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+                >
+                  编辑资料
+                </Link>
+              </>
             ) : (
               <button
                 type="button"
@@ -230,17 +249,50 @@ export function UserProfilePage() {
         columns={5}
       />
 
+      <InlineNotice
+        title="当前只展示公开资料和公开内容"
+        description="关注、粉丝、内容、获赞和被收藏来自对方公开聚合；下方发布列表只覆盖当前开放读取的公开内容，不代表对方全部后台数据。"
+        tone="soft"
+      />
+
+      <div className="flex flex-wrap gap-3">
+        <Link
+          to={`/users/${profileInfo.user_id}/followers`}
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+        >
+          查看粉丝列表
+        </Link>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
         <PersonalSpaceSection
           eyebrow="Publish Feed"
           title="公开发布"
-          description="这里展示当前公开可见的内容，用于继续回访作者和作品。"
+          description="这里展示当前公开可见的内容，用于继续回访作者和作品；总量和当前页列表分开表达。"
           badge={
             <span className="rounded-full bg-[#fff8ef] px-4 py-2 text-sm text-slate-600">
-              已加载 {publishItems.length} 条
+              公开总数 {profileCounts.content_count} · 已加载 {publishItems.length} 条
             </span>
           }
         >
+          <InlineNotice
+            title="公开总量和当前列表是两套口径"
+            description="badge 里的公开总数来自资料聚合；已加载只代表前端当前拉到的公开 feed 条数。"
+            tone="soft"
+          />
+
+          <PagedQueryFeedback
+            hasItems={publishItems.length > 0}
+            isRefreshing={
+              publishQuery.isRefetching && !publishQuery.isLoading && !publishQuery.isFetchingNextPage
+            }
+            isFetchingNextPage={publishQuery.isFetchingNextPage}
+            refreshingTitle="公开发布列表正在同步"
+            refreshingDescription="资料页和其他公开读取链路的变化会在后台刷新到这里。"
+            fetchingNextPageTitle="正在继续加载公开发布"
+            fetchingNextPageDescription="下一页公开作品正在追加到当前主页列表。"
+          />
+
           {publishQuery.isLoading ? <FeedGridSkeleton /> : null}
           {publishQuery.isError ? (
             <StatePanel
@@ -280,9 +332,14 @@ export function UserProfilePage() {
         <PersonalSpaceSection
           eyebrow="Profile Meta"
           title="主页信息"
-          description="这部分强调作者身份、关系状态和当前公开主页的边界。"
+          description="这部分强调作者身份、数据口径和当前公开主页的边界。"
         >
           <div className="space-y-3">
+            <PersonalSpaceInfoCard
+              label="数据口径"
+              value={`公开聚合 ${profileCounts.content_count} 条`}
+              description="这里不会暴露草稿、私密内容或未开放的后台状态；当前列表 badge 里的已加载只代表前端页数。"
+            />
             <PersonalSpaceInfoCard
               label="关系状态"
               value={
@@ -306,7 +363,7 @@ export function UserProfilePage() {
             <PersonalSpaceInfoCard
               label="主页状态"
               value={profileCounts.content_count > 0 ? "有公开内容" : "暂时空白"}
-              description="主页内容数来自公开发布统计，而不是全部后台内容。"
+              description="分页继续拉取的也是公开发布 feed，不会推断未公开内容。"
             />
           </div>
         </PersonalSpaceSection>

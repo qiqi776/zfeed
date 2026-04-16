@@ -5,11 +5,12 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import { type FormEvent, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { useSessionStore } from "@/entities/session/model/session.store";
 import {
+  deleteContent,
   getContentDetail,
   type ContentDetail,
   type GetContentDetailRes,
@@ -32,11 +33,14 @@ import {
 } from "@/features/interaction/api/interaction.api";
 import {
   captureQuerySnapshots,
+  getFollowSyncQueryKeys,
   patchAuthorFollowStateAcrossPages,
   patchContentDetail,
   patchLikeStateAcrossCollections,
+  removeContentAcrossCollections,
   restoreQuerySnapshots,
 } from "@/shared/lib/query/cacheSync";
+import { contentDeletionCopy } from "@/shared/lib/content/actionCopy";
 import { contentKeys, feedKeys, userKeys } from "@/shared/lib/query/queryKeys";
 import { ImageFallback } from "@/shared/ui/ImageFallback";
 import { InlineNotice } from "@/shared/ui/InlineNotice";
@@ -114,6 +118,7 @@ function optionalCommentId(value: number) {
 }
 
 export function ContentDetailPage() {
+  const navigate = useNavigate();
   const params = useParams();
   const queryClient = useQueryClient();
   const currentUserId = useSessionStore((state) => state.user?.userId ?? 0);
@@ -135,6 +140,16 @@ export function ContentDetailPage() {
   const detail = detailQuery.data?.detail;
   const scene = detail ? resolveScene(detail.content_type) : null;
   const trimmedComment = commentDraft.trim();
+  const [coverLoadFailed, setCoverLoadFailed] = useState(false);
+  const [videoLoadFailed, setVideoLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setCoverLoadFailed(false);
+  }, [detail?.content_id, detail?.cover_url]);
+
+  useEffect(() => {
+    setVideoLoadFailed(false);
+  }, [detail?.content_id, detail?.video_url]);
 
   const commentsQuery = useInfiniteQuery({
     queryKey: contentKeys.comments(contentId),
@@ -267,16 +282,10 @@ export function ContentDetailPage() {
       return res.is_followed;
     },
     onMutate: async (current) => {
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: contentKeys.detailPrefix() }),
-        queryClient.cancelQueries({ queryKey: userKeys.profile(current.author_id, currentUserId) }),
-      ]);
+      const queryKeys = getFollowSyncQueryKeys(current.author_id, currentUserId);
+      await Promise.all(queryKeys.map((queryKey) => queryClient.cancelQueries({ queryKey })));
 
-      const previousSnapshots = captureQuerySnapshots(queryClient, [
-        contentKeys.detailPrefix(),
-        userKeys.profile(current.author_id, currentUserId),
-        userKeys.mePrefix(),
-      ]);
+      const previousSnapshots = captureQuerySnapshots(queryClient, queryKeys);
       const nextIsFollowing = !current.is_following_author;
 
       patchAuthorFollowStateAcrossPages(queryClient, current.author_id, currentUserId, nextIsFollowing);
@@ -293,8 +302,17 @@ export function ContentDetailPage() {
         description: error.message && error.message !== "关注操作失败" ? error.message : "请稍后重试。",
       });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: feedKeys.followPrefix(currentUserId) });
+    onSuccess: async (isFollowed, current) => {
+      if (isFollowed !== !current.is_following_author) {
+        patchAuthorFollowStateAcrossPages(queryClient, current.author_id, currentUserId, isFollowed);
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: feedKeys.followPrefix(currentUserId) }),
+        queryClient.invalidateQueries({ queryKey: userKeys.profilePrefix(current.author_id) }),
+        queryClient.invalidateQueries({ queryKey: userKeys.profilePrefix(currentUserId) }),
+        queryClient.invalidateQueries({ queryKey: userKeys.mePrefix() }),
+      ]);
     },
   });
 
@@ -370,6 +388,74 @@ export function ContentDetailPage() {
     },
   });
 
+  const deleteContentMutation = useMutation({
+    mutationFn: async (current: ContentDetail) => deleteContent(current.content_id),
+    onMutate: async (current) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: contentKeys.detail(current.content_id, currentUserId) }),
+        queryClient.cancelQueries({ queryKey: feedKeys.recommendPrefix() }),
+        queryClient.cancelQueries({ queryKey: feedKeys.followPrefix() }),
+        queryClient.cancelQueries({ queryKey: feedKeys.favoritesPrefix() }),
+        queryClient.cancelQueries({ queryKey: feedKeys.userPublishPrefix() }),
+        queryClient.cancelQueries({ queryKey: feedKeys.studioPublishPrefix() }),
+      ]);
+
+      const previousSnapshots = captureQuerySnapshots(queryClient, [
+        contentKeys.detail(current.content_id, currentUserId),
+        feedKeys.recommendPrefix(),
+        feedKeys.followPrefix(),
+        feedKeys.favoritesPrefix(),
+        feedKeys.userPublishPrefix(),
+        feedKeys.studioPublishPrefix(),
+      ]);
+
+      removeContentAcrossCollections(queryClient, current.content_id);
+      return { previousSnapshots };
+    },
+    onError: (error, _current, context) => {
+      if (context?.previousSnapshots) {
+        restoreQuerySnapshots(queryClient, context.previousSnapshots);
+      }
+      showToast({
+        tone: "error",
+        title: "删除内容失败",
+        description: error.message && error.message !== "删除内容失败" ? error.message : "请稍后重试。",
+      });
+    },
+    onSuccess: async (_, current) => {
+      queryClient.removeQueries({ queryKey: contentKeys.detail(current.content_id, currentUserId) });
+      showToast({
+        tone: "info",
+        title: contentDeletionCopy.successTitle,
+        description: contentDeletionCopy.successDescription,
+      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: feedKeys.recommendPrefix() }),
+        queryClient.invalidateQueries({ queryKey: feedKeys.followPrefix() }),
+        queryClient.invalidateQueries({ queryKey: feedKeys.favoritesPrefix() }),
+        queryClient.invalidateQueries({ queryKey: feedKeys.userPublishPrefix(current.author_id) }),
+        queryClient.invalidateQueries({ queryKey: feedKeys.studioPublishPrefix(current.author_id) }),
+        queryClient.invalidateQueries({ queryKey: userKeys.profilePrefix(current.author_id) }),
+      ]);
+      navigate("/studio", { replace: true });
+    },
+  });
+
+  function handleDeleteCurrentContent() {
+    if (!detail || deleteContentMutation.isPending) {
+      return;
+    }
+
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(contentDeletionCopy.confirm)
+    ) {
+      return;
+    }
+
+    deleteContentMutation.mutate(detail);
+  }
+
   function handleReply(target: ReplyTarget) {
     setReplyTarget(target);
     commentInputRef.current?.focus();
@@ -429,6 +515,8 @@ export function ContentDetailPage() {
 
   const isVideo = detail.content_type === 20;
   const isOwnContent = currentUserId === detail.author_id;
+  const hasCoverSource = Boolean(detail.cover_url?.trim());
+  const hasVideoSource = Boolean(detail.video_url?.trim());
   const authorName = detail.author_name || `用户 ${detail.author_id}`;
   const composerHint = replyTarget
     ? replyTarget.isNested
@@ -436,6 +524,23 @@ export function ContentDetailPage() {
       : `这条回复会进入 @${replyTarget.userName} 这条评论所在的楼层。`
     : "直接发布到当前评论区，所有浏览者都能看到。";
   const isCommentsRefreshing = commentsQuery.isRefetching && !commentsQuery.isLoading;
+  const coverStatusMessage = !hasCoverSource
+    ? "当前内容没有可用封面地址，已降级为占位图。"
+    : coverLoadFailed
+      ? "当前封面地址暂时不可访问，页面已切换到占位图。"
+      : "封面加载正常。";
+  const coverBadgeLabel = !hasCoverSource
+    ? "当前没有可用封面，已用占位图兜底"
+    : coverLoadFailed
+      ? "封面加载失败，已切到占位图"
+      : null;
+  const videoStatusMessage = isVideo
+    ? !hasVideoSource
+      ? "当前内容没有可用的视频地址，已回退到封面预览。"
+      : videoLoadFailed
+        ? "当前视频地址暂时不可用，已回退到封面预览。"
+        : "视频地址可播放。"
+    : null;
 
   return (
     <section className="space-y-6">
@@ -457,11 +562,17 @@ export function ContentDetailPage() {
             <ImageFallback
               src={detail.cover_url}
               alt={detail.title || "内容封面"}
+              onErrorChange={setCoverLoadFailed}
               containerClassName="h-full w-full"
               imageClassName="h-full w-full object-cover opacity-90"
               fallbackClassName="h-full"
             />
             <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(11,18,32,0.16),rgba(11,18,32,0.82))]" />
+            {coverBadgeLabel ? (
+              <div className="absolute right-4 top-4 rounded-full bg-white/90 px-4 py-2 text-xs font-medium text-slate-700 shadow-sm backdrop-blur">
+                {coverBadgeLabel}
+              </div>
+            ) : null}
             <div className="absolute inset-x-0 bottom-0 space-y-4 p-6 text-white md:p-8">
               <p className="text-xs uppercase tracking-[0.3em] text-white/70">{authorName}</p>
               <h1 className="font-display text-3xl font-semibold leading-tight md:text-5xl">
@@ -516,8 +627,28 @@ export function ContentDetailPage() {
                 onClick={() => favoriteMutation.mutate(detail)}
               />
               {isOwnContent ? (
-                <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                  这是你发布的内容，当前不显示关注按钮。
+                <div className="space-y-3 rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
+                  <p>这是你发布的内容，因此这里不显示关注按钮。</p>
+                  <Link
+                    to={
+                      detail.content_type === 20
+                        ? `/studio/video/${detail.content_id}/edit`
+                        : `/studio/article/${detail.content_id}/edit`
+                    }
+                    className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    编辑这条内容
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleDeleteCurrentContent}
+                    disabled={deleteContentMutation.isPending}
+                    className="rounded-full border border-[#ffd7cf] bg-[#fff6f3] px-4 py-2 text-sm text-ember transition hover:border-ember disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deleteContentMutation.isPending
+                      ? contentDeletionCopy.pendingActionLabel
+                      : contentDeletionCopy.actionLabel}
+                  </button>
                 </div>
               ) : (
                 <ActionButton
@@ -548,20 +679,66 @@ export function ContentDetailPage() {
           </div>
 
           {isVideo ? (
-            detail.video_url ? (
+            hasVideoSource && !videoLoadFailed ? (
               <video
                 controls
                 playsInline
                 poster={detail.cover_url}
                 className="w-full rounded-3xl bg-black"
                 src={detail.video_url}
+                onError={() => setVideoLoadFailed(true)}
               />
             ) : (
-              <InlineNotice
-                title="视频暂时无法播放"
-                description="当前内容没有可用的视频地址，稍后可以再试，或先回到作者主页查看其他公开内容。"
-                tone="soft"
-              />
+              <div className="space-y-4">
+                <InlineNotice
+                  title={hasVideoSource ? "视频加载失败，已切到封面预览" : "视频暂时无法播放"}
+                  description={
+                    hasVideoSource
+                      ? "当前视频地址暂时不可用，你仍然可以先查看封面、简介和评论区，稍后再试。"
+                      : "当前内容没有可用的视频地址，先用封面预览兜底，你仍然可以继续浏览简介和评论区。"
+                  }
+                  tone={hasVideoSource ? "error" : "soft"}
+                  action={
+                    <div className="flex flex-wrap gap-3">
+                      {hasVideoSource ? (
+                        <button
+                          type="button"
+                          onClick={() => setVideoLoadFailed(false)}
+                          className="rounded-full border border-[#ffd7cf] bg-white px-4 py-2 text-sm text-ember transition hover:border-ember"
+                        >
+                          重试播放
+                        </button>
+                      ) : null}
+                      <Link
+                        to={`/users/${detail.author_id}`}
+                        className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+                      >
+                        查看作者主页
+                      </Link>
+                    </div>
+                  }
+                />
+
+                <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                  <div className="aspect-[16/9]">
+                    <ImageFallback
+                      src={detail.cover_url}
+                      alt={detail.title || "视频封面"}
+                      containerClassName="h-full w-full"
+                      imageClassName="h-full w-full object-cover"
+                      fallbackClassName="h-full"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3">
+                    <p className="text-sm text-slate-600">
+                      当前先展示封面预览，你仍然可以继续阅读简介和评论。
+                    </p>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
+                      时长 {formatDuration(detail.video_duration)}
+                    </span>
+                  </div>
+                </div>
+              </div>
             )
           ) : (
             detail.article_content ? (
@@ -586,6 +763,21 @@ export function ContentDetailPage() {
                 ? "你已经参与过互动"
                 : "还没有留下动作"}
             </p>
+          </div>
+          <div className="rounded-3xl bg-white p-4">
+            <p className="text-sm text-slate-500">媒体状态</p>
+            <div className="mt-3 space-y-3 text-sm text-slate-600">
+              <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                <p className="font-medium text-slate-900">封面</p>
+                <p className="mt-1 leading-6">{coverStatusMessage}</p>
+              </div>
+              {isVideo && videoStatusMessage ? (
+                <div className="rounded-2xl bg-slate-50 px-3 py-3">
+                  <p className="font-medium text-slate-900">视频</p>
+                  <p className="mt-1 leading-6">{videoStatusMessage}</p>
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="rounded-3xl bg-white p-4">
             <p className="text-sm text-slate-500">作者 ID</p>
@@ -637,14 +829,21 @@ export function ContentDetailPage() {
             </div>
           ) : null}
 
-          <p className="mb-3 text-sm leading-6 text-slate-500">{composerHint}</p>
+          <label htmlFor="content-comment-draft" className="sr-only">
+            {replyTarget ? "回复评论" : "发表评论"}
+          </label>
+          <p id="content-comment-hint" className="mb-3 text-sm leading-6 text-slate-500">
+            {composerHint}
+          </p>
 
           <textarea
+            id="content-comment-draft"
             ref={commentInputRef}
             value={commentDraft}
             onChange={(event) => setCommentDraft(event.target.value)}
             maxLength={255}
             rows={4}
+            aria-describedby="content-comment-hint content-comment-count"
             placeholder={
               replyTarget ? `回复 ${replyTarget.userName}...` : "写下你的看法，最多 255 字"
             }
@@ -652,7 +851,9 @@ export function ContentDetailPage() {
           />
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-500">{trimmedComment.length}/255</p>
+            <p id="content-comment-count" className="text-xs text-slate-500" aria-live="polite">
+              {trimmedComment.length}/255
+            </p>
             <div className="flex items-center gap-3">
               <button
                 type="submit"
@@ -750,6 +951,7 @@ function CommentThread({
 }) {
   const [expanded, setExpanded] = useState(false);
   const isDeletingRootComment = deletePending && deletingCommentId === rootComment.comment_id;
+  const repliesRegionId = `comment-thread-replies-${rootComment.comment_id}`;
 
   const repliesQuery = useInfiniteQuery({
     queryKey: contentKeys.replies(contentId, rootComment.comment_id),
@@ -793,6 +995,8 @@ function CommentThread({
             <button
               type="button"
               onClick={() => setExpanded((value) => !value)}
+              aria-expanded={expanded}
+              aria-controls={repliesRegionId}
               className="text-sm font-medium text-accent transition hover:text-ink"
             >
               {expanded ? "收起回复" : `查看 ${rootComment.reply_count} 条回复`}
@@ -805,7 +1009,10 @@ function CommentThread({
           </div>
 
           {expanded ? (
-            <div className="mt-4 space-y-3 border-l border-slate-200 pl-4">
+            <div
+              id={repliesRegionId}
+              className="mt-4 space-y-3 border-l border-slate-200 pl-4"
+            >
               {repliesQuery.isLoading ? (
                 Array.from({ length: Math.min(rootComment.reply_count, 2) }).map((_, index) => (
                   <div key={index} className="h-24 rounded-3xl bg-slate-100" />

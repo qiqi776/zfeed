@@ -1,17 +1,22 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useSessionStore } from "@/entities/session/model/session.store";
 import { publishArticle } from "@/features/content/api/content.api";
+import { uploadContentAsset } from "@/features/content/lib/upload";
 import {
   clearPublishDraft,
   isValidPublicUrl,
   readPublishDraft,
   savePublishDraft,
-  useBeforeUnloadGuard,
+  useUnsavedChangesGuard,
 } from "@/features/publish/lib/publishDraft";
 import { invalidatePublishSurfaces } from "@/shared/lib/query/cacheSync";
+import {
+  contentImageUploadRule,
+  describeFileValidationRule,
+} from "@/shared/lib/media/fileValidation";
 import { userKeys } from "@/shared/lib/query/queryKeys";
 import { ImageFallback } from "@/shared/ui/ImageFallback";
 import { InlineNotice } from "@/shared/ui/InlineNotice";
@@ -94,6 +99,7 @@ export function PublishArticlePage() {
   const queryClient = useQueryClient();
   const currentUserId = useSessionStore((state) => state.user?.userId ?? 0);
   const { showToast } = useToast();
+  const coverFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [draftBootstrap] = useState(() =>
     readPublishDraft<ArticleFormState>(ARTICLE_DRAFT_STORAGE_KEY, createEmptyArticleForm()),
@@ -131,7 +137,7 @@ export function PublishArticlePage() {
         title: "文章已发布",
         description: "正在跳转到内容详情。",
       });
-      navigate(`/content/${res.content_id}`);
+      allowExit(() => navigate(`/content/${res.content_id}`));
     },
     onError: (nextError: Error) => {
       showToast({
@@ -145,7 +151,26 @@ export function PublishArticlePage() {
     },
   });
 
-  useBeforeUnloadGuard(hasDraftContent && !mutation.isPending);
+  const coverUploadMutation = useMutation({
+    mutationFn: (file: File) => uploadContentAsset(file, "article-cover"),
+    onSuccess: (res) => {
+      updateField("cover", res.url);
+      showToast({
+        tone: "success",
+        title: "封面已上传",
+        description: "新的封面地址已经回填到表单。",
+      });
+    },
+    onError: (error: Error) => {
+      showToast({
+        tone: "error",
+        title: "封面上传失败",
+        description: error.message || "请稍后重试。",
+      });
+    },
+  });
+
+  const allowExit = useUnsavedChangesGuard(hasDraftContent && !mutation.isPending);
 
   function updateField<Key extends keyof ArticleFormState>(
     key: Key,
@@ -166,6 +191,15 @@ export function PublishArticlePage() {
       title: "文章草稿已清空",
       description: "当前浏览器中的本地草稿已经移除。",
     });
+  }
+
+  function handleCoverFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+    coverUploadMutation.mutate(file);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -212,7 +246,7 @@ export function PublishArticlePage() {
       <PageHeader
         eyebrow="Article"
         title="发布文章"
-        description="当前先用现成封面 URL 发布公开文章，后续再接入上传链路和私密内容读链。"
+        description="支持封面直传或手填 URL，当前继续聚焦公开文章发布链路。"
         aside={
           <Link
             to="/publish"
@@ -225,8 +259,8 @@ export function PublishArticlePage() {
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         <InlineNotice
-          title="当前只支持公开文章发布"
-          description="原因不是表单限制，而是详情页和“我的发布”读取链路暂时都只覆盖公开内容；同时上传凭证还未补齐，所以这里先明确采用“公开 + URL”方案。"
+          title="公开文章链路已经可用"
+          description="你可以直接上传文章封面，也可以继续手动填写 URL。当前仍优先聚焦公开文章发布。"
           tone="soft"
         />
 
@@ -296,6 +330,36 @@ export function PublishArticlePage() {
                   />
                 </label>
 
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => coverFileInputRef.current?.click()}
+                    aria-describedby="article-cover-upload-hint"
+                    className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+                  >
+                    {coverUploadMutation.isPending ? "上传中..." : "上传文章封面"}
+                  </button>
+                  <input
+                    ref={coverFileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    tabIndex={-1}
+                    className="hidden"
+                    onChange={handleCoverFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateField("cover", "")}
+                    disabled={!trimmedCover}
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent disabled:opacity-60"
+                  >
+                    清空封面
+                  </button>
+                </div>
+                <p id="article-cover-upload-hint" className="text-xs text-slate-500">
+                  上传文件支持 {describeFileValidationRule(contentImageUploadRule)}。
+                </p>
+
                 <label className="block text-sm text-slate-700">
                   可见性
                   <select
@@ -348,7 +412,7 @@ export function PublishArticlePage() {
               title={hasDraftContent ? "草稿会自动保存在当前浏览器" : "开始输入后会自动保存草稿"}
               description={
                 hasDraftContent
-                  ? "如果你中途离开页面，当前内容会保留在本地。发布成功或手动清空后，草稿会自动移除。"
+                  ? "如果你刷新、关闭标签页或切换站内页面，都会先提醒你；当前内容也会继续保留在本地。"
                   : "本地草稿只保存在当前浏览器，不会上传到服务端。"
               }
               tone={hasDraftContent ? "soft" : "neutral"}

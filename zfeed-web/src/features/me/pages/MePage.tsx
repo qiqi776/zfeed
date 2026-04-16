@@ -5,6 +5,7 @@ import { useSessionStore } from "@/entities/session/model/session.store";
 import { getMe } from "@/features/auth/api/auth.api";
 import { userKeys } from "@/shared/lib/query/queryKeys";
 import { ImageFallback } from "@/shared/ui/ImageFallback";
+import { InlineNotice } from "@/shared/ui/InlineNotice";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import {
   PersonalMetricGrid,
@@ -55,6 +56,7 @@ export function MePage() {
     follower_count,
     like_received_count,
     favorite_received_count,
+    content_count,
   } = query.data;
 
   return (
@@ -94,6 +96,12 @@ export function MePage() {
             >
               去发布
             </Link>
+            <Link
+              to="/me/settings"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition hover:border-accent hover:text-accent"
+            >
+              编辑资料
+            </Link>
           </div>
         }
       />
@@ -102,10 +110,17 @@ export function MePage() {
         items={[
           { label: "关注", value: followee_count },
           { label: "粉丝", value: follower_count },
+          { label: "内容", value: content_count },
           { label: "获赞", value: like_received_count },
           { label: "被收藏", value: favorite_received_count },
         ]}
-        columns={4}
+        columns={5}
+      />
+
+      <InlineNotice
+        title="这些数字是聚合口径"
+        description="关注、粉丝、内容、获赞和被收藏都来自当前登录账号的后端聚合；下方入口和 Studio 列表只负责带你进入对应空间，不等于这里的总量统计。"
+        tone="soft"
       />
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -119,6 +134,11 @@ export function MePage() {
               to="/favorites"
               title="我的收藏"
               description="回看你收藏过的内容，并检查跨页同步结果。"
+            />
+            <EntryLinkCard
+              to={`/users/${user.user_id}/followers`}
+              title="粉丝列表"
+              description="查看谁在关注你，并决定是否回关。"
             />
             <EntryLinkCard
               to="/studio"
@@ -135,29 +155,44 @@ export function MePage() {
               title="发布入口"
               description="继续发布文章或视频，进入当前能力版创作链路。"
             />
+            <EntryLinkCard
+              to="/search"
+              title="搜索"
+              description="搜索内容和用户，检查基础检索链路是否可用。"
+            />
           </div>
         </PersonalSpaceSection>
 
         <PersonalSpaceSection
           eyebrow="Profile"
-          title="公开形象"
-          description="这里说明当前主页在公开展示和后端能力上的边界。"
+          title="公开边界"
+          description="这里明确这页的计数口径、公开范围和它与设置 / Studio 的分工。"
         >
           <div className="space-y-3">
+            <PersonalSpaceInfoCard
+              label="数据口径"
+              value="聚合计数优先"
+              description="这页的关注、粉丝、内容、获赞和被收藏都来自 getMe 聚合，不跟随当前入口卡片数量变化。"
+            />
             <PersonalSpaceInfoCard
               label="公开主页"
               value="可直接预览"
               description="点击“查看公开主页”即可看到其他用户当前看到的版本。"
             />
             <PersonalSpaceInfoCard
-              label="资料编辑"
-              value="等待后端补齐"
-              description="昵称、简介和头像更新链路尚未开放，所以当前以浏览和回访为主。"
+              label="公开内容范围"
+              value="Studio / 公开主页只看公开内容"
+              description="私密内容能力还没接到前端，因此这里只表达当前已经公开可见的资料和作品。"
             />
             <PersonalSpaceInfoCard
-              label="个人语义"
-              value="公开形象 + 内容关系"
-              description="我的主页不作为设置中心，而是你的公开身份与内容入口。"
+              label="资料编辑"
+              value="已可编辑"
+              description="昵称、简介、头像、邮箱和生日都可以在资料设置页更新。"
+            />
+            <PersonalSpaceInfoCard
+              label="当前定位"
+              value="总览入口，不代替设置或后台"
+              description="我的主页负责聚合身份、关系和常用入口；更细的内容管理继续放在设置页和 Studio。"
             />
           </div>
         </PersonalSpaceSection>

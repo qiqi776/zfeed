@@ -6,6 +6,7 @@ import { getFollow } from "@/features/feed/api/feed.api";
 import { FeedCard } from "@/features/feed/ui/FeedCard";
 import { feedKeys, DEFAULT_FEED_PAGE_SIZE } from "@/shared/lib/query/queryKeys";
 import { FeedGridSkeleton } from "@/shared/ui/FeedGridSkeleton";
+import { PagedQueryFeedback } from "@/shared/ui/PagedQueryFeedback";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { StatePanel } from "@/shared/ui/StatePanel";
 
@@ -40,6 +41,16 @@ export function FollowPage() {
             当前 {items.length} 条
           </span>
         }
+      />
+
+      <PagedQueryFeedback
+        hasItems={items.length > 0}
+        isRefreshing={query.isRefetching && !query.isLoading && !query.isFetchingNextPage}
+        isFetchingNextPage={query.isFetchingNextPage}
+        refreshingTitle="关注流正在同步最新发布"
+        refreshingDescription="你关注的作者有新状态时，这里会在后台自动刷新。"
+        fetchingNextPageTitle="正在继续加载关注内容"
+        fetchingNextPageDescription="下一页关注内容正在追加到当前列表。"
       />
 
       {query.isLoading ? <FeedGridSkeleton /> : null}

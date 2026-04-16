@@ -6,6 +6,7 @@ import { getUserFavorite } from "@/features/feed/api/feed.api";
 import { FeedCard } from "@/features/feed/ui/FeedCard";
 import { feedKeys, DEFAULT_FEED_PAGE_SIZE } from "@/shared/lib/query/queryKeys";
 import { FeedGridSkeleton } from "@/shared/ui/FeedGridSkeleton";
+import { PagedQueryFeedback } from "@/shared/ui/PagedQueryFeedback";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import {
   PersonalMetricGrid,
@@ -107,6 +108,16 @@ export function FavoritesPage() {
             </span>
           }
         >
+          <PagedQueryFeedback
+            hasItems={items.length > 0}
+            isRefreshing={query.isRefetching && !query.isLoading && !query.isFetchingNextPage}
+            isFetchingNextPage={query.isFetchingNextPage}
+            refreshingTitle="收藏列表正在同步最新状态"
+            refreshingDescription="详情页和其他列表的收藏变化会在后台同步回这里。"
+            fetchingNextPageTitle="正在继续加载收藏内容"
+            fetchingNextPageDescription="下一页收藏内容正在追加到当前收藏架。"
+          />
+
           {query.isLoading ? <FeedGridSkeleton /> : null}
 
           {query.isError ? (
