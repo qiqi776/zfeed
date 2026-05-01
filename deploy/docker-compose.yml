@@ -8,6 +8,7 @@ services:
     working_dir: /app
     environment:
       - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
     env_file:
       - ./.env
     ports:
@@ -33,16 +34,6 @@ services:
         condition: service_started
       search-rpc:
         condition: service_started
-    networks:
-      - zfeed-net
-
-  front-web:
-    image: ${FRONT_WEB_IMAGE}
-    build:
-      context: ..
-      dockerfile: build/front-web.Dockerfile
-    depends_on:
-      - front-api
     networks:
       - zfeed-net
 
@@ -95,6 +86,7 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - RESEED_MYSQL=${RESEED_MYSQL:-0}
     volumes:
       - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
       - ./mysql/mysql-reseed.sh:/usr/local/bin/mysql-reseed.sh:ro
@@ -143,6 +135,8 @@ services:
     ports:
       - "${CANAL_PORT}:11111"
     command: ["/bin/sh", "-c", "/usr/local/bin/canal-reset-and-start.sh"]
+    environment:
+      - RESET_CANAL=${RESET_CANAL:-0}
     volumes:
       - ./canal/conf/canal.properties:/home/admin/canal-server/conf/canal.properties
       - ./canal/conf/count:/home/admin/canal-server/conf/count
@@ -203,6 +197,7 @@ services:
     working_dir: /app
     environment:
       - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
     env_file:
       - ./.env
     ports:
@@ -230,6 +225,7 @@ services:
     working_dir: /app
     environment:
       - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
     volumes:
       - ./.env:/app/.env:ro
       - ../logs:/var/log/zfeed
@@ -260,6 +256,7 @@ services:
     working_dir: /app
     environment:
       - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
     volumes:
       - ./.env:/app/.env:ro
       - ../logs:/var/log/zfeed
@@ -289,6 +286,7 @@ services:
     working_dir: /app
     environment:
       - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
     volumes:
       - ./.env:/app/.env:ro
       - ../logs:/var/log/zfeed
@@ -318,6 +316,7 @@ services:
     working_dir: /app
     environment:
       - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
     volumes:
       - ./.env:/app/.env:ro
       - ../logs:/var/log/zfeed
@@ -374,7 +373,6 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - front-web
       - front-api
     networks:
       - zfeed-net

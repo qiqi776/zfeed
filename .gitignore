@@ -36,9 +36,6 @@ go.work.sum
 .vscode/
 
 logs/
+docs/
+.cache/
 .codex
-
-# front-web deployment exports
-deploy/front-web/images/*.tar
-deploy/front-web/images/*.tar.gz
-deploy/front-web/images/*.tgz
