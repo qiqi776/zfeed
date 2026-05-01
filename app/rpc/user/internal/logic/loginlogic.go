@@ -11,6 +11,7 @@ import (
 	"zfeed/app/rpc/user/internal/svc"
 	"zfeed/app/rpc/user/user"
 	"zfeed/pkg/errorx"
+	"zfeed/pkg/mobilex"
 	"zfeed/pkg/utils"
 )
 
@@ -31,11 +32,19 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 }
 
 func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginRes, error) {
-	if in == nil {
+	if in == nil || in.GetPassword() == "" || in.GetMobile() == "" {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+	if !mobilex.IsValid(in.GetMobile()) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
-	u, err := l.userRepo.GetByMobile(in.GetMobile())
+	mobile := mobilex.Normalize(in.GetMobile())
+	if mobile == "" {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+
+	u, err := l.userRepo.GetByMobile(mobile)
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询用户失败"))
 	}

@@ -10,6 +10,7 @@ import (
 	"zfeed/app/front/internal/types"
 	"zfeed/app/rpc/user/user"
 	"zfeed/pkg/errorx"
+	"zfeed/pkg/mobilex"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -29,7 +30,15 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 }
 
 func (l *RegisterLogic) Register(req *types.RegisterReq) (resp *types.RegisterRes, err error) {
-	if req == nil || req.Mobile == nil || req.Password == nil || req.Avatar == nil || req.Gender == nil || req.Email == nil || req.Birthday == nil {
+	if req == nil || req.Mobile == nil || req.Password == nil {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+	if !mobilex.IsValid(*req.Mobile) {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+
+	mobile := mobilex.Normalize(*req.Mobile)
+	if mobile == "" {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -43,15 +52,35 @@ func (l *RegisterLogic) Register(req *types.RegisterReq) (resp *types.RegisterRe
 		bio = req.Bio
 	}
 
+	var avatar string
+	if req.Avatar != nil {
+		avatar = *req.Avatar
+	}
+
+	var gender user.Gender
+	if req.Gender != nil {
+		gender = user.Gender(*req.Gender)
+	}
+
+	var email string
+	if req.Email != nil {
+		email = *req.Email
+	}
+
+	var birthday int64
+	if req.Birthday != nil {
+		birthday = *req.Birthday
+	}
+
 	rpcResp, err := l.svcCtx.UserRpc.Register(l.ctx, &user.RegisterReq{
-		Mobile:   *req.Mobile,
+		Mobile:   mobile,
 		Password: *req.Password,
 		Nickname: nickname,
-		Avatar:   *req.Avatar,
+		Avatar:   avatar,
 		Bio:      bio,
-		Email:    *req.Email,
-		Gender:   user.Gender(*req.Gender),
-		Birthday: *req.Birthday,
+		Email:    email,
+		Gender:   gender,
+		Birthday: birthday,
 	})
 	if err != nil {
 		return nil, err

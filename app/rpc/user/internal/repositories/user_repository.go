@@ -9,6 +9,7 @@ import (
 
 	"zfeed/app/rpc/user/internal/do"
 	"zfeed/app/rpc/user/internal/model"
+	"zfeed/pkg/mobilex"
 )
 
 type UserRepository interface {
@@ -34,18 +35,21 @@ func NewUserRepository(ctx context.Context, db *gorm.DB) UserRepository {
 }
 
 func (r *userRepositoryImpl) GetByMobile(mobile string) (*do.UserDO, error) {
-	var row model.ZfeedUser
-	err := r.db.WithContext(r.ctx).
-		Where("mobile = ? AND is_deleted = 0", mobile).
-		First(&row).Error
-	if err != nil {
+	for _, candidate := range mobilex.LookupCandidates(mobile) {
+		var row model.ZfeedUser
+		err := r.db.WithContext(r.ctx).
+			Where("mobile = ? AND is_deleted = 0", candidate).
+			First(&row).Error
+		if err == nil {
+			return modelToDO(&row), nil
+		}
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
+			continue
 		}
 		return nil, err
 	}
 
-	return modelToDO(&row), nil
+	return nil, nil
 }
 
 func (r *userRepositoryImpl) GetByID(userID int64) (*do.UserDO, error) {

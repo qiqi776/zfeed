@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"strings"
 	"time"
 
 	"zfeed/app/rpc/user/internal/common/utils/session"
@@ -12,6 +13,7 @@ import (
 	"zfeed/app/rpc/user/internal/svc"
 	"zfeed/app/rpc/user/user"
 	"zfeed/pkg/errorx"
+	"zfeed/pkg/mobilex"
 	"zfeed/pkg/utils"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -34,16 +36,24 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 }
 
 func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error) {
-	if in == nil || in.GetMobile() == "" || in.GetPassword() == "" || in.GetAvatar() == "" || in.GetEmail() == "" || in.GetBirthday() <= 0 {
+	if in == nil || in.GetMobile() == "" || in.GetPassword() == "" {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+	if !mobilex.IsValid(in.GetMobile()) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
-	nickname := in.GetNickname()
-	if nickname == "" {
-		nickname = in.GetMobile()
+	mobile := mobilex.Normalize(in.GetMobile())
+	if mobile == "" {
+		return nil, errorx.NewBadRequest("参数错误")
 	}
 
-	exist, err := l.userRepo.GetByMobile(in.GetMobile())
+	nickname := resolveRegisterNickname(mobile, in.GetNickname())
+	avatar := strings.TrimSpace(in.GetAvatar())
+	email := resolveRegisterEmail(mobile, in.GetEmail())
+	birthday := resolveRegisterBirthday(in.GetBirthday())
+
+	exist, err := l.userRepo.GetByMobile(mobile)
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询用户失败"))
 	}
@@ -62,16 +72,16 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error
 	}
 
 	userID, err := l.userRepo.Create(&do.UserDO{
-		Username:     in.GetMobile(),
+		Username:     mobile,
 		Nickname:     nickname,
-		Avatar:       in.GetAvatar(),
+		Avatar:       avatar,
 		Bio:          in.GetBio(),
-		Mobile:       in.GetMobile(),
-		Email:        in.GetEmail(),
+		Mobile:       mobile,
+		Email:        email,
 		PasswordHash: passwordHash,
 		PasswordSalt: passwordSalt,
 		Gender:       int32(in.GetGender()),
-		Birthday:     l.truncateToDate(time.Unix(in.GetBirthday(), 0)),
+		Birthday:     birthday,
 		Status:       int32(user.UserStatus_USER_STATUS_ACTIVE),
 	})
 	if err != nil {
@@ -100,7 +110,43 @@ func (l *RegisterLogic) newPasswordSalt() (string, error) {
 	return base64.RawStdEncoding.EncodeToString(buf), nil
 }
 
-func (l *RegisterLogic) truncateToDate(t time.Time) *time.Time {
+func resolveRegisterNickname(mobile string, nickname string) string {
+	trimmed := strings.TrimSpace(nickname)
+	if trimmed != "" {
+		return trimmed
+	}
+	return mobile
+}
+
+func resolveRegisterEmail(mobile string, email string) string {
+	trimmed := strings.TrimSpace(email)
+	if trimmed != "" {
+		return trimmed
+	}
+
+	var digits strings.Builder
+	for _, ch := range mobile {
+		if ch >= '0' && ch <= '9' {
+			digits.WriteRune(ch)
+		}
+	}
+
+	suffix := digits.String()
+	if suffix == "" {
+		suffix = "user"
+	}
+
+	return "register-" + suffix + "@zfeed.local"
+}
+
+func resolveRegisterBirthday(unix int64) *time.Time {
+	if unix <= 0 {
+		return nil
+	}
+	return truncateDate(time.Unix(unix, 0))
+}
+
+func truncateDate(t time.Time) *time.Time {
 	day := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	return &day
 }

@@ -12,6 +12,7 @@ import (
 	"zfeed/app/front/internal/types"
 	"zfeed/app/rpc/user/user"
 	"zfeed/pkg/errorx"
+	"zfeed/pkg/mobilex"
 )
 
 type LoginLogic struct {
@@ -32,9 +33,17 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginRes, err error
 	if req == nil || req.Mobile == nil || req.Password == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
+	if !mobilex.IsValid(*req.Mobile) {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+
+	mobile := mobilex.Normalize(*req.Mobile)
+	if mobile == "" {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
 
 	rpcResp, err := l.svcCtx.UserRpc.Login(l.ctx, &user.LoginReq{
-		Mobile:   *req.Mobile,
+		Mobile:   mobile,
 		Password: *req.Password,
 	})
 	if err != nil {

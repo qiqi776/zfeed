@@ -397,14 +397,14 @@ type SearchUsersRes struct {
 }
 
 type RegisterReq struct {
-	Mobile   *string `json:"mobile,optional" validate:"required,e164"`
+	Mobile   *string `json:"mobile,optional" validate:"required"`
 	Password *string `json:"password,optional" validate:"required"`
 	Nickname *string `json:"nickname,optional" validate:"max=64"`
-	Avatar   *string `json:"avatar,optional" validate:"required"`
+	Avatar   *string `json:"avatar,optional"`
 	Bio      *string `json:"bio,optional" validate:"max=255"`
-	Gender   *int32  `json:"gender,optional" validate:"required,oneof=0 1 2"`
-	Email    *string `json:"email,optional" validate:"required,email"`
-	Birthday *int64  `json:"birthday,optional" validate:"required"`
+	Gender   *int32  `json:"gender,optional" validate:"omitempty,oneof=0 1 2"`
+	Email    *string `json:"email,optional" validate:"omitempty,email"`
+	Birthday *int64  `json:"birthday,optional"`
 }
 
 type RegisterRes struct {
