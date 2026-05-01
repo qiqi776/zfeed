@@ -19,6 +19,7 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	t.Setenv("MYSQL_USER", "zfeed")
 	t.Setenv("MYSQL_PASSWORD", "123456")
 	t.Setenv("LOG_PATH", "logs")
+	t.Setenv("OTEL_DISABLED", "true")
 	t.Setenv("OTEL_ENDPOINT", "127.0.0.1:4317")
 
 	var cfg Config
@@ -35,7 +36,7 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	if len(cfg.InteractionRpcClientConf.Etcd.Hosts) != 1 || cfg.InteractionRpcClientConf.Etcd.Hosts[0] != "127.0.0.1:12379" {
 		t.Fatalf("unexpected interaction etcd hosts: %v", cfg.InteractionRpcClientConf.Etcd.Hosts)
 	}
-	if cfg.Telemetry.Name != "search-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" {
+	if cfg.Telemetry.Name != "search-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" || !cfg.Telemetry.Disabled {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)
 	}
 }

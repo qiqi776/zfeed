@@ -3,6 +3,7 @@ ListenOn: "${CONTENT_RPC_LISTEN_ON}"
 
 Telemetry:
   Name: content-rpc
+  Disabled: ${OTEL_DISABLED}
   Endpoint: "${OTEL_ENDPOINT}"
   Batcher: otlpgrpc
   Sampler: 1.0

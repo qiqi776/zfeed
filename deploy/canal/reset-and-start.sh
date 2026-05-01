@@ -1,8 +1,14 @@
 #!/usr/bin/env sh
 set -e
 
-# Always reset Canal position/TSDB so it won't get stuck on bad offsets.
-find /home/admin/canal-server/conf -maxdepth 2 \( -name meta.dat -o -name h2.mv.db \) -type f -print -delete || true
+RESET_CANAL="${RESET_CANAL:-0}"
+
+if [ "${RESET_CANAL}" = "1" ]; then
+  echo "Resetting Canal position/TSDB..."
+  find /home/admin/canal-server/conf -maxdepth 2 \( -name meta.dat -o -name h2.mv.db \) -type f -print -delete || true
+else
+  echo "Skipping Canal reset. Set RESET_CANAL=1 to force reset."
+fi
 
 # Remove stale pid to avoid "found canal.pid" on restart.
 rm -f /home/admin/canal-server/bin/canal.pid

@@ -25,6 +25,7 @@ func TestContentConfigLoadsWithEnv(t *testing.T) {
 	t.Setenv("XXL_EXECUTOR_IP", "127.0.0.1")
 	t.Setenv("XXL_EXECUTOR_PORT", "5005")
 	t.Setenv("XXL_JOB_ACCESS_TOKEN", "default_token")
+	t.Setenv("OTEL_DISABLED", "true")
 	t.Setenv("OTEL_ENDPOINT", "127.0.0.1:4317")
 
 	var cfg Config
@@ -41,7 +42,7 @@ func TestContentConfigLoadsWithEnv(t *testing.T) {
 	if len(cfg.XxlJob.AdminAddresses) != 1 || cfg.XxlJob.AdminAddresses[0] != "http://127.0.0.1:8081/xxl-job-admin" {
 		t.Fatalf("unexpected xxl admin addresses: %v", cfg.XxlJob.AdminAddresses)
 	}
-	if cfg.Telemetry.Name != "content-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" {
+	if cfg.Telemetry.Name != "content-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" || !cfg.Telemetry.Disabled {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)
 	}
 }

@@ -8,6 +8,7 @@ Etcd:
 
 Telemetry:
   Name: user-rpc
+  Disabled: ${OTEL_DISABLED}
   Endpoint: "${OTEL_ENDPOINT}"
   Batcher: otlpgrpc
   Sampler: 1.0
