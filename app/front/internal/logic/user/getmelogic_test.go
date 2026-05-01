@@ -6,8 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
+
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/rpc/count/counterservice"
+	followservicepb "zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/user/client/userservice"
 	userpb "zfeed/app/rpc/user/user"
 )
@@ -48,6 +51,51 @@ func TestGetMeLoadsCountsFromCountRPC(t *testing.T) {
 	}
 	if resp.FolloweeCount != 5 || resp.FollowerCount != 6 || resp.LikeReceivedCount != 7 || resp.FavoriteReceivedCount != 8 || resp.ContentCount != 9 {
 		t.Fatalf("unexpected count fields: %+v", resp)
+	}
+}
+
+func TestGetMePrefersFollowSummaryForFollowCounts(t *testing.T) {
+	ctx := context.WithValue(context.Background(), "user_id", int64(3005))
+	logic := NewGetMeLogic(ctx, &svc.ServiceContext{
+		UserRpc: &stubUserService{
+			me: &userservice.GetMeRes{
+				UserInfo: &userservice.UserInfo{
+					UserId:   3005,
+					Nickname: "follow-source",
+				},
+			},
+		},
+		CountRpc: &stubCounterService{
+			counts: &counterservice.GetUserProfileCountsRes{
+				FollowingCount: 5,
+				FollowedCount:  6,
+				LikeCount:      7,
+				FavoriteCount:  8,
+				ContentCount:   9,
+			},
+		},
+		FollowRpc: &stubFollowService{
+			getSummaryFunc: func(_ context.Context, in *followservicepb.GetFollowSummaryReq, _ ...grpc.CallOption) (*followservicepb.GetFollowSummaryRes, error) {
+				if in.GetUserId() != 3005 {
+					t.Fatalf("unexpected follow summary request: %+v", in)
+				}
+				return &followservicepb.GetFollowSummaryRes{
+					FolloweeCount: 15,
+					FollowerCount: 16,
+				}, nil
+			},
+		},
+	})
+
+	resp, err := logic.GetMe()
+	if err != nil {
+		t.Fatalf("get me: %v", err)
+	}
+	if resp.FolloweeCount != 15 || resp.FollowerCount != 16 {
+		t.Fatalf("follow counts should come from follow rpc, got %+v", resp)
+	}
+	if resp.LikeReceivedCount != 7 || resp.FavoriteReceivedCount != 8 || resp.ContentCount != 9 {
+		t.Fatalf("non-follow counts should still come from count rpc, got %+v", resp)
 	}
 }
 

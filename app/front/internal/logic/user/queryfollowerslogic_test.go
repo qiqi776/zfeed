@@ -14,6 +14,7 @@ import (
 
 type stubFollowService struct {
 	listFollowersFunc func(ctx context.Context, in *followservicepb.ListFollowersReq, opts ...grpc.CallOption) (*followservicepb.ListFollowersRes, error)
+	getSummaryFunc    func(ctx context.Context, in *followservicepb.GetFollowSummaryReq, opts ...grpc.CallOption) (*followservicepb.GetFollowSummaryRes, error)
 }
 
 func (s *stubFollowService) FollowUser(context.Context, *followservicepb.FollowUserReq, ...grpc.CallOption) (*followservicepb.FollowUserRes, error) {
@@ -36,7 +37,10 @@ func (s *stubFollowService) BatchQueryFollowing(context.Context, *followservicep
 	return &followservicepb.BatchQueryFollowingRes{}, nil
 }
 
-func (s *stubFollowService) GetFollowSummary(context.Context, *followservicepb.GetFollowSummaryReq, ...grpc.CallOption) (*followservicepb.GetFollowSummaryRes, error) {
+func (s *stubFollowService) GetFollowSummary(ctx context.Context, in *followservicepb.GetFollowSummaryReq, opts ...grpc.CallOption) (*followservicepb.GetFollowSummaryRes, error) {
+	if s.getSummaryFunc != nil {
+		return s.getSummaryFunc(ctx, in, opts...)
+	}
 	return &followservicepb.GetFollowSummaryRes{}, nil
 }
 

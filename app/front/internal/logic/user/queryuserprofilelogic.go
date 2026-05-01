@@ -65,14 +65,7 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 
 	go func() {
 		defer wg.Done()
-		if l.svcCtx == nil || l.svcCtx.FollowRpc == nil {
-			followResp = &followservicepb.GetFollowSummaryRes{}
-			return
-		}
-		followResp, followErr = l.svcCtx.FollowRpc.GetFollowSummary(l.ctx, &followservicepb.GetFollowSummaryReq{
-			UserId:   req.UserId,
-			ViewerId: &viewerID,
-		})
+		followResp, followErr = loadFollowSummary(l.ctx, l.svcCtx, req.UserId, &viewerID)
 	}()
 
 	wg.Wait()
@@ -93,10 +86,13 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 	}
 	if followErr != nil {
 		l.Errorf("query user follow summary failed, user_id=%d, viewer_id=%d, err=%v", req.UserId, viewerID, followErr)
-		followResp = &followservicepb.GetFollowSummaryRes{}
+		followResp = nil
 	}
-	if followResp == nil {
-		followResp = &followservicepb.GetFollowSummaryRes{}
+	followeeCount := resolveFolloweeCount(countResp, followResp)
+	followerCount := resolveFollowerCount(countResp, followResp)
+	isFollowing := false
+	if followResp != nil {
+		isFollowing = followResp.GetIsFollowing()
 	}
 
 	return &types.QueryUserProfileRes{
@@ -108,14 +104,14 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 			Gender:   int32(userResp.GetUserProfile().GetGender()),
 		},
 		UserProfileCounts: types.UserProfileCounts{
-			FolloweeCount:         countResp.GetFollowingCount(),
-			FollowerCount:         countResp.GetFollowedCount(),
+			FolloweeCount:         followeeCount,
+			FollowerCount:         followerCount,
 			LikeReceivedCount:     countResp.GetLikeCount(),
 			FavoriteReceivedCount: countResp.GetFavoriteCount(),
 			ContentCount:          countResp.GetContentCount(),
 		},
 		ViewerProfileState: types.ViewerProfileState{
-			IsFollowing: followResp.GetIsFollowing(),
+			IsFollowing: isFollowing,
 		},
 	}, nil
 }

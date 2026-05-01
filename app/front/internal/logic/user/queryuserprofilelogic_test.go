@@ -11,6 +11,7 @@ import (
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
 	"zfeed/app/rpc/count/counterservice"
+	followservicepb "zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/user/client/userservice"
 	userpb "zfeed/app/rpc/user/user"
 )
@@ -53,6 +54,57 @@ func TestQueryUserProfileLoadsCountsFromCountRPC(t *testing.T) {
 		resp.UserProfileCounts.FavoriteReceivedCount != 44 ||
 		resp.UserProfileCounts.ContentCount != 55 {
 		t.Fatalf("unexpected user profile counts: %+v", resp.UserProfileCounts)
+	}
+}
+
+func TestQueryUserProfilePrefersFollowSummaryForFollowCounts(t *testing.T) {
+	ctx := context.WithValue(context.Background(), "user_id", int64(9001))
+	logic := NewQueryUserProfileLogic(ctx, &svc.ServiceContext{
+		UserRpc: &stubUserService{
+			profile: &userservice.GetUserProfileRes{
+				UserProfile: &userservice.UserProfile{
+					UserId:   2005,
+					Nickname: "dora",
+				},
+			},
+		},
+		CountRpc: &stubCounterService{
+			counts: &counterservice.GetUserProfileCountsRes{
+				FollowingCount: 11,
+				FollowedCount:  22,
+				LikeCount:      33,
+				FavoriteCount:  44,
+				ContentCount:   55,
+			},
+		},
+		FollowRpc: &stubFollowService{
+			getSummaryFunc: func(_ context.Context, in *followservicepb.GetFollowSummaryReq, _ ...grpc.CallOption) (*followservicepb.GetFollowSummaryRes, error) {
+				if in.GetUserId() != 2005 || in.GetViewerId() != 9001 {
+					t.Fatalf("unexpected follow summary request: %+v", in)
+				}
+				return &followservicepb.GetFollowSummaryRes{
+					FolloweeCount: 21,
+					FollowerCount: 32,
+					IsFollowing:   true,
+				}, nil
+			},
+		},
+	})
+
+	resp, err := logic.QueryUserProfile(&types.QueryUserProfileReq{UserId: 2005})
+	if err != nil {
+		t.Fatalf("query user profile: %v", err)
+	}
+	if resp.UserProfileCounts.FolloweeCount != 21 || resp.UserProfileCounts.FollowerCount != 32 {
+		t.Fatalf("follow counts should come from follow rpc, got %+v", resp.UserProfileCounts)
+	}
+	if !resp.ViewerProfileState.IsFollowing {
+		t.Fatalf("viewer follow state should come from follow rpc, got %+v", resp.ViewerProfileState)
+	}
+	if resp.UserProfileCounts.LikeReceivedCount != 33 ||
+		resp.UserProfileCounts.FavoriteReceivedCount != 44 ||
+		resp.UserProfileCounts.ContentCount != 55 {
+		t.Fatalf("non-follow counts should still come from count rpc, got %+v", resp.UserProfileCounts)
 	}
 }
 
@@ -134,18 +186,36 @@ func TestQueryUserProfileFailsWhenUserRPCFails(t *testing.T) {
 }
 
 type stubUserService struct {
-	profile *userservice.GetUserProfileRes
-	me      *userservice.GetMeRes
-	update  *userservice.UpdateProfileRes
-	err     error
+	profile         *userservice.GetUserProfileRes
+	me              *userservice.GetMeRes
+	update          *userservice.UpdateProfileRes
+	register        *userservice.RegisterRes
+	login           *userservice.LoginRes
+	lastRegisterReq *userservice.RegisterReq
+	lastLoginReq    *userservice.LoginReq
+	err             error
 }
 
 func (s *stubUserService) Register(ctx context.Context, in *userservice.RegisterReq, opts ...grpc.CallOption) (*userservice.RegisterRes, error) {
-	return &userservice.RegisterRes{}, nil
+	if s.err != nil {
+		return nil, s.err
+	}
+	s.lastRegisterReq = in
+	if s.register == nil {
+		return &userservice.RegisterRes{}, nil
+	}
+	return s.register, nil
 }
 
 func (s *stubUserService) Login(ctx context.Context, in *userservice.LoginReq, opts ...grpc.CallOption) (*userservice.LoginRes, error) {
-	return &userservice.LoginRes{}, nil
+	if s.err != nil {
+		return nil, s.err
+	}
+	s.lastLoginReq = in
+	if s.login == nil {
+		return &userservice.LoginRes{}, nil
+	}
+	return s.login, nil
 }
 
 func (s *stubUserService) Logout(ctx context.Context, in *userservice.LogoutReq, opts ...grpc.CallOption) (*userservice.LogoutRes, error) {

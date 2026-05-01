@@ -9,6 +9,7 @@ import (
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
+	followservice "zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/user/user"
 	"zfeed/pkg/errorx"
 	"zfeed/pkg/utils"
@@ -37,14 +38,16 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 	}
 
 	var (
-		userResp  *user.GetMeRes
-		userErr   error
-		countResp = defaultUserProfileCounts()
-		countErr  error
-		wg        sync.WaitGroup
+		userResp   *user.GetMeRes
+		userErr    error
+		countResp  = defaultUserProfileCounts()
+		countErr   error
+		followResp *followservice.GetFollowSummaryRes
+		followErr  error
+		wg         sync.WaitGroup
 	)
 
-	wg.Add(2)
+	wg.Add(3)
 
 	go func() {
 		defer wg.Done()
@@ -54,6 +57,11 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 	go func() {
 		defer wg.Done()
 		countResp, countErr = loadUserProfileCounts(l.ctx, l.svcCtx, userID)
+	}()
+
+	go func() {
+		defer wg.Done()
+		followResp, followErr = loadFollowSummary(l.ctx, l.svcCtx, userID, nil)
 	}()
 
 	wg.Wait()
@@ -71,6 +79,10 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 	if countResp == nil {
 		countResp = defaultUserProfileCounts()
 	}
+	if followErr != nil {
+		l.Errorf("query me follow summary failed, user_id=%d, err=%v", userID, followErr)
+		followResp = nil
+	}
 
 	return &types.GetMeRes{
 		UserInfo: types.UserInfo{
@@ -84,8 +96,8 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 			Email:    userResp.GetUserInfo().GetEmail(),
 			Birthday: userResp.GetUserInfo().GetBirthday(),
 		},
-		FolloweeCount:         countResp.GetFollowingCount(),
-		FollowerCount:         countResp.GetFollowedCount(),
+		FolloweeCount:         resolveFolloweeCount(countResp, followResp),
+		FollowerCount:         resolveFollowerCount(countResp, followResp),
 		LikeReceivedCount:     countResp.GetLikeCount(),
 		FavoriteReceivedCount: countResp.GetFavoriteCount(),
 		ContentCount:          countResp.GetContentCount(),
