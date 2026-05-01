@@ -1,4 +1,4 @@
-package contentservicelogic
+package logic
 
 import (
 	"context"
