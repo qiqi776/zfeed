@@ -87,6 +87,34 @@ func TestUploadCredentialBuilderBuildsCredentialPayload(t *testing.T) {
 	}
 }
 
+func TestUploadCredentialBuilderBuildsArticleImagePayload(t *testing.T) {
+	fixedNow := time.Date(2026, 4, 14, 8, 30, 0, 0, time.UTC)
+	builder := uploadCredentialBuilder{
+		cfg: config.OssConfig{
+			Provider:        "aliyun-oss",
+			Region:          "cn-hangzhou",
+			BucketName:      "zfeed-dev",
+			AccessKeyId:     "test-ak",
+			AccessKeySecret: "test-sk",
+			Endpoint:        "oss-cn-hangzhou.aliyuncs.com",
+			UploadDir:       "zfeed",
+			PublicHost:      "https://cdn.example.com",
+		},
+		now: func() time.Time { return fixedNow },
+	}
+
+	resp, err := builder.build(uploadSceneArticleImage, ".webp", "inline-image.webp", 2048)
+	if err != nil {
+		t.Fatalf("build returned error: %v", err)
+	}
+	if !strings.HasPrefix(resp.GetObjectKey(), "zfeed/article-image/2026/04/14/") {
+		t.Fatalf("unexpected object key: %s", resp.GetObjectKey())
+	}
+	if !strings.HasPrefix(resp.GetUrl(), "https://cdn.example.com/zfeed/article-image/2026/04/14/") {
+		t.Fatalf("unexpected public url: %s", resp.GetUrl())
+	}
+}
+
 func TestUploadCredentialBuilderRejectsInvalidExt(t *testing.T) {
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{

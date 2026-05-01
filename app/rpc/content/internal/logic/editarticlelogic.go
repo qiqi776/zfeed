@@ -45,9 +45,6 @@ func (l *EditArticleLogic) EditArticle(in *content.EditArticleReq) (*content.Edi
 	}
 	if in.Cover != nil {
 		cover := strings.TrimSpace(in.GetCover())
-		if cover == "" {
-			return nil, errorx.NewBadRequest("封面不能为空")
-		}
 		updates["cover"] = cover
 	}
 	if in.Content != nil {

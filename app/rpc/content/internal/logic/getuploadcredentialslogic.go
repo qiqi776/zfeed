@@ -49,6 +49,7 @@ func (l *GetUploadCredentialsLogic) GetUploadCredentials(in *content.GetUploadCr
 const (
 	uploadSceneAvatar       = "avatar"
 	uploadSceneArticleCover = "article-cover"
+	uploadSceneArticleImage = "article-image"
 	uploadSceneVideoCover   = "video-cover"
 	uploadSceneVideoSource  = "video-source"
 
@@ -89,6 +90,15 @@ var uploadScenePolicies = map[string]uploadScenePolicy{
 		},
 	},
 	uploadSceneArticleCover: {
+		maxSize: uploadMaxCoverSize,
+		allowedExt: map[string]struct{}{
+			".jpg":  {},
+			".jpeg": {},
+			".png":  {},
+			".webp": {},
+		},
+	},
+	uploadSceneArticleImage: {
 		maxSize: uploadMaxCoverSize,
 		allowedExt: map[string]struct{}{
 			".jpg":  {},

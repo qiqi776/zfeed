@@ -31,7 +31,7 @@ func NewPublishArticleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pu
 }
 
 func (l *PublishArticleLogic) PublishArticle(req *types.PublishArticleReq) (resp *types.PublishArticleRes, err error) {
-	if req == nil || req.Title == nil || req.Cover == nil || req.Content == nil || req.Visibility == nil {
+	if req == nil || req.Title == nil || req.Content == nil || req.Visibility == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -40,11 +40,16 @@ func (l *PublishArticleLogic) PublishArticle(req *types.PublishArticleReq) (resp
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewUnauthorized("用户未登录"))
 	}
 
+	cover := ""
+	if req.Cover != nil {
+		cover = strings.TrimSpace(*req.Cover)
+	}
+
 	rpcResp, err := l.svcCtx.ContentRpc.PublishArticle(l.ctx, &contentpb.ArticlePublishReq{
 		UserId:      userID,
 		Title:       strings.TrimSpace(*req.Title),
 		Description: req.Description,
-		Cover:       strings.TrimSpace(*req.Cover),
+		Cover:       cover,
 		Content:     *req.Content,
 		Visibility:  contentpb.Visibility(*req.Visibility),
 	})

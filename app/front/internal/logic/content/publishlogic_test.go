@@ -129,6 +129,39 @@ func TestPublishArticleLogic_PassesUserIDToRPC(t *testing.T) {
 	}
 }
 
+func TestPublishArticleLogic_AllowsMissingCover(t *testing.T) {
+	const userID int64 = 1003
+
+	svcCtx := &svc.ServiceContext{
+		ContentRpc: &fakeContentService{
+			publishArticleFunc: func(ctx context.Context, in *contentpb.ArticlePublishReq, _ ...grpc.CallOption) (*contentpb.ArticlePublishRes, error) {
+				if in.GetUserId() != userID {
+					t.Fatalf("user_id = %d, want %d", in.GetUserId(), userID)
+				}
+				if in.GetCover() != "" {
+					t.Fatalf("cover = %q, want empty string", in.GetCover())
+				}
+				return &contentpb.ArticlePublishRes{ContentId: 89}, nil
+			},
+		},
+	}
+
+	ctx := context.WithValue(context.Background(), "user_id", userID)
+	logic := NewPublishArticleLogic(ctx, svcCtx)
+
+	resp, err := logic.PublishArticle(&types.PublishArticleReq{
+		Title:      strPtr("article without cover"),
+		Content:    strPtr("hello article"),
+		Visibility: int32Ptr(10),
+	})
+	if err != nil {
+		t.Fatalf("PublishArticle returned error: %v", err)
+	}
+	if resp.ContentId != 89 {
+		t.Fatalf("content_id = %d, want %d", resp.ContentId, 89)
+	}
+}
+
 func TestPublishVideoLogic_PassesUserIDToRPC(t *testing.T) {
 	const userID int64 = 1002
 	called := false

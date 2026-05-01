@@ -37,7 +37,7 @@ func NewPublishArticleLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Pu
 }
 
 func (l *PublishArticleLogic) PublishArticle(in *contentpb.ArticlePublishReq) (*contentpb.ArticlePublishRes, error) {
-	if in == nil || in.GetUserId() <= 0 || strings.TrimSpace(in.GetTitle()) == "" || strings.TrimSpace(in.GetCover()) == "" || strings.TrimSpace(in.GetContent()) == "" {
+	if in == nil || in.GetUserId() <= 0 || strings.TrimSpace(in.GetTitle()) == "" || strings.TrimSpace(in.GetContent()) == "" {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetVisibility() == contentpb.Visibility_VISIBILITY_UNKNOWN {

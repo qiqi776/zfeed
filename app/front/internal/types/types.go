@@ -97,7 +97,7 @@ type EditArticleReq struct {
 	ContentId   int64   `path:"content_id"`
 	Title       *string `json:"title,optional" validate:"max=100"`
 	Description *string `json:"description,optional" validate:"max=255"`
-	Cover       *string `json:"cover,optional" validate:"url"`
+	Cover       *string `json:"cover,optional" validate:"omitempty,url"`
 	Content     *string `json:"content,optional" validate:"max=1000000"`
 }
 
@@ -246,7 +246,7 @@ type PageQueryResp struct {
 type PublishArticleReq struct {
 	Title       *string `json:"title,optional" validate:"required,min=1,max=100"`
 	Description *string `json:"description,optional" validate:"min=1,max=255"`
-	Cover       *string `json:"cover,optional" validate:"required,url"`
+	Cover       *string `json:"cover,optional" validate:"omitempty,url"`
 	Content     *string `json:"content,optional" validate:"required,min=1,max=1000000"`
 	Visibility  *int32  `json:"visibility,optional" validate:"required"`
 }
