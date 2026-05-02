@@ -1,4 +1,4 @@
-package logic
+package contentlogic
 
 import (
 	"context"
@@ -110,7 +110,7 @@ func newContentServiceTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func TestGetContentDetailAllowsAuthorToReadPrivateContent(t *testing.T) {
+func TestGetContentDetailPrivateForAuthor(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	now := time.Unix(1_700_000_000, 0)
 	if err := db.Create(&contentServiceTestUser{ID: 1001, Nickname: "author", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
@@ -150,7 +150,7 @@ func TestGetContentDetailAllowsAuthorToReadPrivateContent(t *testing.T) {
 	}
 }
 
-func TestGetContentDetailRejectsPrivateContentForOtherViewer(t *testing.T) {
+func TestGetContentDetailPrivateDenied(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	now := time.Unix(1_700_000_000, 0)
 	if err := db.Create(&contentServiceTestUser{ID: 1001, Nickname: "author", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
@@ -186,7 +186,7 @@ func TestGetContentDetailRejectsPrivateContentForOtherViewer(t *testing.T) {
 	}
 }
 
-func TestEditArticleUpdatesSubtable(t *testing.T) {
+func TestEditArticle(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	if err := db.Create(&contentServiceTestContent{ID: 101, UserID: 1, ContentType: 10, IsDeleted: 0}).Error; err != nil {
 		t.Fatalf("seed content: %v", err)
@@ -218,7 +218,7 @@ func TestEditArticleUpdatesSubtable(t *testing.T) {
 	}
 }
 
-func TestEditVideoUpdatesSubtable(t *testing.T) {
+func TestEditVideo(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	if err := db.Create(&contentServiceTestContent{ID: 202, UserID: 2, ContentType: 20, IsDeleted: 0}).Error; err != nil {
 		t.Fatalf("seed content: %v", err)
@@ -251,7 +251,7 @@ func TestEditVideoUpdatesSubtable(t *testing.T) {
 	}
 }
 
-func TestDeleteContentDeletesOwnedArticle(t *testing.T) {
+func TestDeleteContent(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	if err := db.Create(&contentServiceTestContent{
 		ID:          301,
@@ -292,7 +292,7 @@ func TestDeleteContentDeletesOwnedArticle(t *testing.T) {
 	}
 }
 
-func TestDeleteContentRejectsDeletingOthersContent(t *testing.T) {
+func TestDeleteContentRejectsOtherUser(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	if err := db.Create(&contentServiceTestContent{
 		ID:          302,

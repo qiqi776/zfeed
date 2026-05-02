@@ -1,4 +1,4 @@
-package logic
+package contentlogic
 
 import (
 	"encoding/base64"
@@ -10,7 +10,7 @@ import (
 	"zfeed/app/rpc/content/internal/config"
 )
 
-func TestUploadCredentialBuilderBuildsCredentialPayload(t *testing.T) {
+func TestBuildUploadCredentials(t *testing.T) {
 	fixedNow := time.Date(2026, 4, 14, 8, 30, 0, 0, time.UTC)
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
@@ -87,7 +87,7 @@ func TestUploadCredentialBuilderBuildsCredentialPayload(t *testing.T) {
 	}
 }
 
-func TestUploadCredentialBuilderBuildsArticleImagePayload(t *testing.T) {
+func TestBuildArticleImageCredentials(t *testing.T) {
 	fixedNow := time.Date(2026, 4, 14, 8, 30, 0, 0, time.UTC)
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
@@ -115,7 +115,7 @@ func TestUploadCredentialBuilderBuildsArticleImagePayload(t *testing.T) {
 	}
 }
 
-func TestUploadCredentialBuilderRejectsInvalidExt(t *testing.T) {
+func TestBuildUploadCredentialsRejectsExt(t *testing.T) {
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
 			AccessKeyId:     "test-ak",
@@ -131,7 +131,7 @@ func TestUploadCredentialBuilderRejectsInvalidExt(t *testing.T) {
 	}
 }
 
-func TestUploadCredentialBuilderRejectsOversizedFile(t *testing.T) {
+func TestBuildUploadCredentialsRejectsSize(t *testing.T) {
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
 			AccessKeyId:     "test-ak",
@@ -147,7 +147,7 @@ func TestUploadCredentialBuilderRejectsOversizedFile(t *testing.T) {
 	}
 }
 
-func TestUploadCredentialBuilderRejectsFileNameExtMismatch(t *testing.T) {
+func TestBuildUploadCredentialsRejectsNameMismatch(t *testing.T) {
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
 			AccessKeyId:     "test-ak",

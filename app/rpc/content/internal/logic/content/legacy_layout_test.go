@@ -1,4 +1,4 @@
-package logic
+package contentlogic
 
 import (
 	"os"
@@ -8,13 +8,13 @@ import (
 	"testing"
 )
 
-func TestContentLogicHasNoLegacyGeneratedLayout(t *testing.T) {
+func TestNoLegacyLayout(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("runtime.Caller failed")
 	}
 
-	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..", ".."))
+	repoRoot := findRepoRoot(t, thisFile)
 	legacyDirs := []string{
 		filepath.Join(repoRoot, "app/rpc/content/internal/logic/contentservice"),
 		filepath.Join(repoRoot, "app/rpc/content/internal/logic/feedservice"),
@@ -56,5 +56,22 @@ func TestContentLogicHasNoLegacyGeneratedLayout(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("walk content tree: %v", err)
+	}
+}
+
+func findRepoRoot(t *testing.T, file string) string {
+	t.Helper()
+
+	dir := filepath.Dir(file)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatalf("repo root not found from %s", file)
+		}
+		dir = parent
 	}
 }

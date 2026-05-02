@@ -1,4 +1,4 @@
-package logic
+package contentlogic
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"zfeed/app/rpc/content/internal/svc"
 )
 
-func TestBackfillFollowInbox_UsesPublishZSet(t *testing.T) {
+func TestBackfillFollowInboxFromPublishZSet(t *testing.T) {
 	store := miniredis.RunT(t)
 	client := gzredis.MustNewRedis(gzredis.RedisConf{
 		Host: store.Addr(),
@@ -68,7 +68,7 @@ func TestBackfillFollowInbox_UsesPublishZSet(t *testing.T) {
 	}
 }
 
-func TestBackfillFollowInbox_FallsBackToDBWhenPublishZSetMissing(t *testing.T) {
+func TestBackfillFollowInboxFromDB(t *testing.T) {
 	store := miniredis.RunT(t)
 	client := gzredis.MustNewRedis(gzredis.RedisConf{
 		Host: store.Addr(),

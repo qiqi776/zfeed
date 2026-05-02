@@ -1,4 +1,4 @@
-package logic
+package contentlogic
 
 import (
 	"context"
@@ -51,7 +51,7 @@ func newTestRedis(t *testing.T) (*miniredis.Miniredis, *gzredis.Redis) {
 	return store, client
 }
 
-func TestPublishArticle_PersistsRowsAndUpdatesCache(t *testing.T) {
+func TestPublishArticle(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{}, &model.ZfeedVideo{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -114,7 +114,7 @@ func TestPublishArticle_PersistsRowsAndUpdatesCache(t *testing.T) {
 	}
 }
 
-func TestPublishVideo_PersistsRowsAndUpdatesCache(t *testing.T) {
+func TestPublishVideo(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{}, &model.ZfeedVideo{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -180,7 +180,7 @@ func (publishFollowRow) TableName() string {
 	return "zfeed_follow"
 }
 
-func TestPublishArticle_UpdatesFollowerInbox(t *testing.T) {
+func TestPublishArticleFanout(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{}, &publishFollowRow{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -221,7 +221,7 @@ func TestPublishArticle_UpdatesFollowerInbox(t *testing.T) {
 	}
 }
 
-func TestPublishArticle_RollsBackWhenSubTableInsertFails(t *testing.T) {
+func TestPublishArticleRollback(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -256,7 +256,7 @@ func TestPublishArticle_RollsBackWhenSubTableInsertFails(t *testing.T) {
 	}
 }
 
-func TestPublishArticle_DoesNotFailWhenRedisUpdateFails(t *testing.T) {
+func TestPublishArticleRedisFailure(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{})
 
 	store, client := newTestRedis(t)
