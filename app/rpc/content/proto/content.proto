@@ -5,23 +5,23 @@ package content;
 option go_package = "./content";
 
 enum ContentType {
-  CONTENT_TYPE_UNKNOWN = 0;
-  CONTENT_TYPE_ARTICLE = 10;
-  CONTENT_TYPE_VIDEO = 20;
+  UNKNOWN = 0;
+  ARTICLE = 10;
+  VIDEO = 20;
 }
 
 enum ContentStatus {
-  CONTENT_STATUS_UNKNOWN = 0;
-  CONTENT_STATUS_DRAFT = 10;
-  CONTENT_STATUS_PROCESSING = 20;
-  CONTENT_STATUS_PUBLISHED = 30;
-  CONTENT_STATUS_FAILED = 40;
+  UNSET = 0;
+  DRAFT = 10;
+  PROCESSING = 20;
+  PUBLISHED = 30;
+  FAILED = 40;
 }
 
 enum Visibility {
-  VISIBILITY_UNKNOWN = 0;
-  VISIBILITY_PUBLIC = 10;
-  VISIBILITY_PRIVATE = 20;
+  UNSPECIFIED = 0;
+  PUBLIC = 10;
+  PRIVATE = 20;
 }
 
 message ArticlePublishReq {

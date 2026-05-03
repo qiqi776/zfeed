@@ -66,7 +66,7 @@ func TestPublishArticle(t *testing.T) {
 		Title:      "article-title",
 		Cover:      "https://example.com/a.png",
 		Content:    "article-body",
-		Visibility: contentpb.Visibility_VISIBILITY_PUBLIC,
+		Visibility: contentpb.Visibility_PUBLIC,
 	})
 	if err != nil {
 		t.Fatalf("PublishArticle returned error: %v", err)
@@ -79,8 +79,8 @@ func TestPublishArticle(t *testing.T) {
 	if err := db.First(&contentRow, resp.GetContentId()).Error; err != nil {
 		t.Fatalf("query zfeed_content: %v", err)
 	}
-	if contentRow.ContentType != int32(contentpb.ContentType_CONTENT_TYPE_ARTICLE) {
-		t.Fatalf("content_type = %d, want %d", contentRow.ContentType, int32(contentpb.ContentType_CONTENT_TYPE_ARTICLE))
+	if contentRow.ContentType != int32(contentpb.ContentType_ARTICLE) {
+		t.Fatalf("content_type = %d, want %d", contentRow.ContentType, int32(contentpb.ContentType_ARTICLE))
 	}
 
 	var articleRow model.ZfeedArticle
@@ -130,7 +130,7 @@ func TestPublishVideo(t *testing.T) {
 		OriginUrl:   "https://example.com/v.mp4",
 		CoverUrl:    "https://example.com/v.png",
 		Duration:    120,
-		Visibility:  contentpb.Visibility_VISIBILITY_PUBLIC,
+		Visibility:  contentpb.Visibility_PUBLIC,
 		Description: nil,
 	})
 	if err != nil {
@@ -144,8 +144,8 @@ func TestPublishVideo(t *testing.T) {
 	if err := db.First(&contentRow, resp.GetContentId()).Error; err != nil {
 		t.Fatalf("query zfeed_content: %v", err)
 	}
-	if contentRow.ContentType != int32(contentpb.ContentType_CONTENT_TYPE_VIDEO) {
-		t.Fatalf("content_type = %d, want %d", contentRow.ContentType, int32(contentpb.ContentType_CONTENT_TYPE_VIDEO))
+	if contentRow.ContentType != int32(contentpb.ContentType_VIDEO) {
+		t.Fatalf("content_type = %d, want %d", contentRow.ContentType, int32(contentpb.ContentType_VIDEO))
 	}
 
 	var videoRow model.ZfeedVideo
@@ -202,7 +202,7 @@ func TestPublishArticleFanout(t *testing.T) {
 		Title:      "fanout-article",
 		Cover:      "https://example.com/a.png",
 		Content:    "body",
-		Visibility: contentpb.Visibility_VISIBILITY_PUBLIC,
+		Visibility: contentpb.Visibility_PUBLIC,
 	})
 	if err != nil {
 		t.Fatalf("PublishArticle returned error: %v", err)
@@ -236,7 +236,7 @@ func TestPublishArticleRollback(t *testing.T) {
 		Title:      "rollback-article",
 		Cover:      "https://example.com/rollback.png",
 		Content:    "body",
-		Visibility: contentpb.Visibility_VISIBILITY_PUBLIC,
+		Visibility: contentpb.Visibility_PUBLIC,
 	})
 	if err == nil {
 		t.Fatal("PublishArticle error = nil, want not nil")
@@ -272,7 +272,7 @@ func TestPublishArticleRedisFailure(t *testing.T) {
 		Title:      "best-effort-cache",
 		Cover:      "https://example.com/cache.png",
 		Content:    "body",
-		Visibility: contentpb.Visibility_VISIBILITY_PUBLIC,
+		Visibility: contentpb.Visibility_PUBLIC,
 	})
 	if err != nil {
 		t.Fatalf("PublishArticle returned error: %v", err)

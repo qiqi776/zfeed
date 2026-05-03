@@ -58,7 +58,7 @@ func (l *EditArticleLogic) EditArticle(in *content.EditArticleReq) (*content.Edi
 		return nil, errorx.NewBadRequest("没有可更新的字段")
 	}
 
-	if err := l.ensureEditableContent(in.GetContentId(), in.GetUserId(), int32(content.ContentType_CONTENT_TYPE_ARTICLE)); err != nil {
+	if err := l.ensureEditableContent(in.GetContentId(), in.GetUserId(), int32(content.ContentType_ARTICLE)); err != nil {
 		return nil, err
 	}
 

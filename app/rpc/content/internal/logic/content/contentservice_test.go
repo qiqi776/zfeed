@@ -2,14 +2,18 @@ package contentlogic
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"zfeed/app/rpc/content/content"
 	"zfeed/app/rpc/content/internal/svc"
+	"zfeed/app/rpc/interaction/client/favoriteservice"
+	"zfeed/app/rpc/interaction/client/likeservice"
 )
 
 type contentServiceTestContent struct {
@@ -89,6 +93,30 @@ type contentServiceTestFollow struct {
 
 func (contentServiceTestFollow) TableName() string { return "zfeed_follow" }
 
+type stubLikeService struct {
+	likeservice.LikeService
+	queryLikeInfo func(context.Context, *likeservice.QueryLikeInfoReq, ...grpc.CallOption) (*likeservice.QueryLikeInfoRes, error)
+}
+
+func (s *stubLikeService) QueryLikeInfo(ctx context.Context, in *likeservice.QueryLikeInfoReq, opts ...grpc.CallOption) (*likeservice.QueryLikeInfoRes, error) {
+	if s.queryLikeInfo == nil {
+		return nil, errors.New("unexpected QueryLikeInfo call")
+	}
+	return s.queryLikeInfo(ctx, in, opts...)
+}
+
+type stubFavoriteService struct {
+	favoriteservice.FavoriteService
+	queryFavoriteInfo func(context.Context, *favoriteservice.QueryFavoriteInfoReq, ...grpc.CallOption) (*favoriteservice.QueryFavoriteInfoRes, error)
+}
+
+func (s *stubFavoriteService) QueryFavoriteInfo(ctx context.Context, in *favoriteservice.QueryFavoriteInfoReq, opts ...grpc.CallOption) (*favoriteservice.QueryFavoriteInfoRes, error) {
+	if s.queryFavoriteInfo == nil {
+		return nil, errors.New("unexpected QueryFavoriteInfo call")
+	}
+	return s.queryFavoriteInfo(ctx, in, opts...)
+}
+
 func newContentServiceTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -110,7 +138,7 @@ func newContentServiceTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func TestGetContentDetailPrivateForAuthor(t *testing.T) {
+func TestPrivateAuthor(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	now := time.Unix(1_700_000_000, 0)
 	if err := db.Create(&contentServiceTestUser{ID: 1001, Nickname: "author", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
@@ -150,7 +178,7 @@ func TestGetContentDetailPrivateForAuthor(t *testing.T) {
 	}
 }
 
-func TestGetContentDetailPrivateDenied(t *testing.T) {
+func TestPrivateDenied(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	now := time.Unix(1_700_000_000, 0)
 	if err := db.Create(&contentServiceTestUser{ID: 1001, Nickname: "author", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {

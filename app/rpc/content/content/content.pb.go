@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v3.21.12
-// source: app/rpc/content/proto/content.proto
+// source: proto/content.proto
 
 package content
 
@@ -24,22 +24,22 @@ const (
 type ContentType int32
 
 const (
-	ContentType_CONTENT_TYPE_UNKNOWN ContentType = 0
-	ContentType_CONTENT_TYPE_ARTICLE ContentType = 10
-	ContentType_CONTENT_TYPE_VIDEO   ContentType = 20
+	ContentType_UNKNOWN ContentType = 0
+	ContentType_ARTICLE ContentType = 10
+	ContentType_VIDEO   ContentType = 20
 )
 
 // Enum value maps for ContentType.
 var (
 	ContentType_name = map[int32]string{
-		0:  "CONTENT_TYPE_UNKNOWN",
-		10: "CONTENT_TYPE_ARTICLE",
-		20: "CONTENT_TYPE_VIDEO",
+		0:  "UNKNOWN",
+		10: "ARTICLE",
+		20: "VIDEO",
 	}
 	ContentType_value = map[string]int32{
-		"CONTENT_TYPE_UNKNOWN": 0,
-		"CONTENT_TYPE_ARTICLE": 10,
-		"CONTENT_TYPE_VIDEO":   20,
+		"UNKNOWN": 0,
+		"ARTICLE": 10,
+		"VIDEO":   20,
 	}
 )
 
@@ -54,11 +54,11 @@ func (x ContentType) String() string {
 }
 
 func (ContentType) Descriptor() protoreflect.EnumDescriptor {
-	return file_app_rpc_content_proto_content_proto_enumTypes[0].Descriptor()
+	return file_proto_content_proto_enumTypes[0].Descriptor()
 }
 
 func (ContentType) Type() protoreflect.EnumType {
-	return &file_app_rpc_content_proto_content_proto_enumTypes[0]
+	return &file_proto_content_proto_enumTypes[0]
 }
 
 func (x ContentType) Number() protoreflect.EnumNumber {
@@ -67,34 +67,34 @@ func (x ContentType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContentType.Descriptor instead.
 func (ContentType) EnumDescriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{0}
+	return file_proto_content_proto_rawDescGZIP(), []int{0}
 }
 
 type ContentStatus int32
 
 const (
-	ContentStatus_CONTENT_STATUS_UNKNOWN    ContentStatus = 0
-	ContentStatus_CONTENT_STATUS_DRAFT      ContentStatus = 10
-	ContentStatus_CONTENT_STATUS_PROCESSING ContentStatus = 20
-	ContentStatus_CONTENT_STATUS_PUBLISHED  ContentStatus = 30
-	ContentStatus_CONTENT_STATUS_FAILED     ContentStatus = 40
+	ContentStatus_UNSET      ContentStatus = 0
+	ContentStatus_DRAFT      ContentStatus = 10
+	ContentStatus_PROCESSING ContentStatus = 20
+	ContentStatus_PUBLISHED  ContentStatus = 30
+	ContentStatus_FAILED     ContentStatus = 40
 )
 
 // Enum value maps for ContentStatus.
 var (
 	ContentStatus_name = map[int32]string{
-		0:  "CONTENT_STATUS_UNKNOWN",
-		10: "CONTENT_STATUS_DRAFT",
-		20: "CONTENT_STATUS_PROCESSING",
-		30: "CONTENT_STATUS_PUBLISHED",
-		40: "CONTENT_STATUS_FAILED",
+		0:  "UNSET",
+		10: "DRAFT",
+		20: "PROCESSING",
+		30: "PUBLISHED",
+		40: "FAILED",
 	}
 	ContentStatus_value = map[string]int32{
-		"CONTENT_STATUS_UNKNOWN":    0,
-		"CONTENT_STATUS_DRAFT":      10,
-		"CONTENT_STATUS_PROCESSING": 20,
-		"CONTENT_STATUS_PUBLISHED":  30,
-		"CONTENT_STATUS_FAILED":     40,
+		"UNSET":      0,
+		"DRAFT":      10,
+		"PROCESSING": 20,
+		"PUBLISHED":  30,
+		"FAILED":     40,
 	}
 )
 
@@ -109,11 +109,11 @@ func (x ContentStatus) String() string {
 }
 
 func (ContentStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_app_rpc_content_proto_content_proto_enumTypes[1].Descriptor()
+	return file_proto_content_proto_enumTypes[1].Descriptor()
 }
 
 func (ContentStatus) Type() protoreflect.EnumType {
-	return &file_app_rpc_content_proto_content_proto_enumTypes[1]
+	return &file_proto_content_proto_enumTypes[1]
 }
 
 func (x ContentStatus) Number() protoreflect.EnumNumber {
@@ -122,28 +122,28 @@ func (x ContentStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ContentStatus.Descriptor instead.
 func (ContentStatus) EnumDescriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{1}
+	return file_proto_content_proto_rawDescGZIP(), []int{1}
 }
 
 type Visibility int32
 
 const (
-	Visibility_VISIBILITY_UNKNOWN Visibility = 0
-	Visibility_VISIBILITY_PUBLIC  Visibility = 10
-	Visibility_VISIBILITY_PRIVATE Visibility = 20
+	Visibility_UNSPECIFIED Visibility = 0
+	Visibility_PUBLIC      Visibility = 10
+	Visibility_PRIVATE     Visibility = 20
 )
 
 // Enum value maps for Visibility.
 var (
 	Visibility_name = map[int32]string{
-		0:  "VISIBILITY_UNKNOWN",
-		10: "VISIBILITY_PUBLIC",
-		20: "VISIBILITY_PRIVATE",
+		0:  "UNSPECIFIED",
+		10: "PUBLIC",
+		20: "PRIVATE",
 	}
 	Visibility_value = map[string]int32{
-		"VISIBILITY_UNKNOWN": 0,
-		"VISIBILITY_PUBLIC":  10,
-		"VISIBILITY_PRIVATE": 20,
+		"UNSPECIFIED": 0,
+		"PUBLIC":      10,
+		"PRIVATE":     20,
 	}
 )
 
@@ -158,11 +158,11 @@ func (x Visibility) String() string {
 }
 
 func (Visibility) Descriptor() protoreflect.EnumDescriptor {
-	return file_app_rpc_content_proto_content_proto_enumTypes[2].Descriptor()
+	return file_proto_content_proto_enumTypes[2].Descriptor()
 }
 
 func (Visibility) Type() protoreflect.EnumType {
-	return &file_app_rpc_content_proto_content_proto_enumTypes[2]
+	return &file_proto_content_proto_enumTypes[2]
 }
 
 func (x Visibility) Number() protoreflect.EnumNumber {
@@ -171,7 +171,7 @@ func (x Visibility) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Visibility.Descriptor instead.
 func (Visibility) EnumDescriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{2}
+	return file_proto_content_proto_rawDescGZIP(), []int{2}
 }
 
 type ArticlePublishReq struct {
@@ -188,7 +188,7 @@ type ArticlePublishReq struct {
 
 func (x *ArticlePublishReq) Reset() {
 	*x = ArticlePublishReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[0]
+	mi := &file_proto_content_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -200,7 +200,7 @@ func (x *ArticlePublishReq) String() string {
 func (*ArticlePublishReq) ProtoMessage() {}
 
 func (x *ArticlePublishReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[0]
+	mi := &file_proto_content_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -213,7 +213,7 @@ func (x *ArticlePublishReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArticlePublishReq.ProtoReflect.Descriptor instead.
 func (*ArticlePublishReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{0}
+	return file_proto_content_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ArticlePublishReq) GetUserId() int64 {
@@ -255,7 +255,7 @@ func (x *ArticlePublishReq) GetVisibility() Visibility {
 	if x != nil {
 		return x.Visibility
 	}
-	return Visibility_VISIBILITY_UNKNOWN
+	return Visibility_UNSPECIFIED
 }
 
 type ArticlePublishRes struct {
@@ -267,7 +267,7 @@ type ArticlePublishRes struct {
 
 func (x *ArticlePublishRes) Reset() {
 	*x = ArticlePublishRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[1]
+	mi := &file_proto_content_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -279,7 +279,7 @@ func (x *ArticlePublishRes) String() string {
 func (*ArticlePublishRes) ProtoMessage() {}
 
 func (x *ArticlePublishRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[1]
+	mi := &file_proto_content_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -292,7 +292,7 @@ func (x *ArticlePublishRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArticlePublishRes.ProtoReflect.Descriptor instead.
 func (*ArticlePublishRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{1}
+	return file_proto_content_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ArticlePublishRes) GetContentId() int64 {
@@ -317,7 +317,7 @@ type VideoPublishReq struct {
 
 func (x *VideoPublishReq) Reset() {
 	*x = VideoPublishReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[2]
+	mi := &file_proto_content_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -329,7 +329,7 @@ func (x *VideoPublishReq) String() string {
 func (*VideoPublishReq) ProtoMessage() {}
 
 func (x *VideoPublishReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[2]
+	mi := &file_proto_content_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -342,7 +342,7 @@ func (x *VideoPublishReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VideoPublishReq.ProtoReflect.Descriptor instead.
 func (*VideoPublishReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{2}
+	return file_proto_content_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *VideoPublishReq) GetUserId() int64 {
@@ -391,7 +391,7 @@ func (x *VideoPublishReq) GetVisibility() Visibility {
 	if x != nil {
 		return x.Visibility
 	}
-	return Visibility_VISIBILITY_UNKNOWN
+	return Visibility_UNSPECIFIED
 }
 
 type VideoPublishRes struct {
@@ -403,7 +403,7 @@ type VideoPublishRes struct {
 
 func (x *VideoPublishRes) Reset() {
 	*x = VideoPublishRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[3]
+	mi := &file_proto_content_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -415,7 +415,7 @@ func (x *VideoPublishRes) String() string {
 func (*VideoPublishRes) ProtoMessage() {}
 
 func (x *VideoPublishRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[3]
+	mi := &file_proto_content_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -428,7 +428,7 @@ func (x *VideoPublishRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VideoPublishRes.ProtoReflect.Descriptor instead.
 func (*VideoPublishRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{3}
+	return file_proto_content_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *VideoPublishRes) GetContentId() int64 {
@@ -449,7 +449,7 @@ type BackfillFollowInboxReq struct {
 
 func (x *BackfillFollowInboxReq) Reset() {
 	*x = BackfillFollowInboxReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[4]
+	mi := &file_proto_content_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -461,7 +461,7 @@ func (x *BackfillFollowInboxReq) String() string {
 func (*BackfillFollowInboxReq) ProtoMessage() {}
 
 func (x *BackfillFollowInboxReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[4]
+	mi := &file_proto_content_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -474,7 +474,7 @@ func (x *BackfillFollowInboxReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackfillFollowInboxReq.ProtoReflect.Descriptor instead.
 func (*BackfillFollowInboxReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{4}
+	return file_proto_content_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *BackfillFollowInboxReq) GetFollowerId() int64 {
@@ -507,7 +507,7 @@ type BackfillFollowInboxRes struct {
 
 func (x *BackfillFollowInboxRes) Reset() {
 	*x = BackfillFollowInboxRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[5]
+	mi := &file_proto_content_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -519,7 +519,7 @@ func (x *BackfillFollowInboxRes) String() string {
 func (*BackfillFollowInboxRes) ProtoMessage() {}
 
 func (x *BackfillFollowInboxRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[5]
+	mi := &file_proto_content_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -532,7 +532,7 @@ func (x *BackfillFollowInboxRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BackfillFollowInboxRes.ProtoReflect.Descriptor instead.
 func (*BackfillFollowInboxRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{5}
+	return file_proto_content_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *BackfillFollowInboxRes) GetAddedCount() int32 {
@@ -554,7 +554,7 @@ type RecommendFeedReq struct {
 
 func (x *RecommendFeedReq) Reset() {
 	*x = RecommendFeedReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[6]
+	mi := &file_proto_content_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -566,7 +566,7 @@ func (x *RecommendFeedReq) String() string {
 func (*RecommendFeedReq) ProtoMessage() {}
 
 func (x *RecommendFeedReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[6]
+	mi := &file_proto_content_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -579,7 +579,7 @@ func (x *RecommendFeedReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecommendFeedReq.ProtoReflect.Descriptor instead.
 func (*RecommendFeedReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{6}
+	return file_proto_content_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RecommendFeedReq) GetUserId() int64 {
@@ -622,7 +622,7 @@ type RecommendFeedRes struct {
 
 func (x *RecommendFeedRes) Reset() {
 	*x = RecommendFeedRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[7]
+	mi := &file_proto_content_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -634,7 +634,7 @@ func (x *RecommendFeedRes) String() string {
 func (*RecommendFeedRes) ProtoMessage() {}
 
 func (x *RecommendFeedRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[7]
+	mi := &file_proto_content_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -647,7 +647,7 @@ func (x *RecommendFeedRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecommendFeedRes.ProtoReflect.Descriptor instead.
 func (*RecommendFeedRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{7}
+	return file_proto_content_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RecommendFeedRes) GetItems() []*ContentItem {
@@ -689,7 +689,7 @@ type FollowFeedReq struct {
 
 func (x *FollowFeedReq) Reset() {
 	*x = FollowFeedReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[8]
+	mi := &file_proto_content_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -701,7 +701,7 @@ func (x *FollowFeedReq) String() string {
 func (*FollowFeedReq) ProtoMessage() {}
 
 func (x *FollowFeedReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[8]
+	mi := &file_proto_content_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -714,7 +714,7 @@ func (x *FollowFeedReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FollowFeedReq.ProtoReflect.Descriptor instead.
 func (*FollowFeedReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{8}
+	return file_proto_content_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *FollowFeedReq) GetUserId() int64 {
@@ -749,7 +749,7 @@ type FollowFeedRes struct {
 
 func (x *FollowFeedRes) Reset() {
 	*x = FollowFeedRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[9]
+	mi := &file_proto_content_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -761,7 +761,7 @@ func (x *FollowFeedRes) String() string {
 func (*FollowFeedRes) ProtoMessage() {}
 
 func (x *FollowFeedRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[9]
+	mi := &file_proto_content_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -774,7 +774,7 @@ func (x *FollowFeedRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FollowFeedRes.ProtoReflect.Descriptor instead.
 func (*FollowFeedRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{9}
+	return file_proto_content_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *FollowFeedRes) GetItems() []*FollowFeedItem {
@@ -810,7 +810,7 @@ type UserPublishFeedReq struct {
 
 func (x *UserPublishFeedReq) Reset() {
 	*x = UserPublishFeedReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[10]
+	mi := &file_proto_content_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -822,7 +822,7 @@ func (x *UserPublishFeedReq) String() string {
 func (*UserPublishFeedReq) ProtoMessage() {}
 
 func (x *UserPublishFeedReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[10]
+	mi := &file_proto_content_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -835,7 +835,7 @@ func (x *UserPublishFeedReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserPublishFeedReq.ProtoReflect.Descriptor instead.
 func (*UserPublishFeedReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{10}
+	return file_proto_content_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UserPublishFeedReq) GetAuthorId() int64 {
@@ -877,7 +877,7 @@ type UserPublishFeedRes struct {
 
 func (x *UserPublishFeedRes) Reset() {
 	*x = UserPublishFeedRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[11]
+	mi := &file_proto_content_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -889,7 +889,7 @@ func (x *UserPublishFeedRes) String() string {
 func (*UserPublishFeedRes) ProtoMessage() {}
 
 func (x *UserPublishFeedRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[11]
+	mi := &file_proto_content_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -902,7 +902,7 @@ func (x *UserPublishFeedRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserPublishFeedRes.ProtoReflect.Descriptor instead.
 func (*UserPublishFeedRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{11}
+	return file_proto_content_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UserPublishFeedRes) GetItems() []*ContentItem {
@@ -938,7 +938,7 @@ type UserFavoriteFeedReq struct {
 
 func (x *UserFavoriteFeedReq) Reset() {
 	*x = UserFavoriteFeedReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[12]
+	mi := &file_proto_content_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -950,7 +950,7 @@ func (x *UserFavoriteFeedReq) String() string {
 func (*UserFavoriteFeedReq) ProtoMessage() {}
 
 func (x *UserFavoriteFeedReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[12]
+	mi := &file_proto_content_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -963,7 +963,7 @@ func (x *UserFavoriteFeedReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserFavoriteFeedReq.ProtoReflect.Descriptor instead.
 func (*UserFavoriteFeedReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{12}
+	return file_proto_content_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *UserFavoriteFeedReq) GetViewerId() int64 {
@@ -1005,7 +1005,7 @@ type UserFavoriteFeedRes struct {
 
 func (x *UserFavoriteFeedRes) Reset() {
 	*x = UserFavoriteFeedRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[13]
+	mi := &file_proto_content_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1017,7 +1017,7 @@ func (x *UserFavoriteFeedRes) String() string {
 func (*UserFavoriteFeedRes) ProtoMessage() {}
 
 func (x *UserFavoriteFeedRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[13]
+	mi := &file_proto_content_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1030,7 +1030,7 @@ func (x *UserFavoriteFeedRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UserFavoriteFeedRes.ProtoReflect.Descriptor instead.
 func (*UserFavoriteFeedRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{13}
+	return file_proto_content_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UserFavoriteFeedRes) GetItems() []*ContentItem {
@@ -1072,7 +1072,7 @@ type ContentItem struct {
 
 func (x *ContentItem) Reset() {
 	*x = ContentItem{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[14]
+	mi := &file_proto_content_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1084,7 +1084,7 @@ func (x *ContentItem) String() string {
 func (*ContentItem) ProtoMessage() {}
 
 func (x *ContentItem) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[14]
+	mi := &file_proto_content_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1097,7 @@ func (x *ContentItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentItem.ProtoReflect.Descriptor instead.
 func (*ContentItem) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{14}
+	return file_proto_content_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ContentItem) GetContentId() int64 {
@@ -1111,7 +1111,7 @@ func (x *ContentItem) GetContentType() ContentType {
 	if x != nil {
 		return x.ContentType
 	}
-	return ContentType_CONTENT_TYPE_UNKNOWN
+	return ContentType_UNKNOWN
 }
 
 func (x *ContentItem) GetAuthorId() int64 {
@@ -1188,7 +1188,7 @@ type FollowFeedItem struct {
 
 func (x *FollowFeedItem) Reset() {
 	*x = FollowFeedItem{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[15]
+	mi := &file_proto_content_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1200,7 +1200,7 @@ func (x *FollowFeedItem) String() string {
 func (*FollowFeedItem) ProtoMessage() {}
 
 func (x *FollowFeedItem) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[15]
+	mi := &file_proto_content_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1213,7 +1213,7 @@ func (x *FollowFeedItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FollowFeedItem.ProtoReflect.Descriptor instead.
 func (*FollowFeedItem) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{15}
+	return file_proto_content_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FollowFeedItem) GetContentId() int64 {
@@ -1227,7 +1227,7 @@ func (x *FollowFeedItem) GetContentType() ContentType {
 	if x != nil {
 		return x.ContentType
 	}
-	return ContentType_CONTENT_TYPE_UNKNOWN
+	return ContentType_UNKNOWN
 }
 
 func (x *FollowFeedItem) GetAuthorId() int64 {
@@ -1296,7 +1296,7 @@ type GetContentDetailReq struct {
 
 func (x *GetContentDetailReq) Reset() {
 	*x = GetContentDetailReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[16]
+	mi := &file_proto_content_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1308,7 +1308,7 @@ func (x *GetContentDetailReq) String() string {
 func (*GetContentDetailReq) ProtoMessage() {}
 
 func (x *GetContentDetailReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[16]
+	mi := &file_proto_content_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1321,7 +1321,7 @@ func (x *GetContentDetailReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContentDetailReq.ProtoReflect.Descriptor instead.
 func (*GetContentDetailReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{16}
+	return file_proto_content_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetContentDetailReq) GetContentId() int64 {
@@ -1364,7 +1364,7 @@ type ContentDetail struct {
 
 func (x *ContentDetail) Reset() {
 	*x = ContentDetail{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[17]
+	mi := &file_proto_content_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1376,7 +1376,7 @@ func (x *ContentDetail) String() string {
 func (*ContentDetail) ProtoMessage() {}
 
 func (x *ContentDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[17]
+	mi := &file_proto_content_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1389,7 +1389,7 @@ func (x *ContentDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContentDetail.ProtoReflect.Descriptor instead.
 func (*ContentDetail) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{17}
+	return file_proto_content_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ContentDetail) GetContentId() int64 {
@@ -1403,7 +1403,7 @@ func (x *ContentDetail) GetContentType() ContentType {
 	if x != nil {
 		return x.ContentType
 	}
-	return ContentType_CONTENT_TYPE_UNKNOWN
+	return ContentType_UNKNOWN
 }
 
 func (x *ContentDetail) GetAuthorId() int64 {
@@ -1527,7 +1527,7 @@ type GetContentDetailRes struct {
 
 func (x *GetContentDetailRes) Reset() {
 	*x = GetContentDetailRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[18]
+	mi := &file_proto_content_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1539,7 +1539,7 @@ func (x *GetContentDetailRes) String() string {
 func (*GetContentDetailRes) ProtoMessage() {}
 
 func (x *GetContentDetailRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[18]
+	mi := &file_proto_content_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1552,7 +1552,7 @@ func (x *GetContentDetailRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContentDetailRes.ProtoReflect.Descriptor instead.
 func (*GetContentDetailRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{18}
+	return file_proto_content_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetContentDetailRes) GetDetail() *ContentDetail {
@@ -1578,7 +1578,7 @@ type OssFormData struct {
 
 func (x *OssFormData) Reset() {
 	*x = OssFormData{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[19]
+	mi := &file_proto_content_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1590,7 +1590,7 @@ func (x *OssFormData) String() string {
 func (*OssFormData) ProtoMessage() {}
 
 func (x *OssFormData) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[19]
+	mi := &file_proto_content_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1603,7 +1603,7 @@ func (x *OssFormData) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OssFormData.ProtoReflect.Descriptor instead.
 func (*OssFormData) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{19}
+	return file_proto_content_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *OssFormData) GetHost() string {
@@ -1674,7 +1674,7 @@ type GetUploadCredentialsReq struct {
 
 func (x *GetUploadCredentialsReq) Reset() {
 	*x = GetUploadCredentialsReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[20]
+	mi := &file_proto_content_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1686,7 +1686,7 @@ func (x *GetUploadCredentialsReq) String() string {
 func (*GetUploadCredentialsReq) ProtoMessage() {}
 
 func (x *GetUploadCredentialsReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[20]
+	mi := &file_proto_content_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1699,7 +1699,7 @@ func (x *GetUploadCredentialsReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUploadCredentialsReq.ProtoReflect.Descriptor instead.
 func (*GetUploadCredentialsReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{20}
+	return file_proto_content_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetUploadCredentialsReq) GetScene() string {
@@ -1742,7 +1742,7 @@ type GetUploadCredentialsRes struct {
 
 func (x *GetUploadCredentialsRes) Reset() {
 	*x = GetUploadCredentialsRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[21]
+	mi := &file_proto_content_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1754,7 +1754,7 @@ func (x *GetUploadCredentialsRes) String() string {
 func (*GetUploadCredentialsRes) ProtoMessage() {}
 
 func (x *GetUploadCredentialsRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[21]
+	mi := &file_proto_content_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1767,7 +1767,7 @@ func (x *GetUploadCredentialsRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetUploadCredentialsRes.ProtoReflect.Descriptor instead.
 func (*GetUploadCredentialsRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{21}
+	return file_proto_content_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetUploadCredentialsRes) GetObjectKey() string {
@@ -1812,7 +1812,7 @@ type EditArticleReq struct {
 
 func (x *EditArticleReq) Reset() {
 	*x = EditArticleReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[22]
+	mi := &file_proto_content_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1824,7 +1824,7 @@ func (x *EditArticleReq) String() string {
 func (*EditArticleReq) ProtoMessage() {}
 
 func (x *EditArticleReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[22]
+	mi := &file_proto_content_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1837,7 +1837,7 @@ func (x *EditArticleReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditArticleReq.ProtoReflect.Descriptor instead.
 func (*EditArticleReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{22}
+	return file_proto_content_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *EditArticleReq) GetUserId() int64 {
@@ -1891,7 +1891,7 @@ type EditArticleRes struct {
 
 func (x *EditArticleRes) Reset() {
 	*x = EditArticleRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[23]
+	mi := &file_proto_content_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1903,7 +1903,7 @@ func (x *EditArticleRes) String() string {
 func (*EditArticleRes) ProtoMessage() {}
 
 func (x *EditArticleRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[23]
+	mi := &file_proto_content_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1916,7 +1916,7 @@ func (x *EditArticleRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditArticleRes.ProtoReflect.Descriptor instead.
 func (*EditArticleRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{23}
+	return file_proto_content_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *EditArticleRes) GetContentId() int64 {
@@ -1941,7 +1941,7 @@ type EditVideoReq struct {
 
 func (x *EditVideoReq) Reset() {
 	*x = EditVideoReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[24]
+	mi := &file_proto_content_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1953,7 +1953,7 @@ func (x *EditVideoReq) String() string {
 func (*EditVideoReq) ProtoMessage() {}
 
 func (x *EditVideoReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[24]
+	mi := &file_proto_content_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1966,7 +1966,7 @@ func (x *EditVideoReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditVideoReq.ProtoReflect.Descriptor instead.
 func (*EditVideoReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{24}
+	return file_proto_content_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *EditVideoReq) GetUserId() int64 {
@@ -2027,7 +2027,7 @@ type EditVideoRes struct {
 
 func (x *EditVideoRes) Reset() {
 	*x = EditVideoRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[25]
+	mi := &file_proto_content_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2039,7 +2039,7 @@ func (x *EditVideoRes) String() string {
 func (*EditVideoRes) ProtoMessage() {}
 
 func (x *EditVideoRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[25]
+	mi := &file_proto_content_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2052,7 +2052,7 @@ func (x *EditVideoRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditVideoRes.ProtoReflect.Descriptor instead.
 func (*EditVideoRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{25}
+	return file_proto_content_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *EditVideoRes) GetContentId() int64 {
@@ -2072,7 +2072,7 @@ type DeleteContentReq struct {
 
 func (x *DeleteContentReq) Reset() {
 	*x = DeleteContentReq{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[26]
+	mi := &file_proto_content_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2084,7 +2084,7 @@ func (x *DeleteContentReq) String() string {
 func (*DeleteContentReq) ProtoMessage() {}
 
 func (x *DeleteContentReq) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[26]
+	mi := &file_proto_content_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2097,7 +2097,7 @@ func (x *DeleteContentReq) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContentReq.ProtoReflect.Descriptor instead.
 func (*DeleteContentReq) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{26}
+	return file_proto_content_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *DeleteContentReq) GetUserId() int64 {
@@ -2122,7 +2122,7 @@ type DeleteContentRes struct {
 
 func (x *DeleteContentRes) Reset() {
 	*x = DeleteContentRes{}
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[27]
+	mi := &file_proto_content_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2134,7 +2134,7 @@ func (x *DeleteContentRes) String() string {
 func (*DeleteContentRes) ProtoMessage() {}
 
 func (x *DeleteContentRes) ProtoReflect() protoreflect.Message {
-	mi := &file_app_rpc_content_proto_content_proto_msgTypes[27]
+	mi := &file_proto_content_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2147,14 +2147,14 @@ func (x *DeleteContentRes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteContentRes.ProtoReflect.Descriptor instead.
 func (*DeleteContentRes) Descriptor() ([]byte, []int) {
-	return file_app_rpc_content_proto_content_proto_rawDescGZIP(), []int{27}
+	return file_proto_content_proto_rawDescGZIP(), []int{27}
 }
 
-var File_app_rpc_content_proto_content_proto protoreflect.FileDescriptor
+var File_proto_content_proto protoreflect.FileDescriptor
 
-const file_app_rpc_content_proto_content_proto_rawDesc = "" +
+const file_proto_content_proto_rawDesc = "" +
 	"\n" +
-	"#app/rpc/content/proto/content.proto\x12\acontent\"\xde\x01\n" +
+	"\x13proto/content.proto\x12\acontent\"\xde\x01\n" +
 	"\x11ArticlePublishReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12%\n" +
@@ -2364,25 +2364,28 @@ const file_app_rpc_content_proto_content_proto_rawDesc = "" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
 	"\n" +
 	"content_id\x18\x02 \x01(\x03R\tcontentId\"\x12\n" +
-	"\x10DeleteContentRes*Y\n" +
-	"\vContentType\x12\x18\n" +
-	"\x14CONTENT_TYPE_UNKNOWN\x10\x00\x12\x18\n" +
-	"\x14CONTENT_TYPE_ARTICLE\x10\n" +
-	"\x12\x16\n" +
-	"\x12CONTENT_TYPE_VIDEO\x10\x14*\x9d\x01\n" +
-	"\rContentStatus\x12\x1a\n" +
-	"\x16CONTENT_STATUS_UNKNOWN\x10\x00\x12\x18\n" +
-	"\x14CONTENT_STATUS_DRAFT\x10\n" +
-	"\x12\x1d\n" +
-	"\x19CONTENT_STATUS_PROCESSING\x10\x14\x12\x1c\n" +
-	"\x18CONTENT_STATUS_PUBLISHED\x10\x1e\x12\x19\n" +
-	"\x15CONTENT_STATUS_FAILED\x10(*S\n" +
+	"\x10DeleteContentRes*2\n" +
+	"\vContentType\x12\v\n" +
+	"\aUNKNOWN\x10\x00\x12\v\n" +
+	"\aARTICLE\x10\n" +
+	"\x12\t\n" +
+	"\x05VIDEO\x10\x14*P\n" +
+	"\rContentStatus\x12\t\n" +
+	"\x05UNSET\x10\x00\x12\t\n" +
+	"\x05DRAFT\x10\n" +
+	"\x12\x0e\n" +
 	"\n" +
-	"Visibility\x12\x16\n" +
-	"\x12VISIBILITY_UNKNOWN\x10\x00\x12\x15\n" +
-	"\x11VISIBILITY_PUBLIC\x10\n" +
-	"\x12\x16\n" +
-	"\x12VISIBILITY_PRIVATE\x10\x142\xe6\x04\n" +
+	"PROCESSING\x10\x14\x12\r\n" +
+	"\tPUBLISHED\x10\x1e\x12\n" +
+	"\n" +
+	"\x06FAILED\x10(*6\n" +
+	"\n" +
+	"Visibility\x12\x0f\n" +
+	"\vUNSPECIFIED\x10\x00\x12\n" +
+	"\n" +
+	"\x06PUBLIC\x10\n" +
+	"\x12\v\n" +
+	"\aPRIVATE\x10\x142\xe6\x04\n" +
 	"\x0eContentService\x12H\n" +
 	"\x0ePublishArticle\x12\x1a.content.ArticlePublishReq\x1a\x1a.content.ArticlePublishRes\x12B\n" +
 	"\fPublishVideo\x12\x18.content.VideoPublishReq\x1a\x18.content.VideoPublishRes\x12W\n" +
@@ -2400,20 +2403,20 @@ const file_app_rpc_content_proto_content_proto_rawDesc = "" +
 	"\x10UserFavoriteFeed\x12\x1c.content.UserFavoriteFeedReq\x1a\x1c.content.UserFavoriteFeedResB\vZ\t./contentb\x06proto3"
 
 var (
-	file_app_rpc_content_proto_content_proto_rawDescOnce sync.Once
-	file_app_rpc_content_proto_content_proto_rawDescData []byte
+	file_proto_content_proto_rawDescOnce sync.Once
+	file_proto_content_proto_rawDescData []byte
 )
 
-func file_app_rpc_content_proto_content_proto_rawDescGZIP() []byte {
-	file_app_rpc_content_proto_content_proto_rawDescOnce.Do(func() {
-		file_app_rpc_content_proto_content_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_app_rpc_content_proto_content_proto_rawDesc), len(file_app_rpc_content_proto_content_proto_rawDesc)))
+func file_proto_content_proto_rawDescGZIP() []byte {
+	file_proto_content_proto_rawDescOnce.Do(func() {
+		file_proto_content_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_proto_content_proto_rawDesc), len(file_proto_content_proto_rawDesc)))
 	})
-	return file_app_rpc_content_proto_content_proto_rawDescData
+	return file_proto_content_proto_rawDescData
 }
 
-var file_app_rpc_content_proto_content_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_app_rpc_content_proto_content_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
-var file_app_rpc_content_proto_content_proto_goTypes = []any{
+var file_proto_content_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_proto_content_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_proto_content_proto_goTypes = []any{
 	(ContentType)(0),                // 0: content.ContentType
 	(ContentStatus)(0),              // 1: content.ContentStatus
 	(Visibility)(0),                 // 2: content.Visibility
@@ -2446,7 +2449,7 @@ var file_app_rpc_content_proto_content_proto_goTypes = []any{
 	(*DeleteContentReq)(nil),        // 29: content.DeleteContentReq
 	(*DeleteContentRes)(nil),        // 30: content.DeleteContentRes
 }
-var file_app_rpc_content_proto_content_proto_depIdxs = []int32{
+var file_proto_content_proto_depIdxs = []int32{
 	2,  // 0: content.ArticlePublishReq.visibility:type_name -> content.Visibility
 	2,  // 1: content.VideoPublishReq.visibility:type_name -> content.Visibility
 	17, // 2: content.RecommendFeedRes.items:type_name -> content.ContentItem
@@ -2489,35 +2492,35 @@ var file_app_rpc_content_proto_content_proto_depIdxs = []int32{
 	0,  // [0:11] is the sub-list for field type_name
 }
 
-func init() { file_app_rpc_content_proto_content_proto_init() }
-func file_app_rpc_content_proto_content_proto_init() {
-	if File_app_rpc_content_proto_content_proto != nil {
+func init() { file_proto_content_proto_init() }
+func file_proto_content_proto_init() {
+	if File_proto_content_proto != nil {
 		return
 	}
-	file_app_rpc_content_proto_content_proto_msgTypes[0].OneofWrappers = []any{}
-	file_app_rpc_content_proto_content_proto_msgTypes[2].OneofWrappers = []any{}
-	file_app_rpc_content_proto_content_proto_msgTypes[6].OneofWrappers = []any{}
-	file_app_rpc_content_proto_content_proto_msgTypes[10].OneofWrappers = []any{}
-	file_app_rpc_content_proto_content_proto_msgTypes[12].OneofWrappers = []any{}
-	file_app_rpc_content_proto_content_proto_msgTypes[16].OneofWrappers = []any{}
-	file_app_rpc_content_proto_content_proto_msgTypes[22].OneofWrappers = []any{}
-	file_app_rpc_content_proto_content_proto_msgTypes[24].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[0].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[2].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[6].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[10].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[12].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[16].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[22].OneofWrappers = []any{}
+	file_proto_content_proto_msgTypes[24].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_rpc_content_proto_content_proto_rawDesc), len(file_app_rpc_content_proto_content_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_content_proto_rawDesc), len(file_proto_content_proto_rawDesc)),
 			NumEnums:      3,
 			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_app_rpc_content_proto_content_proto_goTypes,
-		DependencyIndexes: file_app_rpc_content_proto_content_proto_depIdxs,
-		EnumInfos:         file_app_rpc_content_proto_content_proto_enumTypes,
-		MessageInfos:      file_app_rpc_content_proto_content_proto_msgTypes,
+		GoTypes:           file_proto_content_proto_goTypes,
+		DependencyIndexes: file_proto_content_proto_depIdxs,
+		EnumInfos:         file_proto_content_proto_enumTypes,
+		MessageInfos:      file_proto_content_proto_msgTypes,
 	}.Build()
-	File_app_rpc_content_proto_content_proto = out.File
-	file_app_rpc_content_proto_content_proto_goTypes = nil
-	file_app_rpc_content_proto_content_proto_depIdxs = nil
+	File_proto_content_proto = out.File
+	file_proto_content_proto_goTypes = nil
+	file_proto_content_proto_depIdxs = nil
 }

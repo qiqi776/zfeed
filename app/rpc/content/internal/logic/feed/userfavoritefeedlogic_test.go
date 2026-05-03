@@ -43,9 +43,9 @@ func TestUserFavoriteFeed_HitReturnsOrderedItems(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 6103, authorID: 3001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-6103", coverURL: "cover-a-6103"},
-		{contentID: 6102, authorID: 3002, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-6102", coverURL: "cover-v-6102"},
-		{contentID: 6101, authorID: 3003, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-6101", coverURL: "cover-a-6101"},
+		{contentID: 6103, authorID: 3001, contentType: contentpb.ContentType_ARTICLE, title: "article-6103", coverURL: "cover-a-6103"},
+		{contentID: 6102, authorID: 3002, contentType: contentpb.ContentType_VIDEO, title: "video-6102", coverURL: "cover-v-6102"},
+		{contentID: 6101, authorID: 3003, contentType: contentpb.ContentType_ARTICLE, title: "article-6101", coverURL: "cover-a-6101"},
 	})
 
 	feedKey := redisconsts.BuildUserFavoriteFeedKey(1001)
@@ -80,9 +80,9 @@ func TestUserFavoriteFeed_CursorPagination(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 6203, authorID: 3001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-6203", coverURL: "cover-a-6203"},
-		{contentID: 6202, authorID: 3002, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-6202", coverURL: "cover-v-6202"},
-		{contentID: 6201, authorID: 3003, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-6201", coverURL: "cover-a-6201"},
+		{contentID: 6203, authorID: 3001, contentType: contentpb.ContentType_ARTICLE, title: "article-6203", coverURL: "cover-a-6203"},
+		{contentID: 6202, authorID: 3002, contentType: contentpb.ContentType_VIDEO, title: "video-6202", coverURL: "cover-v-6202"},
+		{contentID: 6201, authorID: 3003, contentType: contentpb.ContentType_ARTICLE, title: "article-6201", coverURL: "cover-a-6201"},
 	})
 
 	feedKey := redisconsts.BuildUserFavoriteFeedKey(1002)
@@ -125,9 +125,9 @@ func TestUserFavoriteFeed_MissRebuildsFromFavoriteRPC(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 6303, authorID: 3001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-6303", coverURL: "cover-a-6303"},
-		{contentID: 6302, authorID: 3002, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-6302", coverURL: "cover-v-6302"},
-		{contentID: 6301, authorID: 3003, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-6301", coverURL: "cover-a-6301"},
+		{contentID: 6303, authorID: 3001, contentType: contentpb.ContentType_ARTICLE, title: "article-6303", coverURL: "cover-a-6303"},
+		{contentID: 6302, authorID: 3002, contentType: contentpb.ContentType_VIDEO, title: "video-6302", coverURL: "cover-v-6302"},
+		{contentID: 6301, authorID: 3003, contentType: contentpb.ContentType_ARTICLE, title: "article-6301", coverURL: "cover-a-6301"},
 	})
 
 	queryCalls := 0
@@ -183,7 +183,7 @@ func TestUserFavoriteFeed_SkipsDirtyContentIDs(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 6402, authorID: 3002, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-6402", coverURL: "cover-v-6402"},
+		{contentID: 6402, authorID: 3002, contentType: contentpb.ContentType_VIDEO, title: "video-6402", coverURL: "cover-v-6402"},
 	})
 
 	feedKey := redisconsts.BuildUserFavoriteFeedKey(1004)

@@ -15,9 +15,9 @@ func TestUserPublishFeed_HitReturnsOrderedItems(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 5103, authorID: 2001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-5103", coverURL: "cover-a-5103"},
-		{contentID: 5102, authorID: 2001, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-5102", coverURL: "cover-v-5102"},
-		{contentID: 5101, authorID: 2001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-5101", coverURL: "cover-a-5101"},
+		{contentID: 5103, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "article-5103", coverURL: "cover-a-5103"},
+		{contentID: 5102, authorID: 2001, contentType: contentpb.ContentType_VIDEO, title: "video-5102", coverURL: "cover-v-5102"},
+		{contentID: 5101, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "article-5101", coverURL: "cover-a-5101"},
 	})
 
 	feedKey := redisconsts.BuildUserPublishFeedKey(2001)
@@ -55,9 +55,9 @@ func TestUserPublishFeed_CursorPagination(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 5203, authorID: 2002, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-5203", coverURL: "cover-a-5203"},
-		{contentID: 5202, authorID: 2002, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-5202", coverURL: "cover-v-5202"},
-		{contentID: 5201, authorID: 2002, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-5201", coverURL: "cover-a-5201"},
+		{contentID: 5203, authorID: 2002, contentType: contentpb.ContentType_ARTICLE, title: "article-5203", coverURL: "cover-a-5203"},
+		{contentID: 5202, authorID: 2002, contentType: contentpb.ContentType_VIDEO, title: "video-5202", coverURL: "cover-v-5202"},
+		{contentID: 5201, authorID: 2002, contentType: contentpb.ContentType_ARTICLE, title: "article-5201", coverURL: "cover-a-5201"},
 	})
 
 	feedKey := redisconsts.BuildUserPublishFeedKey(2002)
@@ -100,9 +100,9 @@ func TestUserPublishFeed_MissRebuildsFromDB(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 5303, authorID: 2003, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-5303", coverURL: "cover-a-5303"},
-		{contentID: 5302, authorID: 2003, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-5302", coverURL: "cover-v-5302"},
-		{contentID: 5301, authorID: 2003, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-5301", coverURL: "cover-a-5301"},
+		{contentID: 5303, authorID: 2003, contentType: contentpb.ContentType_ARTICLE, title: "article-5303", coverURL: "cover-a-5303"},
+		{contentID: 5302, authorID: 2003, contentType: contentpb.ContentType_VIDEO, title: "video-5302", coverURL: "cover-v-5302"},
+		{contentID: 5301, authorID: 2003, contentType: contentpb.ContentType_ARTICLE, title: "article-5301", coverURL: "cover-a-5301"},
 	})
 
 	logic := NewUserPublishFeedLogic(context.Background(), &svc.ServiceContext{

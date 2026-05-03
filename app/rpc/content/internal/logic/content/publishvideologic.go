@@ -40,7 +40,7 @@ func (l *PublishVideoLogic) PublishVideo(in *contentpb.VideoPublishReq) (*conten
 	if in == nil || in.GetUserId() <= 0 || strings.TrimSpace(in.GetTitle()) == "" || strings.TrimSpace(in.GetOriginUrl()) == "" || strings.TrimSpace(in.GetCoverUrl()) == "" {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
-	if in.GetVisibility() == contentpb.Visibility_VISIBILITY_UNKNOWN {
+	if in.GetVisibility() == contentpb.Visibility_UNSPECIFIED {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -53,8 +53,8 @@ func (l *PublishVideoLogic) PublishVideo(in *contentpb.VideoPublishReq) (*conten
 
 		id, err := contentRepo.CreateContent(&do.ContentDO{
 			UserID:        in.GetUserId(),
-			ContentType:   int32(contentpb.ContentType_CONTENT_TYPE_VIDEO),
-			Status:        int32(contentpb.ContentStatus_CONTENT_STATUS_PUBLISHED),
+			ContentType:   int32(contentpb.ContentType_VIDEO),
+			Status:        int32(contentpb.ContentStatus_PUBLISHED),
 			Visibility:    int32(in.GetVisibility()),
 			LikeCount:     0,
 			FavoriteCount: 0,

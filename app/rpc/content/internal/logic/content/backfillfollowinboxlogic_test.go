@@ -88,9 +88,9 @@ func TestBackfillFollowInboxFromDB(t *testing.T) {
 		if err := db.Create(&model.ZfeedContent{
 			ID:          contentID,
 			UserID:      2002,
-			ContentType: int32(contentpb.ContentType_CONTENT_TYPE_ARTICLE),
-			Status:      int32(contentpb.ContentStatus_CONTENT_STATUS_PUBLISHED),
-			Visibility:  int32(contentpb.Visibility_VISIBILITY_PUBLIC),
+			ContentType: int32(contentpb.ContentType_ARTICLE),
+			Status:      int32(contentpb.ContentStatus_PUBLISHED),
+			Visibility:  int32(contentpb.Visibility_PUBLIC),
 			PublishedAt: &publishedAt,
 			IsDeleted:   0,
 		}).Error; err != nil {

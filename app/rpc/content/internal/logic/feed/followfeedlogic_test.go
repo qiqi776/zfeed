@@ -85,8 +85,8 @@ func seedFollowFeedRows(t *testing.T, db *gorm.DB, rows []followFeedSeed) {
 			ID:          row.contentID,
 			UserID:      row.authorID,
 			ContentType: int32(row.contentType),
-			Status:      int32(contentpb.ContentStatus_CONTENT_STATUS_PUBLISHED),
-			Visibility:  int32(contentpb.Visibility_VISIBILITY_PUBLIC),
+			Status:      int32(contentpb.ContentStatus_PUBLISHED),
+			Visibility:  int32(contentpb.Visibility_PUBLIC),
 			PublishedAt: &publishedAt,
 			IsDeleted:   0,
 		}
@@ -95,7 +95,7 @@ func seedFollowFeedRows(t *testing.T, db *gorm.DB, rows []followFeedSeed) {
 		}
 
 		switch row.contentType {
-		case contentpb.ContentType_CONTENT_TYPE_ARTICLE:
+		case contentpb.ContentType_ARTICLE:
 			if err := db.Create(&model.ZfeedArticle{
 				ContentID: row.contentID,
 				Title:     row.title,
@@ -104,7 +104,7 @@ func seedFollowFeedRows(t *testing.T, db *gorm.DB, rows []followFeedSeed) {
 			}).Error; err != nil {
 				t.Fatalf("create article row %d: %v", row.contentID, err)
 			}
-		case contentpb.ContentType_CONTENT_TYPE_VIDEO:
+		case contentpb.ContentType_VIDEO:
 			if err := db.Create(&model.ZfeedVideo{
 				ContentID: row.contentID,
 				Title:     row.title,
@@ -133,9 +133,9 @@ func TestFollowFeed_InboxHitReturnsOrderedItems(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 3003, authorID: 2001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-3003", coverURL: "cover-a-3003"},
-		{contentID: 3002, authorID: 2002, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-3002", coverURL: "cover-v-3002"},
-		{contentID: 3001, authorID: 2001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-3001", coverURL: "cover-a-3001"},
+		{contentID: 3003, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "article-3003", coverURL: "cover-a-3003"},
+		{contentID: 3002, authorID: 2002, contentType: contentpb.ContentType_VIDEO, title: "video-3002", coverURL: "cover-v-3002"},
+		{contentID: 3001, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "article-3001", coverURL: "cover-a-3001"},
 	})
 
 	inboxKey := redisconsts.BuildFollowInboxKey(1001)
@@ -176,9 +176,9 @@ func TestFollowFeed_CursorPagination(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 3103, authorID: 2001, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-3103", coverURL: "cover-a-3103"},
-		{contentID: 3102, authorID: 2002, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-3102", coverURL: "cover-v-3102"},
-		{contentID: 3101, authorID: 2003, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-3101", coverURL: "cover-a-3101"},
+		{contentID: 3103, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "article-3103", coverURL: "cover-a-3103"},
+		{contentID: 3102, authorID: 2002, contentType: contentpb.ContentType_VIDEO, title: "video-3102", coverURL: "cover-v-3102"},
+		{contentID: 3101, authorID: 2003, contentType: contentpb.ContentType_ARTICLE, title: "article-3101", coverURL: "cover-a-3101"},
 	})
 
 	inboxKey := redisconsts.BuildFollowInboxKey(1002)
@@ -227,9 +227,9 @@ func TestFollowFeed_MissRebuildsInboxAndSubsequentReadHitsCache(t *testing.T) {
 	db := newFollowFeedTestDB(t)
 
 	seedFollowFeedRows(t, db, []followFeedSeed{
-		{contentID: 4103, authorID: 2201, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-4103", coverURL: "cover-a-4103"},
-		{contentID: 4102, authorID: 2202, contentType: contentpb.ContentType_CONTENT_TYPE_VIDEO, title: "video-4102", coverURL: "cover-v-4102"},
-		{contentID: 4101, authorID: 2201, contentType: contentpb.ContentType_CONTENT_TYPE_ARTICLE, title: "article-4101", coverURL: "cover-a-4101"},
+		{contentID: 4103, authorID: 2201, contentType: contentpb.ContentType_ARTICLE, title: "article-4103", coverURL: "cover-a-4103"},
+		{contentID: 4102, authorID: 2202, contentType: contentpb.ContentType_VIDEO, title: "video-4102", coverURL: "cover-v-4102"},
+		{contentID: 4101, authorID: 2201, contentType: contentpb.ContentType_ARTICLE, title: "article-4101", coverURL: "cover-a-4101"},
 	})
 
 	listCalls := 0

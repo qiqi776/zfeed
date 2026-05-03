@@ -66,7 +66,7 @@ func (l *EditVideoLogic) EditVideo(in *content.EditVideoReq) (*content.EditVideo
 	}
 
 	guard := NewEditArticleLogic(l.ctx, l.svcCtx)
-	if err := guard.ensureEditableContent(in.GetContentId(), in.GetUserId(), int32(content.ContentType_CONTENT_TYPE_VIDEO)); err != nil {
+	if err := guard.ensureEditableContent(in.GetContentId(), in.GetUserId(), int32(content.ContentType_VIDEO)); err != nil {
 		return nil, err
 	}
 

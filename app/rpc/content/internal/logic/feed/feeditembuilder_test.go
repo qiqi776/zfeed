@@ -95,8 +95,8 @@ func TestFeedItemBuilderBuildContentItemsIncludesLikedState(t *testing.T) {
 
 	viewerID := int64(42)
 	items, err := builder.BuildContentItems([]*model.ZfeedContent{
-		{ID: 1001, UserID: 2001, ContentType: int32(contentpb.ContentType_CONTENT_TYPE_ARTICLE)},
-		{ID: 1002, UserID: 2002, ContentType: int32(contentpb.ContentType_CONTENT_TYPE_VIDEO)},
+		{ID: 1001, UserID: 2001, ContentType: int32(contentpb.ContentType_ARTICLE)},
+		{ID: 1002, UserID: 2002, ContentType: int32(contentpb.ContentType_VIDEO)},
 	}, &viewerID)
 	if err != nil {
 		t.Fatalf("BuildContentItems returned error: %v", err)

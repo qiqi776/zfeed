@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v3.21.12
-// source: app/rpc/content/proto/content.proto
+// source: proto/content.proto
 
 package content
 
@@ -383,7 +383,7 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "app/rpc/content/proto/content.proto",
+	Metadata: "proto/content.proto",
 }
 
 const (
@@ -599,5 +599,5 @@ var FeedService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "app/rpc/content/proto/content.proto",
+	Metadata: "proto/content.proto",
 }

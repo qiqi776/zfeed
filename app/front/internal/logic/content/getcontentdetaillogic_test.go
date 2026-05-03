@@ -25,7 +25,7 @@ func TestGetContentDetailPassesViewerIDToRPC(t *testing.T) {
 				return &contentpb.GetContentDetailRes{
 					Detail: &contentpb.ContentDetail{
 						ContentId:         5001,
-						ContentType:       contentpb.ContentType_CONTENT_TYPE_ARTICLE,
+						ContentType:       contentpb.ContentType_ARTICLE,
 						AuthorId:          1001,
 						AuthorName:        "author",
 						AuthorAvatar:      "avatar",

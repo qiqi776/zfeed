@@ -28,11 +28,11 @@ const (
 )
 
 const (
-	contentTypeArticle       = int32(content.ContentType_CONTENT_TYPE_ARTICLE)
-	contentTypeVideo         = int32(content.ContentType_CONTENT_TYPE_VIDEO)
-	contentStatusPublish     = int32(content.ContentStatus_CONTENT_STATUS_PUBLISHED)
-	contentVisibilityPublic  = int32(content.Visibility_VISIBILITY_PUBLIC)
-	contentVisibilityPrivate = int32(content.Visibility_VISIBILITY_PRIVATE)
+	contentTypeArticle       = int32(content.ContentType_ARTICLE)
+	contentTypeVideo         = int32(content.ContentType_VIDEO)
+	contentStatusPublish     = int32(content.ContentStatus_PUBLISHED)
+	contentVisibilityPublic  = int32(content.Visibility_PUBLIC)
+	contentVisibilityPrivate = int32(content.Visibility_PRIVATE)
 )
 
 type ContentDetailLogic struct {
@@ -153,7 +153,7 @@ func (l *ContentDetailLogic) buildBaseDetail(contentID, viewerID int64) (*conten
 	}
 
 	switch detail.GetContentType() {
-	case content.ContentType_CONTENT_TYPE_ARTICLE:
+	case content.ContentType_ARTICLE:
 		article, err := l.queryArticle(contentRow.ID)
 		if err != nil {
 			return nil, err
@@ -162,7 +162,7 @@ func (l *ContentDetailLogic) buildBaseDetail(contentID, viewerID int64) (*conten
 		detail.Description = valueOrEmpty(article.Description)
 		detail.CoverUrl = article.Cover
 		detail.ArticleContent = article.Content
-	case content.ContentType_CONTENT_TYPE_VIDEO:
+	case content.ContentType_VIDEO:
 		video, err := l.queryVideo(contentRow.ID)
 		if err != nil {
 			return nil, err
@@ -173,7 +173,7 @@ func (l *ContentDetailLogic) buildBaseDetail(contentID, viewerID int64) (*conten
 		detail.VideoUrl = video.OriginURL
 		detail.VideoDuration = video.Duration
 	default:
-		return nil, errorx.NewBadRequest("内容类型错误")
+		return nil, errorx.NewInternal("内容类型错误")
 	}
 
 	return detail, nil
@@ -218,16 +218,16 @@ func (l *ContentDetailLogic) queryContent(contentID int64, viewerID int64) (*con
 	query := l.svcCtx.MysqlDb.WithContext(l.ctx).
 		Table("zfeed_content").
 		Select("id", "user_id", "content_type", "like_count", "favorite_count", "comment_count", "published_at").
-		Where("id = ? AND status = ? AND is_deleted = 0", contentID, int32(content.ContentStatus_CONTENT_STATUS_PUBLISHED))
+		Where("id = ? AND status = ? AND is_deleted = 0", contentID, int32(content.ContentStatus_PUBLISHED))
 	if viewerID > 0 {
 		query = query.Where(
 			"(visibility = ? OR (visibility = ? AND user_id = ?))",
-			int32(content.Visibility_VISIBILITY_PUBLIC),
-			int32(content.Visibility_VISIBILITY_PRIVATE),
+			int32(content.Visibility_PUBLIC),
+			int32(content.Visibility_PRIVATE),
 			viewerID,
 		)
 	} else {
-		query = query.Where("visibility = ?", int32(content.Visibility_VISIBILITY_PUBLIC))
+		query = query.Where("visibility = ?", int32(content.Visibility_PUBLIC))
 	}
 
 	if err := query.Take(&row).Error; err != nil {
@@ -475,16 +475,12 @@ func (l *ContentDetailLogic) applyViewerState(detail *content.ContentDetail, res
 
 	if res.like.ok {
 		detail.IsLiked = res.like.isLiked
-		if res.like.likeCount > 0 {
-			detail.LikeCount = res.like.likeCount
-		}
+		detail.LikeCount = res.like.likeCount
 	}
 
 	if res.favorite.ok {
 		detail.IsFavorited = res.favorite.isFavorited
-		if res.favorite.favoriteCount > 0 {
-			detail.FavoriteCount = res.favorite.favoriteCount
-		}
+		detail.FavoriteCount = res.favorite.favoriteCount
 	}
 
 	if res.follow.ok {
@@ -494,9 +490,9 @@ func (l *ContentDetailLogic) applyViewerState(detail *content.ContentDetail, res
 
 func sceneByContentType(contentType content.ContentType) (interactionpb.Scene, bool) {
 	switch contentType {
-	case content.ContentType_CONTENT_TYPE_ARTICLE:
+	case content.ContentType_ARTICLE:
 		return interactionpb.Scene_ARTICLE, true
-	case content.ContentType_CONTENT_TYPE_VIDEO:
+	case content.ContentType_VIDEO:
 		return interactionpb.Scene_VIDEO, true
 	default:
 		return interactionpb.Scene_SCENE_UNKNOWN, false

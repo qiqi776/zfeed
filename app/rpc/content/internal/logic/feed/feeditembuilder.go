@@ -84,12 +84,12 @@ func (b *FeedItemBuilder) BuildContentItems(contents []*model.ZfeedContent, view
 		}
 
 		switch contentpb.ContentType(row.ContentType) {
-		case contentpb.ContentType_CONTENT_TYPE_ARTICLE:
+		case contentpb.ContentType_ARTICLE:
 			if article, ok := articleMap[row.ID]; ok && article != nil {
 				item.Title = article.Title
 				item.CoverUrl = article.Cover
 			}
-		case contentpb.ContentType_CONTENT_TYPE_VIDEO:
+		case contentpb.ContentType_VIDEO:
 			if video, ok := videoMap[row.ID]; ok && video != nil {
 				item.Title = video.Title
 				item.CoverUrl = video.CoverURL
@@ -151,9 +151,9 @@ func (b *FeedItemBuilder) buildLikedMap(contents []*model.ZfeedContent, viewerID
 
 func contentTypeToScene(contentType int32) (interactionpb.Scene, bool) {
 	switch contentpb.ContentType(contentType) {
-	case contentpb.ContentType_CONTENT_TYPE_ARTICLE:
+	case contentpb.ContentType_ARTICLE:
 		return interactionpb.Scene_ARTICLE, true
-	case contentpb.ContentType_CONTENT_TYPE_VIDEO:
+	case contentpb.ContentType_VIDEO:
 		return interactionpb.Scene_VIDEO, true
 	default:
 		return interactionpb.Scene_SCENE_UNKNOWN, false
@@ -190,9 +190,9 @@ func (b *FeedItemBuilder) buildBriefMaps(contents []*model.ZfeedContent) (map[in
 			continue
 		}
 		switch contentpb.ContentType(row.ContentType) {
-		case contentpb.ContentType_CONTENT_TYPE_ARTICLE:
+		case contentpb.ContentType_ARTICLE:
 			articleIDs = append(articleIDs, row.ID)
-		case contentpb.ContentType_CONTENT_TYPE_VIDEO:
+		case contentpb.ContentType_VIDEO:
 			videoIDs = append(videoIDs, row.ID)
 		}
 	}
