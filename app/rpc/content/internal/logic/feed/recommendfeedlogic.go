@@ -134,9 +134,9 @@ func (l *RecommendFeedLogic) queryFromRedis(preferredKey, preferredSnapshotID, c
 		luautils.QueryHotFeedZSetScript,
 		[]string{
 			preferredKey,
-			redisconsts.RedisFeedHotGlobalLatestKey,
-			redisconsts.RedisFeedHotGlobalSnapshotPrefix,
-			redisconsts.RedisFeedHotGlobalKey,
+			redisconsts.HotFeedLatestKey,
+			redisconsts.HotFeedSnapshotPrefix,
+			redisconsts.HotFeedKey,
 		},
 		cursor,
 		strconv.FormatInt(int64(pageSize), 10),

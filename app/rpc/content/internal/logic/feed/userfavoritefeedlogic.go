@@ -16,14 +16,6 @@ import (
 	"zfeed/pkg/errorx"
 )
 
-const (
-	userFavoriteFeedKeepN = redisconsts.RedisUserFavoriteKeepLatestN
-
-	userFavoriteFeedRebuildLockTTLSeconds = 30
-	userFavoriteFeedRebuildRetryTimes     = 3
-	userFavoriteFeedRebuildRetryInterval  = 80 * time.Millisecond
-)
-
 type UserFavoriteFeedLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
@@ -101,7 +93,7 @@ func (l *UserFavoriteFeedLogic) loadPageIDs(feedKey string, userID int64, cursor
 
 	lockKey := redisconsts.BuildUserFavoriteRebuildLockKey(userID)
 	rebuildLock := gzredis.NewRedisLock(l.svcCtx.Redis, lockKey)
-	rebuildLock.SetExpire(userFavoriteFeedRebuildLockTTLSeconds)
+	rebuildLock.SetExpire(ttlSeconds)
 	locked, lockErr := rebuildLock.AcquireCtx(l.ctx)
 	if lockErr != nil {
 		return nil, "", false, errorx.Wrap(l.ctx, lockErr, errorx.NewMsg("查询失败请稍后重试"))
@@ -144,8 +136,8 @@ func (l *UserFavoriteFeedLogic) loadPageIDs(feedKey string, userID int64, cursor
 		return result, nextCursor, hasMore, nil
 	}
 
-	for i := 0; i < userFavoriteFeedRebuildRetryTimes; i++ {
-		time.Sleep(userFavoriteFeedRebuildRetryInterval)
+	for i := 0; i < retryTimes; i++ {
+		time.Sleep(retryInterval)
 		ids, nextCursor, hasMore, cacheExists, err = l.queryUserFavoriteIDs(feedKey, cursor, pageSize)
 		if err != nil {
 			return nil, "", false, err
@@ -230,13 +222,13 @@ func (l *UserFavoriteFeedLogic) listAllFavorites(userID int64) ([]*favoriteservi
 			break
 		}
 		cursor = resp.GetNextCursor()
-		if len(result) >= userFavoriteFeedKeepN {
+		if len(result) >= redisconsts.FeedKeepLatestN {
 			break
 		}
 	}
 
-	if len(result) > userFavoriteFeedKeepN {
-		result = result[:userFavoriteFeedKeepN]
+	if len(result) > redisconsts.FeedKeepLatestN {
+		result = result[:redisconsts.FeedKeepLatestN]
 	}
 	return result, nil
 }
@@ -247,7 +239,7 @@ func (l *UserFavoriteFeedLogic) updateUserFavoriteCache(feedKey string, rows []*
 	}
 
 	args := make([]any, 0, 1+len(rows)*2)
-	args = append(args, strconv.Itoa(userFavoriteFeedKeepN))
+	args = append(args, strconv.Itoa(redisconsts.FeedKeepLatestN))
 	for _, row := range rows {
 		if row == nil || row.GetFavoriteId() <= 0 || row.GetContentId() <= 0 {
 			continue

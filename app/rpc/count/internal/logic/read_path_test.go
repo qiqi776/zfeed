@@ -418,12 +418,12 @@ func (s *stubCountValueRepository) ApplyDelta(
 
 func TestBuildRebuildLockKeys(t *testing.T) {
 	countKey := buildCountValueRebuildLockKey(count.BizType_LIKE, count.TargetType_CONTENT, 1501)
-	if countKey != redisconsts.RedisCountRebuildLockPrefix+":10:10:1501" {
+	if countKey != redisconsts.CountRebuildLockPrefix+":10:10:1501" {
 		t.Fatalf("count rebuild key = %q", countKey)
 	}
 
 	profileKey := buildUserProfileCountsRebuildLockKey(1502)
-	if profileKey != redisconsts.RedisUserProfileCountsRebuildLockPref+":1502" {
+	if profileKey != redisconsts.ProfileRebuildLockPrefix+":1502" {
 		t.Fatalf("user profile rebuild key = %q", profileKey)
 	}
 }

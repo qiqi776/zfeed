@@ -51,7 +51,7 @@ func newTestRedis(t *testing.T) (*miniredis.Miniredis, *gzredis.Redis) {
 	return store, client
 }
 
-func TestPublishArticle(t *testing.T) {
+func TestArticle(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{}, &model.ZfeedVideo{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -91,7 +91,7 @@ func TestPublishArticle(t *testing.T) {
 		t.Fatalf("article title = %q, want %q", articleRow.Title, "article-title")
 	}
 
-	key := redisconsts.BuildUserPublishKey(101)
+	key := redisconsts.BuildUserPublishFeedKey(101)
 	if !store.Exists(key) {
 		t.Fatalf("redis key %q does not exist", key)
 	}
@@ -114,7 +114,7 @@ func TestPublishArticle(t *testing.T) {
 	}
 }
 
-func TestPublishVideo(t *testing.T) {
+func TestVideo(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{}, &model.ZfeedVideo{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -156,7 +156,7 @@ func TestPublishVideo(t *testing.T) {
 		t.Fatalf("video title = %q, want %q", videoRow.Title, "video-title")
 	}
 
-	key := redisconsts.BuildUserPublishKey(202)
+	key := redisconsts.BuildUserPublishFeedKey(202)
 	member := strconv.FormatInt(resp.GetContentId(), 10)
 
 	score, err := store.ZScore(key, member)
@@ -180,7 +180,7 @@ func (publishFollowRow) TableName() string {
 	return "zfeed_follow"
 }
 
-func TestPublishArticleFanout(t *testing.T) {
+func TestFanout(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{}, &publishFollowRow{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -221,7 +221,7 @@ func TestPublishArticleFanout(t *testing.T) {
 	}
 }
 
-func TestPublishArticleRollback(t *testing.T) {
+func TestRollback(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{})
 	store, client := newTestRedis(t)
 	defer store.Close()
@@ -250,13 +250,13 @@ func TestPublishArticleRollback(t *testing.T) {
 		t.Fatalf("zfeed_content row count = %d, want 0", count)
 	}
 
-	key := redisconsts.BuildUserPublishKey(303)
+	key := redisconsts.BuildUserPublishFeedKey(303)
 	if store.Exists(key) {
 		t.Fatalf("redis key %q should not exist after rollback", key)
 	}
 }
 
-func TestPublishArticleRedisFailure(t *testing.T) {
+func TestRedisFail(t *testing.T) {
 	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{})
 
 	store, client := newTestRedis(t)

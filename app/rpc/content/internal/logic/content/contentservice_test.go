@@ -279,7 +279,7 @@ func TestEditVideo(t *testing.T) {
 	}
 }
 
-func TestDeleteContent(t *testing.T) {
+func TestDelete(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	if err := db.Create(&contentServiceTestContent{
 		ID:          301,
@@ -320,7 +320,7 @@ func TestDeleteContent(t *testing.T) {
 	}
 }
 
-func TestDeleteContentRejectsOtherUser(t *testing.T) {
+func TestDeleteOther(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	if err := db.Create(&contentServiceTestContent{
 		ID:          302,

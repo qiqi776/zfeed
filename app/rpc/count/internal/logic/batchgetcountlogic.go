@@ -182,7 +182,7 @@ func (l *BatchGetCountLogic) batchWriteCache(
 			l.ctx,
 			info.cacheKey,
 			strconv.FormatInt(value, 10),
-			countCacheExpireSecondsWithJitter(redisconsts.RedisCountValueExpireSeconds),
+			countCacheExpireSecondsWithJitter(redisconsts.CountValueExpireSeconds),
 		); err != nil {
 			l.Errorf("set batch count cache failed, key=%s, err=%v", info.cacheKey, err)
 		}

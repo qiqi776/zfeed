@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	defaultContentDetailCountTimeout  = 200 * time.Millisecond
-	defaultContentDetailAuthorTimeout = 150 * time.Millisecond
-	defaultContentDetailStateTimeout  = 150 * time.Millisecond
+	CountTimeout  = 200 * time.Millisecond
+	AuthorTimeout = 150 * time.Millisecond
+	StateTimeout  = 150 * time.Millisecond
 )
 
 const (
@@ -272,7 +272,7 @@ func (l *ContentDetailLogic) queryAuthor(authorID int64) authorResult {
 		return authorResult{}
 	}
 
-	ctx, cancel := context.WithTimeout(l.ctx, defaultContentDetailAuthorTimeout)
+	ctx, cancel := context.WithTimeout(l.ctx, AuthorTimeout)
 	defer cancel()
 
 	resp, err := l.svcCtx.UserRpc.GetUserProfile(ctx, &userservice.GetUserProfileReq{UserId: authorID})
@@ -304,7 +304,7 @@ func (l *ContentDetailLogic) queryCounts(contentID int64) countResult {
 		return countResult{}
 	}
 
-	ctx, cancel := context.WithTimeout(l.ctx, defaultContentDetailCountTimeout)
+	ctx, cancel := context.WithTimeout(l.ctx, CountTimeout)
 	defer cancel()
 
 	resp, err := l.svcCtx.CountRpc.BatchGetCount(ctx, &counterservice.BatchGetCountReq{
@@ -391,7 +391,7 @@ func (l *ContentDetailLogic) queryLikeState(viewerID, contentID int64, scene int
 		return likeStateResult{}
 	}
 
-	ctx, cancel := context.WithTimeout(l.ctx, defaultContentDetailStateTimeout)
+	ctx, cancel := context.WithTimeout(l.ctx, StateTimeout)
 	defer cancel()
 
 	resp, err := l.svcCtx.LikeRpc.QueryLikeInfo(ctx, &likeservice.QueryLikeInfoReq{
@@ -419,7 +419,7 @@ func (l *ContentDetailLogic) queryFavoriteState(viewerID, contentID int64, scene
 		return favoriteStateResult{}
 	}
 
-	ctx, cancel := context.WithTimeout(l.ctx, defaultContentDetailStateTimeout)
+	ctx, cancel := context.WithTimeout(l.ctx, StateTimeout)
 	defer cancel()
 
 	resp, err := l.svcCtx.FavoriteRpc.QueryFavoriteInfo(ctx, &favoriteservice.QueryFavoriteInfoReq{
@@ -447,7 +447,7 @@ func (l *ContentDetailLogic) queryFollowState(viewerID, authorID int64) followSt
 		return followStateResult{}
 	}
 
-	ctx, cancel := context.WithTimeout(l.ctx, defaultContentDetailStateTimeout)
+	ctx, cancel := context.WithTimeout(l.ctx, StateTimeout)
 	defer cancel()
 
 	resp, err := l.svcCtx.FollowRpc.GetFollowSummary(ctx, &followservice.GetFollowSummaryReq{

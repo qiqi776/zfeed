@@ -96,14 +96,14 @@ func (l *PublishVideoLogic) PublishVideo(in *contentpb.VideoPublishReq) (*conten
 // Once MySQL commit succeeds, the publish request should return success.
 // Otherwise a transient Redis failure would turn into duplicate content on client retry.
 func (l *PublishVideoLogic) tryUpdateUserPublishZSet(userID, contentID int64) {
-	key := redisconsts.BuildUserPublishKey(userID)
+	key := redisconsts.BuildUserPublishFeedKey(userID)
 	contentIDStr := strconv.FormatInt(contentID, 10)
 
 	_, err := l.svcCtx.Redis.EvalCtx(
 		l.ctx,
 		luautils.UpdateUserPublishZSetScript,
 		[]string{key},
-		strconv.Itoa(redisconsts.RedisUserPublishKeepLatestN),
+		strconv.Itoa(redisconsts.FeedKeepLatestN),
 		contentIDStr, contentIDStr,
 	)
 	if err != nil {

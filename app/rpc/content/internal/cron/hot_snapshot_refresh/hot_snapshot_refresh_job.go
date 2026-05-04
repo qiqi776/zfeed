@@ -47,9 +47,9 @@ func (j *HotSnapshotRefreshJob) Run(ctx context.Context, param xxljob.TriggerPar
 	snapshotID := time.Now().UTC().Format(snapshotIDLayout)
 	snapshotKey := redisconsts.BuildHotFeedSnapshotKey(snapshotID)
 	res, err := j.svc.Redis.EvalCtx(ctx, luautils.RebuildHotSnapshotScript, []string{
-		redisconsts.RedisFeedHotGlobalKey,
+		redisconsts.HotFeedKey,
 		snapshotKey,
-		redisconsts.RedisFeedHotGlobalLatestKey,
+		redisconsts.HotFeedLatestKey,
 	}, strconv.Itoa(p.TopN), snapshotID, strconv.Itoa(p.SnapshotTTL))
 	if err != nil {
 		return "", err

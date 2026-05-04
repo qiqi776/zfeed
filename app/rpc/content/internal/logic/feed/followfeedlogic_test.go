@@ -128,7 +128,7 @@ func newFollowFeedRedis(t *testing.T) (*miniredis.Miniredis, *gzredis.Redis) {
 	return store, client
 }
 
-func TestFollowFeed_InboxHitReturnsOrderedItems(t *testing.T) {
+func TestFollowHit(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
@@ -171,7 +171,7 @@ func TestFollowFeed_InboxHitReturnsOrderedItems(t *testing.T) {
 	}
 }
 
-func TestFollowFeed_CursorPagination(t *testing.T) {
+func TestFollowCursor(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
@@ -222,7 +222,7 @@ func TestFollowFeed_CursorPagination(t *testing.T) {
 	}
 }
 
-func TestFollowFeed_MissRebuildsInboxAndSubsequentReadHitsCache(t *testing.T) {
+func TestFollowRebuild(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 

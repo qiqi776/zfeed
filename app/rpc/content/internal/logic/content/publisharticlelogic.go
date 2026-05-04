@@ -91,14 +91,14 @@ func (l *PublishArticleLogic) PublishArticle(in *contentpb.ArticlePublishReq) (*
 }
 
 func (l *PublishArticleLogic) tryUpdateUserPublishZSet(userID, contentID int64) {
-	key := redisconsts.BuildUserPublishKey(userID)
+	key := redisconsts.BuildUserPublishFeedKey(userID)
 	contentIDStr := strconv.FormatInt(contentID, 10)
 
 	_, err := l.svcCtx.Redis.EvalCtx(
 		l.ctx,
 		luautils.UpdateUserPublishZSetScript,
 		[]string{key},
-		strconv.Itoa(redisconsts.RedisUserPublishKeepLatestN),
+		strconv.Itoa(redisconsts.FeedKeepLatestN),
 		contentIDStr, contentIDStr,
 	)
 	if err != nil {

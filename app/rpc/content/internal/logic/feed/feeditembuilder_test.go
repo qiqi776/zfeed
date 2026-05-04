@@ -59,7 +59,7 @@ func newFeedBuilderTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func TestFeedItemBuilderBuildContentItemsIncludesLikedState(t *testing.T) {
+func TestLiked(t *testing.T) {
 	db := newFeedBuilderTestDB(t)
 
 	if err := db.Create(&model.ZfeedArticle{

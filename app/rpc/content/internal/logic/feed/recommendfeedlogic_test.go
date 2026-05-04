@@ -2,7 +2,7 @@ package feedlogic
 
 import "testing"
 
-func TestParseHotFeedLuaResultSuccess(t *testing.T) {
+func TestParseHit(t *testing.T) {
 	res := []interface{}{
 		int64(1),
 		int64(1),
@@ -36,7 +36,7 @@ func TestParseHotFeedLuaResultSuccess(t *testing.T) {
 	}
 }
 
-func TestParseHotFeedLuaResultMiss(t *testing.T) {
+func TestParseMiss(t *testing.T) {
 	res := []interface{}{
 		int64(0),
 		int64(0),
@@ -65,13 +65,13 @@ func TestParseHotFeedLuaResultMiss(t *testing.T) {
 	}
 }
 
-func TestParseHotFeedLuaResultInvalid(t *testing.T) {
+func TestParseInvalid(t *testing.T) {
 	if _, _, err := parseHotFeedLuaResult([]interface{}{int64(1)}); err == nil {
 		t.Fatalf("expected error for invalid lua result shape")
 	}
 }
 
-func TestParseHotFeedLuaResultInvalidNextCursor(t *testing.T) {
+func TestParseCursor(t *testing.T) {
 	res := []interface{}{
 		int64(1),
 		int64(1),
@@ -84,7 +84,7 @@ func TestParseHotFeedLuaResultInvalidNextCursor(t *testing.T) {
 	}
 }
 
-func TestMapHotFeedCacheError(t *testing.T) {
+func TestMapCache(t *testing.T) {
 	cases := []struct {
 		name string
 		in   CacheResult

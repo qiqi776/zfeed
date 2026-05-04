@@ -17,7 +17,7 @@ import (
 	"zfeed/app/rpc/content/internal/svc"
 )
 
-func TestBackfillFollowInboxFromPublishZSet(t *testing.T) {
+func TestBackfillPublish(t *testing.T) {
 	store := miniredis.RunT(t)
 	client := gzredis.MustNewRedis(gzredis.RedisConf{
 		Host: store.Addr(),
@@ -32,7 +32,7 @@ func TestBackfillFollowInboxFromPublishZSet(t *testing.T) {
 		t.Fatalf("auto migrate: %v", err)
 	}
 
-	publishKey := redisconsts.BuildUserPublishKey(2002)
+	publishKey := redisconsts.BuildUserPublishFeedKey(2002)
 	for _, contentID := range []int64{3003, 3002, 3001} {
 		member := strconv.FormatInt(contentID, 10)
 		store.ZAdd(publishKey, float64(contentID), member)
@@ -68,7 +68,7 @@ func TestBackfillFollowInboxFromPublishZSet(t *testing.T) {
 	}
 }
 
-func TestBackfillFollowInboxFromDB(t *testing.T) {
+func TestBackfillDB(t *testing.T) {
 	store := miniredis.RunT(t)
 	client := gzredis.MustNewRedis(gzredis.RedisConf{
 		Host: store.Addr(),

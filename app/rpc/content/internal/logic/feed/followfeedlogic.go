@@ -18,12 +18,10 @@ import (
 )
 
 const (
-	followInboxRebuildLockTTLSeconds = 30
-	followInboxKeepN                 = redisconsts.RedisFollowInboxKeepLatestN
-	followFeedMaxPageSize            = 50
-	followFeedDefaultPageSize        = 10
-	followFeedFolloweePageSize       = 500
-	followFeedFolloweeLimit          = 5000
+	maxPageSize      = 50
+	defaultPageSize  = 10
+	followeePageSize = 500
+	followeeLimit    = 5000
 )
 
 type FollowFeedLogic struct {
@@ -51,10 +49,10 @@ func (l *FollowFeedLogic) FollowFeed(in *contentpb.FollowFeedReq) (*contentpb.Fo
 
 	pageSize := int(in.GetPageSize())
 	if pageSize <= 0 {
-		pageSize = followFeedDefaultPageSize
+		pageSize = defaultPageSize
 	}
-	if pageSize > followFeedMaxPageSize {
-		pageSize = followFeedMaxPageSize
+	if pageSize > maxPageSize {
+		pageSize = maxPageSize
 	}
 
 	inboxKey := redisconsts.BuildFollowInboxKey(in.GetUserId())
@@ -104,9 +102,9 @@ func (l *FollowFeedLogic) loadPageIDs(userID int64, inboxKey, cursor string, pag
 		return ids, nextCursor, hasMore, nil
 	}
 
-	lockKey := redisconsts.BuildFollowInboxRebuildLockKey(userID)
+	lockKey := redisconsts.BuildFollowInboxLockKey(userID)
 	rebuildLock := gzredis.NewRedisLock(l.svcCtx.Redis, lockKey)
-	rebuildLock.SetExpire(followInboxRebuildLockTTLSeconds)
+	rebuildLock.SetExpire(ttlSeconds)
 
 	locked, lockErr := rebuildLock.AcquireCtx(l.ctx)
 	if lockErr != nil {
@@ -195,7 +193,7 @@ func (l *FollowFeedLogic) rebuildInboxCacheBestEffort(userID int64, inboxKey str
 		return false, nil
 	}
 
-	rows, err := l.contentRepo.ListFollowByAuthorsCursor(followees, 0, followInboxKeepN)
+	rows, err := l.contentRepo.ListFollowByAuthorsCursor(followees, 0, redisconsts.FeedKeepLatestN)
 	if err != nil {
 		return false, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询关注内容失败"))
 	}
@@ -220,7 +218,7 @@ func (l *FollowFeedLogic) listFollowees(userID int64) ([]int64, error) {
 		resp, err := l.svcCtx.FollowRpc.ListFollowees(l.ctx, &followservice.ListFolloweesReq{
 			UserId:   userID,
 			Cursor:   cursor,
-			PageSize: followFeedFolloweePageSize,
+			PageSize: followeePageSize,
 		})
 		if err != nil {
 			return nil, err
@@ -235,7 +233,7 @@ func (l *FollowFeedLogic) listFollowees(userID int64) ([]int64, error) {
 			break
 		}
 		cursor = resp.GetNextCursor()
-		if len(followees) >= followFeedFolloweeLimit {
+		if len(followees) >= followeeLimit {
 			break
 		}
 	}
@@ -248,7 +246,7 @@ func (l *FollowFeedLogic) updateInboxCache(inboxKey string, rows []*model.ZfeedC
 	}
 
 	args := make([]any, 0, 1+len(rows)*2)
-	args = append(args, strconv.Itoa(followInboxKeepN))
+	args = append(args, strconv.Itoa(redisconsts.FeedKeepLatestN))
 	for _, row := range rows {
 		if row == nil || row.ID <= 0 {
 			continue

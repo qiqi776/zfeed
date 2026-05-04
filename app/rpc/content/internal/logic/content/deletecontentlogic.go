@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const userPublishRedisPrefix = "feed:user:publish"
+const userPublishPrefix = "feed:user:publish"
 
 type DeleteContentLogic struct {
 	ctx    context.Context
@@ -104,7 +104,7 @@ func (l *DeleteContentLogic) DeleteContent(in *content.DeleteContentReq) (*conte
 
 	if l.svcCtx.Redis != nil {
 		contentID := strconv.FormatInt(in.GetContentId(), 10)
-		publishKey := fmt.Sprintf("%s:%d", userPublishRedisPrefix, in.GetUserId())
+		publishKey := fmt.Sprintf("%s:%d", userPublishPrefix, in.GetUserId())
 		if _, redisErr := l.svcCtx.Redis.ZremCtx(l.ctx, publishKey, contentID); redisErr != nil {
 			l.Errorf("remove content from publish cache failed, key=%s, content_id=%d, content_type=%d, err=%v", publishKey, in.GetContentId(), contentType, redisErr)
 		}

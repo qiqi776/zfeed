@@ -122,7 +122,7 @@ func (l *GetCountLogic) rebuildCacheWithLock(in *count.GetCountReq, cacheKey str
 		l.ctx,
 		cacheKey,
 		strconv.FormatInt(value, 10),
-		countCacheExpireSecondsWithJitter(redisconsts.RedisCountValueExpireSeconds),
+		countCacheExpireSecondsWithJitter(redisconsts.CountValueExpireSeconds),
 	); err != nil {
 		l.Errorf("rebuild count cache failed, key=%s, err=%v", cacheKey, err)
 	}

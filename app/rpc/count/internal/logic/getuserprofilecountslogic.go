@@ -124,7 +124,7 @@ func (l *GetUserProfileCountsLogic) rebuildCacheWithLock(userID int64, cacheKey 
 			l.ctx,
 			cacheKey,
 			payload,
-			countCacheExpireSecondsWithJitter(redisconsts.RedisUserProfileCountsExpireSeconds),
+			countCacheExpireSecondsWithJitter(redisconsts.UserProfileCountsExpireSeconds),
 		); err != nil {
 			l.Errorf("rebuild user profile counts cache failed, key=%s, err=%v", cacheKey, err)
 		}

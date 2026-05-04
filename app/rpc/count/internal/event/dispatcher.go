@@ -158,7 +158,7 @@ func hotIncShard(contentID int64) int {
 	if contentID <= 0 {
 		return 0
 	}
-	return int(contentID % int64(redisconsts.RedisFeedHotIncDefaultShards))
+	return int(contentID % int64(redisconsts.HotFeedIncShards))
 }
 
 func heatScoreDeltaByBiz(bizType count.BizType, delta int64) int64 {

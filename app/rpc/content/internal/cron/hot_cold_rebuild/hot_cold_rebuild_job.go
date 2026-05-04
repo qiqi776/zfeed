@@ -97,7 +97,7 @@ func (j *HotColdRebuildJob) Run(ctx context.Context, param xxljob.TriggerParam) 
 	}
 	defer redisLock.ReleaseCtx(context.Background())
 
-	if _, err := j.svc.Redis.DelCtx(ctx, redisconsts.RedisFeedHotGlobalKey); err != nil {
+	if _, err := j.svc.Redis.DelCtx(ctx, redisconsts.HotFeedKey); err != nil {
 		return "", err
 	}
 
@@ -106,7 +106,7 @@ func (j *HotColdRebuildJob) Run(ctx context.Context, param xxljob.TriggerParam) 
 		return "", err
 	}
 
-	pairs, err := j.svc.Redis.ZrevrangeWithScoresByFloatCtx(ctx, redisconsts.RedisFeedHotGlobalKey, 0, int64(p.TopN-1))
+	pairs, err := j.svc.Redis.ZrevrangeWithScoresByFloatCtx(ctx, redisconsts.HotFeedKey, 0, int64(p.TopN-1))
 	if err != nil {
 		return "", err
 	}
@@ -114,9 +114,9 @@ func (j *HotColdRebuildJob) Run(ctx context.Context, param xxljob.TriggerParam) 
 		snapshotID := now.Format(snapshotIDLayout)
 		snapshotKey := redisconsts.BuildHotFeedSnapshotKey(snapshotID)
 		if _, err := j.svc.Redis.EvalCtx(ctx, luautils.RebuildHotSnapshotScript, []string{
-			redisconsts.RedisFeedHotGlobalKey,
+			redisconsts.HotFeedKey,
 			snapshotKey,
-			redisconsts.RedisFeedHotGlobalLatestKey,
+			redisconsts.HotFeedLatestKey,
 		}, strconv.Itoa(p.TopN), snapshotID, strconv.Itoa(p.SnapshotTTL)); err != nil {
 			return "", err
 		}
@@ -182,7 +182,7 @@ func (j *HotColdRebuildJob) rebuildFromDB(ctx context.Context, formula hotrank.F
 				return err
 			}
 			if _, err := j.svc.Redis.EvalCtx(ctx, luautils.RebuildHotFeedZSetScript, []string{
-				redisconsts.RedisFeedHotGlobalKey,
+				redisconsts.HotFeedKey,
 			}, redisArgs...); err != nil {
 				return err
 			}

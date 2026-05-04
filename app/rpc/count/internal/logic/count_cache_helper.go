@@ -45,7 +45,7 @@ func buildCountValueMapKey(bizType count.BizType, targetType count.TargetType, t
 
 func buildCountValueRebuildLockKey(bizType count.BizType, targetType count.TargetType, targetID int64) string {
 	return redisconsts.GetRedisPrefixKey(
-		redisconsts.RedisCountRebuildLockPrefix,
+		redisconsts.CountRebuildLockPrefix,
 		fmt.Sprintf("%d:%d:%d", bizType, targetType, targetID),
 	)
 }
@@ -55,7 +55,7 @@ func buildUserProfileCountsCacheKey(userID int64) string {
 }
 
 func buildUserProfileCountsRebuildLockKey(userID int64) string {
-	return redisconsts.GetRedisPrefixKey(redisconsts.RedisUserProfileCountsRebuildLockPref, strconv.FormatInt(userID, 10))
+	return redisconsts.GetRedisPrefixKey(redisconsts.ProfileRebuildLockPrefix, strconv.FormatInt(userID, 10))
 }
 
 func countCacheExpireSecondsWithJitter(base int) int {

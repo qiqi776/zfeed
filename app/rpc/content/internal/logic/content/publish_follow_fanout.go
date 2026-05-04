@@ -35,7 +35,7 @@ func tryFanoutFollowInbox(ctx context.Context, svcCtx *svc.ServiceContext, autho
 
 	score := strconv.FormatInt(contentID, 10)
 	args := []any{
-		strconv.Itoa(redisconsts.RedisFollowInboxKeepLatestN),
+		strconv.Itoa(redisconsts.FeedKeepLatestN),
 		score,
 		score,
 	}

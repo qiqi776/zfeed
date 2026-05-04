@@ -38,7 +38,7 @@ func (f *fakeFavoriteService) QueryFavoriteList(ctx context.Context, in *favorit
 	return f.queryFavoriteListFunc(ctx, in, opts...)
 }
 
-func TestUserFavoriteFeed_HitReturnsOrderedItems(t *testing.T) {
+func TestFavoriteHit(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
@@ -75,7 +75,7 @@ func TestUserFavoriteFeed_HitReturnsOrderedItems(t *testing.T) {
 	}
 }
 
-func TestUserFavoriteFeed_CursorPagination(t *testing.T) {
+func TestFavoriteCursor(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
@@ -120,7 +120,7 @@ func TestUserFavoriteFeed_CursorPagination(t *testing.T) {
 	}
 }
 
-func TestUserFavoriteFeed_MissRebuildsFromFavoriteRPC(t *testing.T) {
+func TestFavoriteRebuild(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
@@ -178,7 +178,7 @@ func TestUserFavoriteFeed_MissRebuildsFromFavoriteRPC(t *testing.T) {
 	}
 }
 
-func TestUserFavoriteFeed_SkipsDirtyContentIDs(t *testing.T) {
+func TestFavoriteDirty(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 

@@ -16,7 +16,7 @@ import (
 const HandlerName = "hot.bucket.cleanup"
 
 const (
-	defaultShards     = redisconsts.RedisFeedHotIncDefaultShards
+	defaultShards     = redisconsts.HotFeedIncShards
 	defaultLockTTL    = 3600
 	cleanupDateLayout = "20060102"
 )

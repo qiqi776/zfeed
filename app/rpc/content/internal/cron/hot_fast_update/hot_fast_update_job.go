@@ -21,7 +21,7 @@ import (
 const HandlerName = "hot.fast.update"
 
 const (
-	defaultShards       = redisconsts.RedisFeedHotIncDefaultShards
+	defaultShards       = redisconsts.HotFeedIncShards
 	defaultTopN         = 5000
 	defaultLockTTL      = 300
 	defaultHalfLifeHour = 24
@@ -126,7 +126,7 @@ func (j *HotFastUpdateJob) Run(ctx context.Context, param xxljob.TriggerParam) (
 		}
 	}
 
-	pairs, err := j.svc.Redis.ZrevrangeWithScoresByFloatCtx(ctx, redisconsts.RedisFeedHotGlobalKey, 0, int64(p.TopN-1))
+	pairs, err := j.svc.Redis.ZrevrangeWithScoresByFloatCtx(ctx, redisconsts.HotFeedKey, 0, int64(p.TopN-1))
 	if err != nil {
 		return "", err
 	}
@@ -138,9 +138,9 @@ func (j *HotFastUpdateJob) Run(ctx context.Context, param xxljob.TriggerParam) (
 		snapshotID := time.Now().UTC().Format(snapshotIDLayout)
 		snapshotKey := redisconsts.BuildHotFeedSnapshotKey(snapshotID)
 		if _, err := j.svc.Redis.EvalCtx(ctx, luautils.RebuildHotSnapshotScript, []string{
-			redisconsts.RedisFeedHotGlobalKey,
+			redisconsts.HotFeedKey,
 			snapshotKey,
-			redisconsts.RedisFeedHotGlobalLatestKey,
+			redisconsts.HotFeedLatestKey,
 		}, strconv.Itoa(p.TopN), snapshotID, strconv.Itoa(p.SnapshotTTL)); err != nil {
 			return "", err
 		}
@@ -246,13 +246,13 @@ func (j *HotFastUpdateJob) mergeIncAtomic(ctx context.Context, incKey string, de
 
 	if _, err := j.svc.Redis.EvalCtx(ctx, luautils.MergeHotIncScript, []string{
 		incKey,
-		redisconsts.RedisFeedHotGlobalKey,
+		redisconsts.HotFeedKey,
 	}, args...); err != nil {
 		return err
 	}
 
 	for itemID := range deltaMap {
-		score, err := j.svc.Redis.ZscoreByFloatCtx(ctx, redisconsts.RedisFeedHotGlobalKey, itemID)
+		score, err := j.svc.Redis.ZscoreByFloatCtx(ctx, redisconsts.HotFeedKey, itemID)
 		if err != nil {
 			return err
 		}

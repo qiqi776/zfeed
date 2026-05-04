@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	backfillFollowInboxDefaultLimit = 20
-	backfillFollowInboxMaxLimit     = 50
+	defaultBackLimit = 20
+	maxBackLimit     = 50
 )
 
 type BackfillFollowInboxLogic struct {
@@ -48,10 +48,10 @@ func (l *BackfillFollowInboxLogic) BackfillFollowInbox(in *contentpb.BackfillFol
 
 	limit := int(in.GetLimit())
 	if limit <= 0 {
-		limit = backfillFollowInboxDefaultLimit
+		limit = defaultBackLimit
 	}
-	if limit > backfillFollowInboxMaxLimit {
-		limit = backfillFollowInboxMaxLimit
+	if limit > maxBackLimit {
+		limit = maxBackLimit
 	}
 
 	candidates, err := l.loadFolloweeLatest(in.GetFolloweeId(), limit)
@@ -71,7 +71,7 @@ func (l *BackfillFollowInboxLogic) BackfillFollowInbox(in *contentpb.BackfillFol
 }
 
 func (l *BackfillFollowInboxLogic) loadFolloweeLatest(followeeID int64, limit int) ([]inboxCandidate, error) {
-	publishKey := redisconsts.BuildUserPublishKey(followeeID)
+	publishKey := redisconsts.BuildUserPublishFeedKey(followeeID)
 	exists, err := l.svcCtx.Redis.ExistsCtx(l.ctx, publishKey)
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询发布流失败"))
@@ -130,7 +130,7 @@ func buildCandidatesFromPairs(pairs []zredis.FloatPair) []inboxCandidate {
 
 func (l *BackfillFollowInboxLogic) updateInbox(inboxKey string, candidates []inboxCandidate) (int, error) {
 	args := make([]any, 0, 1+len(candidates)*2)
-	args = append(args, strconv.Itoa(redisconsts.RedisFollowInboxKeepLatestN))
+	args = append(args, strconv.Itoa(redisconsts.FeedKeepLatestN))
 	for _, candidate := range candidates {
 		if candidate.member == "" || candidate.score == "" {
 			continue

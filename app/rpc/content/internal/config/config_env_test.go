@@ -6,7 +6,7 @@ import (
 	"github.com/zeromicro/go-zero/core/conf"
 )
 
-func TestContentConfigLoadsWithEnv(t *testing.T) {
+func TestEnv(t *testing.T) {
 	t.Setenv("CONTENT_RPC_LISTEN_ON", "127.0.0.1:5001")
 	t.Setenv("PROM_HOST", "127.0.0.1")
 	t.Setenv("CONTENT_PROM_PORT", "9291")

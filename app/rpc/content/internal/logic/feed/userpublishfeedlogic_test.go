@@ -10,7 +10,7 @@ import (
 	"zfeed/app/rpc/content/internal/svc"
 )
 
-func TestUserPublishFeed_HitReturnsOrderedItems(t *testing.T) {
+func TestPublishHit(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
@@ -50,7 +50,7 @@ func TestUserPublishFeed_HitReturnsOrderedItems(t *testing.T) {
 	}
 }
 
-func TestUserPublishFeed_CursorPagination(t *testing.T) {
+func TestPublishCursor(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
@@ -95,7 +95,7 @@ func TestUserPublishFeed_CursorPagination(t *testing.T) {
 	}
 }
 
-func TestUserPublishFeed_MissRebuildsFromDB(t *testing.T) {
+func TestPublishRebuild(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 

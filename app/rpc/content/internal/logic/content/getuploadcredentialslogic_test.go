@@ -10,7 +10,7 @@ import (
 	"zfeed/app/rpc/content/internal/config"
 )
 
-func TestBuildUploadCredentials(t *testing.T) {
+func TestCover(t *testing.T) {
 	fixedNow := time.Date(2026, 4, 14, 8, 30, 0, 0, time.UTC)
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
@@ -87,7 +87,7 @@ func TestBuildUploadCredentials(t *testing.T) {
 	}
 }
 
-func TestBuildArticleImageCredentials(t *testing.T) {
+func TestImage(t *testing.T) {
 	fixedNow := time.Date(2026, 4, 14, 8, 30, 0, 0, time.UTC)
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
@@ -115,7 +115,7 @@ func TestBuildArticleImageCredentials(t *testing.T) {
 	}
 }
 
-func TestBuildUploadCredentialsRejectsExt(t *testing.T) {
+func TestRejectExt(t *testing.T) {
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
 			AccessKeyId:     "test-ak",
@@ -131,7 +131,7 @@ func TestBuildUploadCredentialsRejectsExt(t *testing.T) {
 	}
 }
 
-func TestBuildUploadCredentialsRejectsSize(t *testing.T) {
+func TestRejectSize(t *testing.T) {
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
 			AccessKeyId:     "test-ak",
@@ -147,7 +147,7 @@ func TestBuildUploadCredentialsRejectsSize(t *testing.T) {
 	}
 }
 
-func TestBuildUploadCredentialsRejectsNameMismatch(t *testing.T) {
+func TestRejectName(t *testing.T) {
 	builder := uploadCredentialBuilder{
 		cfg: config.OssConfig{
 			AccessKeyId:     "test-ak",

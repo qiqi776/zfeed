@@ -18,11 +18,9 @@ import (
 )
 
 const (
-	userPublishFeedKeepN = redisconsts.RedisUserPublishKeepLatestN
-
-	userPublishFeedRebuildLockTTLSeconds = 30
-	userPublishFeedRebuildRetryTimes     = 3
-	userPublishFeedRebuildRetryInterval  = 80 * time.Millisecond
+	ttlSeconds = 30
+	retryTimes     = 3
+	retryInterval  = 80 * time.Millisecond
 )
 
 type UserPublishFeedLogic struct {
@@ -104,7 +102,7 @@ func (l *UserPublishFeedLogic) loadPageIDs(feedKey string, authorID int64, curso
 
 	lockKey := redisconsts.BuildUserPublishRebuildLockKey(authorID)
 	rebuildLock := gzredis.NewRedisLock(l.svcCtx.Redis, lockKey)
-	rebuildLock.SetExpire(userPublishFeedRebuildLockTTLSeconds)
+	rebuildLock.SetExpire(ttlSeconds)
 	locked, lockErr := rebuildLock.AcquireCtx(l.ctx)
 	if lockErr != nil {
 		return nil, "", false, errorx.Wrap(l.ctx, lockErr, errorx.NewMsg("查询失败请稍后重试"))
@@ -147,8 +145,8 @@ func (l *UserPublishFeedLogic) loadPageIDs(feedKey string, authorID int64, curso
 		return result, nextCursor, hasMore, nil
 	}
 
-	for i := 0; i < userPublishFeedRebuildRetryTimes; i++ {
-		time.Sleep(userPublishFeedRebuildRetryInterval)
+	for i := 0; i < retryTimes; i++ {
+		time.Sleep(retryInterval)
 		ids, nextCursor, hasMore, cacheExists, err = l.queryUserPublishIDs(feedKey, cursor, pageSize)
 		if err != nil {
 			return nil, "", false, err
@@ -214,7 +212,7 @@ func (l *UserPublishFeedLogic) updateUserPublishCache(feedKey string, rows []*mo
 	}
 
 	args := make([]any, 0, 1+len(rows)*2)
-	args = append(args, strconv.Itoa(userPublishFeedKeepN))
+	args = append(args, strconv.Itoa(redisconsts.FeedKeepLatestN))
 	for _, row := range rows {
 		if row == nil || row.ID <= 0 {
 			continue
