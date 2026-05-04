@@ -8,6 +8,7 @@ import (
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
+	"google.golang.org/grpc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -15,6 +16,7 @@ import (
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	"zfeed/app/rpc/content/internal/model"
 	"zfeed/app/rpc/content/internal/svc"
+	followservice "zfeed/app/rpc/interaction/client/followservice"
 )
 
 func TestBackfillPublish(t *testing.T) {
@@ -41,6 +43,13 @@ func TestBackfillPublish(t *testing.T) {
 	logic := NewBackfillFollowInboxLogic(context.Background(), &svc.ServiceContext{
 		MysqlDb: db,
 		Redis:   client,
+		FollowRpc: &stubFollowService{
+			batchQueryFollowing: func(ctx context.Context, in *followservice.BatchQueryFollowingReq, opts ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error) {
+				return &followservice.BatchQueryFollowingRes{
+					Items: []*followservice.FollowingState{{UserId: 2002, IsFollowing: true}},
+				}, nil
+			},
+		},
 	})
 
 	resp, err := logic.BackfillFollowInbox(&contentpb.BackfillFollowInboxReq{
@@ -101,6 +110,13 @@ func TestBackfillDB(t *testing.T) {
 	logic := NewBackfillFollowInboxLogic(context.Background(), &svc.ServiceContext{
 		MysqlDb: db,
 		Redis:   client,
+		FollowRpc: &stubFollowService{
+			batchQueryFollowing: func(ctx context.Context, in *followservice.BatchQueryFollowingReq, opts ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error) {
+				return &followservice.BatchQueryFollowingRes{
+					Items: []*followservice.FollowingState{{UserId: 2002, IsFollowing: true}},
+				}, nil
+			},
+		},
 	})
 
 	resp, err := logic.BackfillFollowInbox(&contentpb.BackfillFollowInboxReq{
@@ -125,5 +141,60 @@ func TestBackfillDB(t *testing.T) {
 	}
 	if members[0] != "4002" || members[1] != "4003" {
 		t.Fatalf("members = %v, want [4002 4003] in ascending zset view", members)
+	}
+}
+
+func TestBackfillSkip(t *testing.T) {
+	store := miniredis.RunT(t)
+	client := gzredis.MustNewRedis(gzredis.RedisConf{
+		Host: store.Addr(),
+		Type: "node",
+	})
+
+	db, err := gorm.Open(sqlite.Open("file:backfill_follow_inbox_skip?mode=memory&cache=shared"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&model.ZfeedContent{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+
+	publishKey := redisconsts.BuildUserPublishFeedKey(2002)
+	store.ZAdd(publishKey, 5002, "5002")
+	store.ZAdd(publishKey, 5001, "5001")
+
+	logic := NewBackfillFollowInboxLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   client,
+		FollowRpc: &stubFollowService{
+			batchQueryFollowing: func(ctx context.Context, in *followservice.BatchQueryFollowingReq, opts ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error) {
+				return &followservice.BatchQueryFollowingRes{
+					Items: []*followservice.FollowingState{{UserId: 2002, IsFollowing: false}},
+				}, nil
+			},
+		},
+	})
+
+	resp, err := logic.BackfillFollowInbox(&contentpb.BackfillFollowInboxReq{
+		FollowerId: 1001,
+		FolloweeId: 2002,
+		Limit:      2,
+	})
+	if err != nil {
+		t.Fatalf("BackfillFollowInbox returned error: %v", err)
+	}
+	if resp.GetAddedCount() != 0 {
+		t.Fatalf("added_count = %d, want 0", resp.GetAddedCount())
+	}
+
+	inboxKey := redisconsts.BuildFollowInboxKey(1001)
+	if store.Exists(inboxKey) {
+		members, err := store.ZMembers(inboxKey)
+		if err != nil {
+			t.Fatalf("redis zmembers: %v", err)
+		}
+		if len(members) != 0 {
+			t.Fatalf("members = %v, want empty", members)
+		}
 	}
 }

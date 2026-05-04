@@ -25,6 +25,7 @@ var _ contentservice.ContentService = (*fakeContentService)(nil)
 
 type fakeContentService struct {
 	backfillFunc func(ctx context.Context, in *contentpb.BackfillFollowInboxReq, opts ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error)
+	cleanupFunc  func(ctx context.Context, in *contentpb.CleanupFollowInboxReq, opts ...grpc.CallOption) (*contentpb.CleanupFollowInboxRes, error)
 }
 
 func (f *fakeContentService) PublishArticle(ctx context.Context, in *contentpb.ArticlePublishReq, opts ...grpc.CallOption) (*contentpb.ArticlePublishRes, error) {
@@ -40,6 +41,13 @@ func (f *fakeContentService) BackfillFollowInbox(ctx context.Context, in *conten
 		return nil, errors.New("unexpected BackfillFollowInbox call")
 	}
 	return f.backfillFunc(ctx, in, opts...)
+}
+
+func (f *fakeContentService) CleanupFollowInbox(ctx context.Context, in *contentpb.CleanupFollowInboxReq, opts ...grpc.CallOption) (*contentpb.CleanupFollowInboxRes, error) {
+	if f.cleanupFunc == nil {
+		return nil, errors.New("unexpected CleanupFollowInbox call")
+	}
+	return f.cleanupFunc(ctx, in, opts...)
 }
 
 func (f *fakeContentService) GetUploadCredentials(context.Context, *contentpb.GetUploadCredentialsReq, ...grpc.CallOption) (*contentpb.GetUploadCredentialsRes, error) {
@@ -79,6 +87,7 @@ func newFollowTestDB(t *testing.T) *gorm.DB {
 func TestFollowFlow(t *testing.T) {
 	db := newFollowTestDB(t)
 	backfillCh := make(chan *contentpb.BackfillFollowInboxReq, 1)
+	cleanupCh := make(chan *contentpb.CleanupFollowInboxReq, 1)
 
 	svcCtx := &svc.ServiceContext{
 		MysqlDb: db,
@@ -86,6 +95,10 @@ func TestFollowFlow(t *testing.T) {
 			backfillFunc: func(ctx context.Context, in *contentpb.BackfillFollowInboxReq, _ ...grpc.CallOption) (*contentpb.BackfillFollowInboxRes, error) {
 				backfillCh <- in
 				return &contentpb.BackfillFollowInboxRes{AddedCount: 2}, nil
+			},
+			cleanupFunc: func(ctx context.Context, in *contentpb.CleanupFollowInboxReq, _ ...grpc.CallOption) (*contentpb.CleanupFollowInboxRes, error) {
+				cleanupCh <- in
+				return &contentpb.CleanupFollowInboxRes{RemovedCount: 2}, nil
 			},
 		},
 	}
@@ -160,6 +173,15 @@ func TestFollowFlow(t *testing.T) {
 	}
 	if resp2.GetIsFollowed() {
 		t.Fatal("UnfollowUser returned is_followed=true, want false")
+	}
+
+	select {
+	case req := <-cleanupCh:
+		if req.GetFollowerId() != userID || req.GetFolloweeId() != followUserID {
+			t.Fatalf("cleanup req = %+v, want follower=%d followee=%d", req, userID, followUserID)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for async cleanup call")
 	}
 
 	if err := db.Where("user_id = ? AND follow_user_id = ?", userID, followUserID).Take(&row).Error; err != nil {

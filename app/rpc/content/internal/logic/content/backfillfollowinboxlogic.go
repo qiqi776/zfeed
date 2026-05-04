@@ -12,6 +12,7 @@ import (
 	luautils "zfeed/app/rpc/content/internal/common/utils/lua"
 	"zfeed/app/rpc/content/internal/repositories"
 	"zfeed/app/rpc/content/internal/svc"
+	followservice "zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/pkg/errorx"
 )
 
@@ -59,6 +60,14 @@ func (l *BackfillFollowInboxLogic) BackfillFollowInbox(in *contentpb.BackfillFol
 		return nil, err
 	}
 	if len(candidates) == 0 {
+		return &contentpb.BackfillFollowInboxRes{AddedCount: 0}, nil
+	}
+
+	stillFollowing, err := l.isStillFollowing(in.GetFollowerId(), in.GetFolloweeId())
+	if err != nil {
+		return nil, err
+	}
+	if !stillFollowing {
 		return &contentpb.BackfillFollowInboxRes{AddedCount: 0}, nil
 	}
 
@@ -145,4 +154,27 @@ func (l *BackfillFollowInboxLogic) updateInbox(inboxKey string, candidates []inb
 
 	addedCount, _ := result.(int64)
 	return int(addedCount), nil
+}
+
+func (l *BackfillFollowInboxLogic) isStillFollowing(followerID, followeeID int64) (bool, error) {
+	if l.svcCtx.FollowRpc == nil {
+		return false, errorx.NewMsg("查询关注关系失败")
+	}
+
+	resp, err := l.svcCtx.FollowRpc.BatchQueryFollowing(l.ctx, &followservice.BatchQueryFollowingReq{
+		UserId:        followerID,
+		FollowUserIds: []int64{followeeID},
+	})
+	if err != nil {
+		return false, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询关注关系失败"))
+	}
+	if resp == nil {
+		return false, nil
+	}
+	for _, item := range resp.GetItems() {
+		if item != nil && item.GetUserId() == followeeID {
+			return item.GetIsFollowing(), nil
+		}
+	}
+	return false, nil
 }

@@ -29,5 +29,8 @@ var UpdateUserPublishZSetScript string
 //go:embed backfill_follow_inbox_zset.lua
 var BackfillFollowInboxZSetScript string
 
+//go:embed cleanup_follow_inbox_zset.lua
+var CleanupFollowInboxZSetScript string
+
 //go:embed update_follow_inbox_zset.lua
 var UpdateFollowInboxZSetScript string

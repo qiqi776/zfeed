@@ -33,6 +33,10 @@ func (s *avatarContentServiceStub) BackfillFollowInbox(context.Context, *content
 	return nil, errors.New("unexpected BackfillFollowInbox call")
 }
 
+func (s *avatarContentServiceStub) CleanupFollowInbox(context.Context, *contentservice.CleanupFollowInboxReq, ...grpc.CallOption) (*contentservice.CleanupFollowInboxRes, error) {
+	return nil, errors.New("unexpected CleanupFollowInbox call")
+}
+
 func (s *avatarContentServiceStub) GetUploadCredentials(ctx context.Context, in *contentservice.GetUploadCredentialsReq, opts ...grpc.CallOption) (*contentservice.GetUploadCredentialsRes, error) {
 	if s.getUploadCredentialsFunc == nil {
 		return nil, errors.New("unexpected GetUploadCredentials call")

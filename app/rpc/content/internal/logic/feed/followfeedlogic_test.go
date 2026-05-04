@@ -306,6 +306,7 @@ func TestFollowWait(t *testing.T) {
 		time.Sleep(retryInterval / 2)
 		store.ZAdd(inboxKey, 4202, "4202")
 		store.ZAdd(inboxKey, 4201, "4201")
+		store.Del(lockKey)
 	}()
 
 	logic := NewFollowFeedLogic(context.Background(), &svc.ServiceContext{
@@ -330,11 +331,42 @@ func TestFollowWait(t *testing.T) {
 	}
 }
 
-func TestFollowWaitFail(t *testing.T) {
+func TestFollowWaitEmpty(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
 
 	userID := int64(1302)
+	lockKey := redisconsts.BuildFollowInboxLockKey(userID)
+	store.Set(lockKey, "rebuilding")
+
+	go func() {
+		time.Sleep(retryInterval / 2)
+		store.Del(lockKey)
+	}()
+
+	logic := NewFollowFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.FollowFeed(&contentpb.FollowFeedReq{
+		UserId:   userID,
+		Cursor:   "",
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("FollowFeed wait empty returned error: %v", err)
+	}
+	if len(resp.GetItems()) != 0 || resp.GetHasMore() || resp.GetNextCursor() != "" {
+		t.Fatalf("unexpected empty response: %+v", resp)
+	}
+}
+
+func TestFollowWaitBusy(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	userID := int64(1303)
 	lockKey := redisconsts.BuildFollowInboxLockKey(userID)
 	store.Set(lockKey, "rebuilding")
 

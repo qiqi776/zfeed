@@ -18,6 +18,8 @@ type (
 	ArticlePublishRes       = content.ArticlePublishRes
 	BackfillFollowInboxReq  = content.BackfillFollowInboxReq
 	BackfillFollowInboxRes  = content.BackfillFollowInboxRes
+	CleanupFollowInboxReq   = content.CleanupFollowInboxReq
+	CleanupFollowInboxRes   = content.CleanupFollowInboxRes
 	ContentDetail           = content.ContentDetail
 	ContentItem             = content.ContentItem
 	DeleteContentReq        = content.DeleteContentReq
@@ -47,6 +49,7 @@ type (
 		PublishArticle(ctx context.Context, in *ArticlePublishReq, opts ...grpc.CallOption) (*ArticlePublishRes, error)
 		PublishVideo(ctx context.Context, in *VideoPublishReq, opts ...grpc.CallOption) (*VideoPublishRes, error)
 		BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error)
+		CleanupFollowInbox(ctx context.Context, in *CleanupFollowInboxReq, opts ...grpc.CallOption) (*CleanupFollowInboxRes, error)
 		GetUploadCredentials(ctx context.Context, in *GetUploadCredentialsReq, opts ...grpc.CallOption) (*GetUploadCredentialsRes, error)
 		GetContentDetail(ctx context.Context, in *GetContentDetailReq, opts ...grpc.CallOption) (*GetContentDetailRes, error)
 		EditArticle(ctx context.Context, in *EditArticleReq, opts ...grpc.CallOption) (*EditArticleRes, error)
@@ -78,6 +81,11 @@ func (m *defaultContentService) PublishVideo(ctx context.Context, in *VideoPubli
 func (m *defaultContentService) BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error) {
 	client := content.NewContentServiceClient(m.cli.Conn())
 	return client.BackfillFollowInbox(ctx, in, opts...)
+}
+
+func (m *defaultContentService) CleanupFollowInbox(ctx context.Context, in *CleanupFollowInboxReq, opts ...grpc.CallOption) (*CleanupFollowInboxRes, error) {
+	client := content.NewContentServiceClient(m.cli.Conn())
+	return client.CleanupFollowInbox(ctx, in, opts...)
 }
 
 func (m *defaultContentService) GetUploadCredentials(ctx context.Context, in *GetUploadCredentialsReq, opts ...grpc.CallOption) (*GetUploadCredentialsRes, error) {

@@ -59,6 +59,10 @@ func (a *realStoreContentServiceAdapter) BackfillFollowInbox(ctx context.Context
 	return &contentpb.BackfillFollowInboxRes{AddedCount: int32(len(members))}, nil
 }
 
+func (a *realStoreContentServiceAdapter) CleanupFollowInbox(context.Context, *contentpb.CleanupFollowInboxReq, ...grpc.CallOption) (*contentpb.CleanupFollowInboxRes, error) {
+	return &contentpb.CleanupFollowInboxRes{}, nil
+}
+
 func (a *realStoreContentServiceAdapter) GetUploadCredentials(context.Context, *contentpb.GetUploadCredentialsReq, ...grpc.CallOption) (*contentpb.GetUploadCredentialsRes, error) {
 	return nil, grpc.ErrClientConnClosing
 }

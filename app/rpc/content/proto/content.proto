@@ -61,6 +61,16 @@ message BackfillFollowInboxRes {
   int32 added_count = 1;
 }
 
+message CleanupFollowInboxReq {
+  int64 follower_id = 1;
+  int64 followee_id = 2;
+}
+
+message CleanupFollowInboxRes {
+  int32 removed_count = 1;
+  bool skipped = 2;
+}
+
 message RecommendFeedReq {
   optional int64 user_id = 1;
   string cursor = 2;
@@ -233,6 +243,7 @@ service ContentService {
   rpc PublishArticle(ArticlePublishReq) returns (ArticlePublishRes);
   rpc PublishVideo(VideoPublishReq) returns (VideoPublishRes);
   rpc BackfillFollowInbox(BackfillFollowInboxReq) returns (BackfillFollowInboxRes);
+  rpc CleanupFollowInbox(CleanupFollowInboxReq) returns (CleanupFollowInboxRes);
   rpc GetUploadCredentials(GetUploadCredentialsReq) returns (GetUploadCredentialsRes);
   rpc GetContentDetail(GetContentDetailReq) returns (GetContentDetailRes);
   rpc EditArticle(EditArticleReq) returns (EditArticleRes);

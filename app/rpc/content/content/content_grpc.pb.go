@@ -22,6 +22,7 @@ const (
 	ContentService_PublishArticle_FullMethodName       = "/content.ContentService/PublishArticle"
 	ContentService_PublishVideo_FullMethodName         = "/content.ContentService/PublishVideo"
 	ContentService_BackfillFollowInbox_FullMethodName  = "/content.ContentService/BackfillFollowInbox"
+	ContentService_CleanupFollowInbox_FullMethodName   = "/content.ContentService/CleanupFollowInbox"
 	ContentService_GetUploadCredentials_FullMethodName = "/content.ContentService/GetUploadCredentials"
 	ContentService_GetContentDetail_FullMethodName     = "/content.ContentService/GetContentDetail"
 	ContentService_EditArticle_FullMethodName          = "/content.ContentService/EditArticle"
@@ -36,6 +37,7 @@ type ContentServiceClient interface {
 	PublishArticle(ctx context.Context, in *ArticlePublishReq, opts ...grpc.CallOption) (*ArticlePublishRes, error)
 	PublishVideo(ctx context.Context, in *VideoPublishReq, opts ...grpc.CallOption) (*VideoPublishRes, error)
 	BackfillFollowInbox(ctx context.Context, in *BackfillFollowInboxReq, opts ...grpc.CallOption) (*BackfillFollowInboxRes, error)
+	CleanupFollowInbox(ctx context.Context, in *CleanupFollowInboxReq, opts ...grpc.CallOption) (*CleanupFollowInboxRes, error)
 	GetUploadCredentials(ctx context.Context, in *GetUploadCredentialsReq, opts ...grpc.CallOption) (*GetUploadCredentialsRes, error)
 	GetContentDetail(ctx context.Context, in *GetContentDetailReq, opts ...grpc.CallOption) (*GetContentDetailRes, error)
 	EditArticle(ctx context.Context, in *EditArticleReq, opts ...grpc.CallOption) (*EditArticleRes, error)
@@ -75,6 +77,16 @@ func (c *contentServiceClient) BackfillFollowInbox(ctx context.Context, in *Back
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(BackfillFollowInboxRes)
 	err := c.cc.Invoke(ctx, ContentService_BackfillFollowInbox_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contentServiceClient) CleanupFollowInbox(ctx context.Context, in *CleanupFollowInboxReq, opts ...grpc.CallOption) (*CleanupFollowInboxRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CleanupFollowInboxRes)
+	err := c.cc.Invoke(ctx, ContentService_CleanupFollowInbox_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +150,7 @@ type ContentServiceServer interface {
 	PublishArticle(context.Context, *ArticlePublishReq) (*ArticlePublishRes, error)
 	PublishVideo(context.Context, *VideoPublishReq) (*VideoPublishRes, error)
 	BackfillFollowInbox(context.Context, *BackfillFollowInboxReq) (*BackfillFollowInboxRes, error)
+	CleanupFollowInbox(context.Context, *CleanupFollowInboxReq) (*CleanupFollowInboxRes, error)
 	GetUploadCredentials(context.Context, *GetUploadCredentialsReq) (*GetUploadCredentialsRes, error)
 	GetContentDetail(context.Context, *GetContentDetailReq) (*GetContentDetailRes, error)
 	EditArticle(context.Context, *EditArticleReq) (*EditArticleRes, error)
@@ -161,6 +174,9 @@ func (UnimplementedContentServiceServer) PublishVideo(context.Context, *VideoPub
 }
 func (UnimplementedContentServiceServer) BackfillFollowInbox(context.Context, *BackfillFollowInboxReq) (*BackfillFollowInboxRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method BackfillFollowInbox not implemented")
+}
+func (UnimplementedContentServiceServer) CleanupFollowInbox(context.Context, *CleanupFollowInboxReq) (*CleanupFollowInboxRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method CleanupFollowInbox not implemented")
 }
 func (UnimplementedContentServiceServer) GetUploadCredentials(context.Context, *GetUploadCredentialsReq) (*GetUploadCredentialsRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetUploadCredentials not implemented")
@@ -248,6 +264,24 @@ func _ContentService_BackfillFollowInbox_Handler(srv interface{}, ctx context.Co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ContentServiceServer).BackfillFollowInbox(ctx, req.(*BackfillFollowInboxReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContentService_CleanupFollowInbox_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CleanupFollowInboxReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).CleanupFollowInbox(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ContentService_CleanupFollowInbox_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).CleanupFollowInbox(ctx, req.(*CleanupFollowInboxReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -360,6 +394,10 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BackfillFollowInbox",
 			Handler:    _ContentService_BackfillFollowInbox_Handler,
+		},
+		{
+			MethodName: "CleanupFollowInbox",
+			Handler:    _ContentService_CleanupFollowInbox_Handler,
 		},
 		{
 			MethodName: "GetUploadCredentials",

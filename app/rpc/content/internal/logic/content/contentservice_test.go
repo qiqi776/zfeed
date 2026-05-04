@@ -13,6 +13,7 @@ import (
 	"zfeed/app/rpc/content/content"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/app/rpc/interaction/client/favoriteservice"
+	"zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/interaction/client/likeservice"
 )
 
@@ -115,6 +116,18 @@ func (s *stubFavoriteService) QueryFavoriteInfo(ctx context.Context, in *favorit
 		return nil, errors.New("unexpected QueryFavoriteInfo call")
 	}
 	return s.queryFavoriteInfo(ctx, in, opts...)
+}
+
+type stubFollowService struct {
+	followservice.FollowService
+	batchQueryFollowing func(context.Context, *followservice.BatchQueryFollowingReq, ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error)
+}
+
+func (s *stubFollowService) BatchQueryFollowing(ctx context.Context, in *followservice.BatchQueryFollowingReq, opts ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error) {
+	if s.batchQueryFollowing == nil {
+		return nil, errors.New("unexpected BatchQueryFollowing call")
+	}
+	return s.batchQueryFollowing(ctx, in, opts...)
 }
 
 func newContentServiceTestDB(t *testing.T) *gorm.DB {

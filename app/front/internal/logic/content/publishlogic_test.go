@@ -47,6 +47,10 @@ func (f *fakeContentService) BackfillFollowInbox(ctx context.Context, in *conten
 	return f.backfillInboxFunc(ctx, in, opts...)
 }
 
+func (f *fakeContentService) CleanupFollowInbox(context.Context, *contentpb.CleanupFollowInboxReq, ...grpc.CallOption) (*contentpb.CleanupFollowInboxRes, error) {
+	return nil, errors.New("unexpected CleanupFollowInbox call")
+}
+
 func (f *fakeContentService) GetUploadCredentials(ctx context.Context, in *contentpb.GetUploadCredentialsReq, opts ...grpc.CallOption) (*contentpb.GetUploadCredentialsRes, error) {
 	if f.uploadCredsFunc == nil {
 		return nil, errors.New("unexpected GetUploadCredentials call")

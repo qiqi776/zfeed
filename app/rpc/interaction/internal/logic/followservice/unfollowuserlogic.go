@@ -2,7 +2,9 @@ package followservicelogic
 
 import (
 	"context"
+	"time"
 
+	contentservice "zfeed/app/rpc/content/contentservice"
 	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/do"
 	"zfeed/app/rpc/interaction/internal/repositories"
@@ -10,7 +12,10 @@ import (
 	"zfeed/pkg/errorx"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/threading"
 )
+
+const cleanupFollowInboxTimeout = 3 * time.Second
 
 type UnfollowUserLogic struct {
 	ctx    context.Context
@@ -45,6 +50,21 @@ func (l *UnfollowUserLogic) UnfollowUser(in *interaction.UnfollowUserReq) (*inte
 	})
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("取消关注失败"))
+	}
+
+	if l.svcCtx.ContentRpc != nil {
+		threading.GoSafe(func() {
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(l.ctx), cleanupFollowInboxTimeout)
+			defer cancel()
+
+			_, callErr := l.svcCtx.ContentRpc.CleanupFollowInbox(ctx, &contentservice.CleanupFollowInboxReq{
+				FollowerId: in.GetUserId(),
+				FolloweeId: in.GetFollowUserId(),
+			})
+			if callErr != nil {
+				l.Errorf("cleanup follow inbox failed, follower_id=%d, followee_id=%d, err=%v", in.GetUserId(), in.GetFollowUserId(), callErr)
+			}
+		})
 	}
 
 	return &interaction.UnfollowUserRes{IsFollowed: false}, nil

@@ -16,6 +16,7 @@ type ContentRepository interface {
 	WithTx(tx *gorm.DB) ContentRepository
 	CreateContent(contentDO *do.ContentDO) (int64, error)
 	ListLatestPublishedIDsByAuthor(authorID int64, limit int) ([]int64, error)
+	BatchGetAuthorsByIDs(contentIDs []int64) (map[int64]int64, error)
 	BatchGetPublishedByIDs(contentIDs []int64) (map[int64]*model.ZfeedContent, error)
 	ListFollowByAuthorsCursor(authorIDs []int64, cursorID int64, limit int) ([]*model.ZfeedContent, error)
 	ListPublishedByAuthor(authorID int64) ([]*model.ZfeedContent, error)
@@ -105,6 +106,31 @@ func (r *contentRepositoryImpl) ListLatestPublishedIDsByAuthor(authorID int64, l
 		ids = append(ids, row.ID)
 	}
 	return ids, nil
+}
+
+func (r *contentRepositoryImpl) BatchGetAuthorsByIDs(contentIDs []int64) (map[int64]int64, error) {
+	if len(contentIDs) == 0 {
+		return map[int64]int64{}, nil
+	}
+
+	rows := make([]*model.ZfeedContent, 0, len(contentIDs))
+	err := r.getDB().WithContext(r.ctx).
+		Model(&model.ZfeedContent{}).
+		Select("id", "user_id").
+		Where("id IN ?", contentIDs).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int64]int64, len(rows))
+	for _, row := range rows {
+		if row == nil || row.ID <= 0 || row.UserID <= 0 {
+			continue
+		}
+		result[row.ID] = row.UserID
+	}
+	return result, nil
 }
 
 func (r *contentRepositoryImpl) BatchGetPublishedByIDs(contentIDs []int64) (map[int64]*model.ZfeedContent, error) {

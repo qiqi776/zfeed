@@ -34,6 +34,11 @@ func (s *ContentServiceServer) BackfillFollowInbox(ctx context.Context, in *cont
 	return l.BackfillFollowInbox(in)
 }
 
+func (s *ContentServiceServer) CleanupFollowInbox(ctx context.Context, in *content.CleanupFollowInboxReq) (*content.CleanupFollowInboxRes, error) {
+	l := contentlogic.NewCleanupFollowInboxLogic(ctx, s.svcCtx)
+	return l.CleanupFollowInbox(in)
+}
+
 func (s *ContentServiceServer) GetUploadCredentials(ctx context.Context, in *content.GetUploadCredentialsReq) (*content.GetUploadCredentialsRes, error) {
 	l := contentlogic.NewGetUploadCredentialsLogic(ctx, s.svcCtx)
 	return l.GetUploadCredentials(in)
