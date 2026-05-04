@@ -287,3 +287,67 @@ func TestFollowRebuild(t *testing.T) {
 		t.Fatalf("len(items) on cache hit = %d, want 3", len(resp.GetItems()))
 	}
 }
+
+func TestFollowWait(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 4202, authorID: 2301, contentType: contentpb.ContentType_ARTICLE, title: "article-4202", coverURL: "cover-a-4202"},
+		{contentID: 4201, authorID: 2302, contentType: contentpb.ContentType_VIDEO, title: "video-4201", coverURL: "cover-v-4201"},
+	})
+
+	userID := int64(1301)
+	lockKey := redisconsts.BuildFollowInboxLockKey(userID)
+	store.Set(lockKey, "rebuilding")
+
+	inboxKey := redisconsts.BuildFollowInboxKey(userID)
+	go func() {
+		time.Sleep(retryInterval / 2)
+		store.ZAdd(inboxKey, 4202, "4202")
+		store.ZAdd(inboxKey, 4201, "4201")
+	}()
+
+	logic := NewFollowFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.FollowFeed(&contentpb.FollowFeedReq{
+		UserId:   userID,
+		Cursor:   "",
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("FollowFeed wait returned error: %v", err)
+	}
+	if len(resp.GetItems()) != 2 {
+		t.Fatalf("len(items) after wait = %d, want 2", len(resp.GetItems()))
+	}
+	if resp.GetItems()[0].GetContentId() != 4202 || resp.GetItems()[1].GetContentId() != 4201 {
+		t.Fatalf("wait order = [%d %d], want [4202 4201]",
+			resp.GetItems()[0].GetContentId(), resp.GetItems()[1].GetContentId())
+	}
+}
+
+func TestFollowWaitFail(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	userID := int64(1302)
+	lockKey := redisconsts.BuildFollowInboxLockKey(userID)
+	store.Set(lockKey, "rebuilding")
+
+	logic := NewFollowFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	if _, err := logic.FollowFeed(&contentpb.FollowFeedReq{
+		UserId:   userID,
+		Cursor:   "",
+		PageSize: 2,
+	}); err == nil {
+		t.Fatal("expected wait timeout error")
+	}
+}

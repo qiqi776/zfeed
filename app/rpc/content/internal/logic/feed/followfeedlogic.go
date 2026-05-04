@@ -3,6 +3,7 @@ package feedlogic
 import (
 	"context"
 	"strconv"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
@@ -111,7 +112,7 @@ func (l *FollowFeedLogic) loadPageIDs(userID int64, inboxKey, cursor string, pag
 		return nil, "", false, errorx.Wrap(l.ctx, lockErr, errorx.NewMsg("查询失败请稍后重试"))
 	}
 	if !locked {
-		return nil, "", false, errorx.NewMsg("查询失败请稍后重试")
+		return l.waitInboxReady(inboxKey, cursor, pageSize)
 	}
 	defer func() {
 		if releaseOK, releaseErr := rebuildLock.ReleaseCtx(context.Background()); !releaseOK || releaseErr != nil {
@@ -135,6 +136,22 @@ func (l *FollowFeedLogic) loadPageIDs(userID int64, inboxKey, cursor string, pag
 		return nil, "", false, nil
 	}
 	return ids, nextCursor, hasMore, nil
+}
+
+func (l *FollowFeedLogic) waitInboxReady(inboxKey, cursor string, pageSize int) ([]int64, string, bool, error) {
+	for i := 0; i < retryTimes; i++ {
+		time.Sleep(retryInterval)
+
+		ids, nextCursor, hasMore, cacheExists, err := l.queryInboxIDs(inboxKey, cursor, pageSize)
+		if err != nil {
+			return nil, "", false, err
+		}
+		if cacheExists {
+			return ids, nextCursor, hasMore, nil
+		}
+	}
+
+	return nil, "", false, errorx.NewMsg("查询失败请稍后重试")
 }
 
 func (l *FollowFeedLogic) queryInboxIDs(inboxKey, cursor string, pageSize int) ([]int64, string, bool, bool, error) {
