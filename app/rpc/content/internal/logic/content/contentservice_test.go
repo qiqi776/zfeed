@@ -3,14 +3,18 @@ package contentlogic
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
+	miniredis "github.com/alicebob/miniredis/v2"
+	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 	"google.golang.org/grpc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"zfeed/app/rpc/content/content"
+	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/app/rpc/interaction/client/favoriteservice"
 	"zfeed/app/rpc/interaction/client/followservice"
@@ -294,6 +298,12 @@ func TestEditVideo(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	db := newContentServiceTestDB(t)
+	store := miniredis.RunT(t)
+	redisClient := gzredis.MustNewRedis(gzredis.RedisConf{
+		Host: store.Addr(),
+		Type: "node",
+	})
+
 	if err := db.Create(&contentServiceTestContent{
 		ID:          301,
 		UserID:      7,
@@ -310,8 +320,70 @@ func TestDelete(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("seed article: %v", err)
 	}
+	if err := db.Create(&contentServiceTestFollow{
+		UserID:       41,
+		FollowUserID: 7,
+		Status:       10,
+		IsDeleted:    0,
+	}).Error; err != nil {
+		t.Fatalf("seed follower 41: %v", err)
+	}
+	if err := db.Create(&contentServiceTestFollow{
+		UserID:       42,
+		FollowUserID: 7,
+		Status:       10,
+		IsDeleted:    0,
+	}).Error; err != nil {
+		t.Fatalf("seed follower 42: %v", err)
+	}
+	if err := db.Create(&contentServiceTestFavorite{
+		UserID:    51,
+		ContentID: 301,
+		Status:    10,
+	}).Error; err != nil {
+		t.Fatalf("seed favorite 51: %v", err)
+	}
+	if err := db.Create(&contentServiceTestFavorite{
+		UserID:    52,
+		ContentID: 301,
+		Status:    20,
+	}).Error; err != nil {
+		t.Fatalf("seed favorite 52: %v", err)
+	}
 
-	logic := NewDeleteContentLogic(context.Background(), &svc.ServiceContext{MysqlDb: db})
+	contentID := strconv.FormatInt(301, 10)
+	publishKey := redisconsts.BuildUserPublishFeedKey(7)
+	store.ZAdd(publishKey, 301, contentID)
+	store.ZAdd(publishKey, 999, "999")
+	follower41InboxKey := redisconsts.BuildFollowInboxKey(41)
+	store.ZAdd(follower41InboxKey, 301, contentID)
+	store.ZAdd(follower41InboxKey, 999, "999")
+	follower42InboxKey := redisconsts.BuildFollowInboxKey(42)
+	store.ZAdd(follower42InboxKey, 301, contentID)
+	favorite51Key := redisconsts.BuildUserFavoriteFeedKey(51)
+	store.ZAdd(favorite51Key, 301, contentID)
+	store.ZAdd(favorite51Key, 999, "999")
+	favorite52Key := redisconsts.BuildUserFavoriteFeedKey(52)
+	store.ZAdd(favorite52Key, 301, contentID)
+	store.ZAdd(redisconsts.HotFeedKey, 301, contentID)
+	store.ZAdd(redisconsts.HotFeedKey, 999, "999")
+	snapshotID := "snap-delete"
+	store.Set(redisconsts.HotFeedLatestKey, snapshotID)
+	snapshotKey := redisconsts.BuildHotFeedSnapshotKey(snapshotID)
+	store.ZAdd(snapshotKey, 301, contentID)
+	store.ZAdd(snapshotKey, 999, "999")
+	incKey := redisconsts.BuildHotFeedIncKey(int(301 % int64(redisconsts.HotFeedIncShards)))
+	if err := redisClient.HsetCtx(context.Background(), incKey, contentID, "1"); err != nil {
+		t.Fatalf("seed hot inc content: %v", err)
+	}
+	if err := redisClient.HsetCtx(context.Background(), incKey, "999", "1"); err != nil {
+		t.Fatalf("seed hot inc other: %v", err)
+	}
+
+	logic := NewDeleteContentLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
 	if _, err := logic.DeleteContent(&content.DeleteContentReq{UserId: 7, ContentId: 301}); err != nil {
 		t.Fatalf("DeleteContent returned error: %v", err)
 	}
@@ -330,6 +402,24 @@ func TestDelete(t *testing.T) {
 	}
 	if articleRow.IsDeleted != 1 {
 		t.Fatalf("article is_deleted = %d, want 1", articleRow.IsDeleted)
+	}
+	assertZSetMissing(t, store, publishKey, contentID)
+	assertZSetMissing(t, store, follower41InboxKey, contentID)
+	assertZSetMissing(t, store, follower42InboxKey, contentID)
+	assertZSetMissing(t, store, favorite51Key, contentID)
+	assertZSetMissing(t, store, favorite52Key, contentID)
+	assertZSetMissing(t, store, redisconsts.HotFeedKey, contentID)
+	assertZSetMissing(t, store, snapshotKey, contentID)
+
+	incMap, err := redisClient.HgetallCtx(context.Background(), incKey)
+	if err != nil {
+		t.Fatalf("read hot inc bucket: %v", err)
+	}
+	if _, ok := incMap[contentID]; ok {
+		t.Fatalf("hot inc bucket still has deleted content: %v", incMap)
+	}
+	if incMap["999"] != "1" {
+		t.Fatalf("hot inc bucket removed unrelated member: %v", incMap)
 	}
 }
 
@@ -371,3 +461,20 @@ func int64Ptr(value int64) *int64 { return &value }
 func int32Ptr(value int32) *int32 { return &value }
 
 func stringPtr(value string) *string { return &value }
+
+func assertZSetMissing(t *testing.T, store *miniredis.Miniredis, key string, member string) {
+	t.Helper()
+
+	if !store.Exists(key) {
+		return
+	}
+	members, err := store.ZMembers(key)
+	if err != nil {
+		t.Fatalf("zset %s members: %v", key, err)
+	}
+	for _, value := range members {
+		if value == member {
+			t.Fatalf("zset %s still has member %s: %v", key, member, members)
+		}
+	}
+}

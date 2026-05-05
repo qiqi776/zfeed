@@ -3,18 +3,16 @@ package contentlogic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"zfeed/app/rpc/content/content"
+	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/errorx"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
 )
-
-const userPublishPrefix = "feed:user:publish"
 
 type DeleteContentLogic struct {
 	ctx    context.Context
@@ -102,13 +100,93 @@ func (l *DeleteContentLogic) DeleteContent(in *content.DeleteContentReq) (*conte
 		return nil, err
 	}
 
-	if l.svcCtx.Redis != nil {
-		contentID := strconv.FormatInt(in.GetContentId(), 10)
-		publishKey := fmt.Sprintf("%s:%d", userPublishPrefix, in.GetUserId())
-		if _, redisErr := l.svcCtx.Redis.ZremCtx(l.ctx, publishKey, contentID); redisErr != nil {
-			l.Errorf("remove content from publish cache failed, key=%s, content_id=%d, content_type=%d, err=%v", publishKey, in.GetContentId(), contentType, redisErr)
-		}
-	}
+	l.cleanupIndexes(in.GetUserId(), in.GetContentId(), contentType)
 
 	return &content.DeleteContentRes{}, nil
+}
+
+func (l *DeleteContentLogic) cleanupIndexes(authorID, contentID int64, contentType int32) {
+	if l.svcCtx == nil || l.svcCtx.Redis == nil || contentID <= 0 {
+		return
+	}
+
+	member := strconv.FormatInt(contentID, 10)
+	l.zrem(redisconsts.BuildUserPublishFeedKey(authorID), member, "publish cache", contentID, contentType)
+	l.cleanFollowInboxes(authorID, member, contentID, contentType)
+	l.cleanFavoriteFeeds(member, contentID, contentType)
+	l.cleanHotIndexes(contentID, member, contentType)
+}
+
+func (l *DeleteContentLogic) cleanFollowInboxes(authorID int64, member string, contentID int64, contentType int32) {
+	if l.svcCtx.MysqlDb == nil || authorID <= 0 {
+		return
+	}
+
+	rows := make([]followerRow, 0)
+	err := l.svcCtx.MysqlDb.WithContext(l.ctx).
+		Table("zfeed_follow").
+		Select("user_id").
+		Where("follow_user_id = ? AND status = ? AND is_deleted = 0", authorID, followStatusActive).
+		Find(&rows).Error
+	if err != nil {
+		l.Errorf("query followers for delete cleanup failed, author_id=%d, content_id=%d, err=%v", authorID, contentID, err)
+		return
+	}
+
+	for _, row := range rows {
+		if row.UserID <= 0 {
+			continue
+		}
+		l.zrem(redisconsts.BuildFollowInboxKey(row.UserID), member, "follow inbox", contentID, contentType)
+	}
+}
+
+type favoriteUserRow struct {
+	UserID int64 `gorm:"column:user_id"`
+}
+
+func (l *DeleteContentLogic) cleanFavoriteFeeds(member string, contentID int64, contentType int32) {
+	if l.svcCtx.MysqlDb == nil {
+		return
+	}
+
+	rows := make([]favoriteUserRow, 0)
+	err := l.svcCtx.MysqlDb.WithContext(l.ctx).
+		Table("zfeed_favorite").
+		Select("user_id").
+		Where("content_id = ?", contentID).
+		Find(&rows).Error
+	if err != nil {
+		l.Errorf("query favorite users for delete cleanup failed, content_id=%d, content_type=%d, err=%v", contentID, contentType, err)
+		return
+	}
+
+	for _, row := range rows {
+		if row.UserID <= 0 {
+			continue
+		}
+		l.zrem(redisconsts.BuildUserFavoriteFeedKey(row.UserID), member, "favorite feed", contentID, contentType)
+	}
+}
+
+func (l *DeleteContentLogic) cleanHotIndexes(contentID int64, member string, contentType int32) {
+	l.zrem(redisconsts.HotFeedKey, member, "hot feed", contentID, contentType)
+
+	latestSnapshotID, err := l.svcCtx.Redis.GetCtx(l.ctx, redisconsts.HotFeedLatestKey)
+	if err != nil {
+		l.Errorf("query latest hot snapshot failed, content_id=%d, content_type=%d, err=%v", contentID, contentType, err)
+	} else if latestSnapshotID != "" {
+		l.zrem(redisconsts.BuildHotFeedSnapshotKey(latestSnapshotID), member, "hot snapshot", contentID, contentType)
+	}
+
+	incKey := redisconsts.BuildHotFeedIncKey(int(contentID % int64(redisconsts.HotFeedIncShards)))
+	if _, err := l.svcCtx.Redis.HdelCtx(l.ctx, incKey, member); err != nil {
+		l.Errorf("remove content from hot increment bucket failed, key=%s, content_id=%d, content_type=%d, err=%v", incKey, contentID, contentType, err)
+	}
+}
+
+func (l *DeleteContentLogic) zrem(key, member, desc string, contentID int64, contentType int32) {
+	if _, err := l.svcCtx.Redis.ZremCtx(l.ctx, key, member); err != nil {
+		l.Errorf("remove content from %s failed, key=%s, content_id=%d, content_type=%d, err=%v", desc, key, contentID, contentType, err)
+	}
 }

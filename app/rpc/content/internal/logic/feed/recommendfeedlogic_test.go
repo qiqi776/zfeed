@@ -1,6 +1,15 @@
 package feedlogic
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	miniredis "github.com/alicebob/miniredis/v2"
+	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
+
+	contentpb "zfeed/app/rpc/content/content"
+	"zfeed/app/rpc/content/internal/svc"
+)
 
 func TestParseHit(t *testing.T) {
 	res := []interface{}{
@@ -91,11 +100,6 @@ func TestMapCache(t *testing.T) {
 		want string
 	}{
 		{
-			name: "cache miss",
-			in:   cacheMiss,
-			want: "热榜缓存不存在",
-		},
-		{
 			name: "cache error",
 			in:   cacheError,
 			want: "查询热榜索引失败",
@@ -117,5 +121,28 @@ func TestMapCache(t *testing.T) {
 				t.Fatalf("unexpected error message, got=%q want=%q", err.Error(), tc.want)
 			}
 		})
+	}
+}
+
+func TestColdStart(t *testing.T) {
+	store := miniredis.RunT(t)
+	redisClient := gzredis.MustNewRedis(gzredis.RedisConf{
+		Host: store.Addr(),
+		Type: "node",
+	})
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Redis: redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		Cursor:   "",
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	if len(resp.GetItems()) != 0 || resp.GetHasMore() || resp.GetNextCursor() != 0 || resp.GetSnapshotId() != "" {
+		t.Fatalf("unexpected cold start response: %+v", resp)
 	}
 }

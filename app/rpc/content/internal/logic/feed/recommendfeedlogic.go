@@ -114,13 +114,14 @@ func (l *RecommendFeedLogic) queryHotIDsByCursor(preferredKey, preferredSnapshot
 	if cacheResult == cacheHit {
 		return result, nil
 	}
+	if cacheResult == cacheMiss {
+		return &hotFeedResult{}, nil
+	}
 	return nil, mapHotFeedCacheError(cacheResult)
 }
 
 func mapHotFeedCacheError(cacheResult CacheResult) error {
 	switch cacheResult {
-	case cacheMiss:
-		return errorx.NewMsg("热榜缓存不存在")
 	case cacheError:
 		return errorx.NewMsg("查询热榜索引失败")
 	default:
