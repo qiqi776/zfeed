@@ -30,7 +30,7 @@ func (dispatcherTestContent) TableName() string {
 	return "zfeed_content"
 }
 
-func TestDispatcherLikeEventUpdatesCountAndInvalidatesCache(t *testing.T) {
+func TestLike(t *testing.T) {
 	svcCtx := newDispatcherTestServiceContext(t)
 	ctx := context.Background()
 
@@ -120,7 +120,46 @@ func TestDispatcherLikeEventUpdatesCountAndInvalidatesCache(t *testing.T) {
 	}
 }
 
-func TestDispatcherFollowEventUpdatesBothUserCounts(t *testing.T) {
+func TestUnlike(t *testing.T) {
+	svcCtx := newDispatcherTestServiceContext(t)
+	ctx := context.Background()
+
+	dispatcher := NewDispatcher(ctx, svcCtx, "count.dispatcher.test")
+	evt := changeevent.ChangeEvent{
+		EventID:   "like-cancel-9002",
+		Source:    "mock",
+		Table:     "zfeed_like",
+		Operation: "UPDATE",
+		Previous: map[string]any{
+			"status": 10,
+		},
+		Current: map[string]any{
+			"id":              2,
+			"content_id":      9002,
+			"content_user_id": 3002,
+			"status":          20,
+		},
+	}
+
+	applied, err := dispatcher.Dispatch(ctx, evt)
+	if err != nil {
+		t.Fatalf("dispatch unlike event: %v", err)
+	}
+	if applied != 1 {
+		t.Fatalf("applied updates = %d, want 1", applied)
+	}
+
+	incKey := redisconsts.BuildHotFeedIncKey(int(9002 % int64(redisconsts.HotFeedIncShards)))
+	incMap, err := svcCtx.Redis.HgetallCtx(ctx, incKey)
+	if err != nil {
+		t.Fatalf("read hot increment bucket: %v", err)
+	}
+	if _, ok := incMap["9002"]; ok {
+		t.Fatalf("hot increment for unlike exists: %v", incMap)
+	}
+}
+
+func TestFollow(t *testing.T) {
 	svcCtx := newDispatcherTestServiceContext(t)
 	ctx := context.Background()
 

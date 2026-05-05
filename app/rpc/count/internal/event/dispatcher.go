@@ -3,7 +3,6 @@ package event
 import (
 	"context"
 	"errors"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -162,17 +161,16 @@ func hotIncShard(contentID int64) int {
 }
 
 func heatScoreDeltaByBiz(bizType count.BizType, delta int64) int64 {
-	if delta == 0 {
+	if delta <= 0 {
 		return 0
 	}
-	absDelta := int64(math.Abs(float64(delta)))
 	switch bizType {
 	case count.BizType_LIKE:
-		return absDelta * 1
+		return delta * 1
 	case count.BizType_COMMENT:
-		return absDelta * 3
+		return delta * 3
 	case count.BizType_FAVORITE:
-		return absDelta * 4
+		return delta * 4
 	default:
 		return 0
 	}
