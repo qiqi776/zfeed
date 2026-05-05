@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -205,5 +206,58 @@ func TestFavoriteDirty(t *testing.T) {
 	}
 	if len(resp.GetItems()) != 1 || resp.GetItems()[0].GetContentId() != 6402 {
 		t.Fatalf("items = %+v, want only content 6402", resp.GetItems())
+	}
+}
+
+func TestFavoriteWaitEmpty(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	userID := int64(1005)
+	lockKey := redisconsts.BuildUserFavoriteRebuildLockKey(userID)
+	store.Set(lockKey, "rebuilding")
+
+	go func() {
+		time.Sleep(retryInterval / 2)
+		store.Del(lockKey)
+	}()
+
+	logic := NewUserFavoriteFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.UserFavoriteFeed(&contentpb.UserFavoriteFeedReq{
+		UserId:   userID,
+		Cursor:   "",
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("UserFavoriteFeed wait empty returned error: %v", err)
+	}
+	if len(resp.GetItems()) != 0 || resp.GetHasMore() || resp.GetNextCursor() != "" {
+		t.Fatalf("unexpected empty response: %+v", resp)
+	}
+}
+
+func TestFavoriteWaitBusy(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	userID := int64(1006)
+	lockKey := redisconsts.BuildUserFavoriteRebuildLockKey(userID)
+	store.Set(lockKey, "rebuilding")
+
+	logic := NewUserFavoriteFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	if _, err := logic.UserFavoriteFeed(&contentpb.UserFavoriteFeedReq{
+		UserId:   userID,
+		Cursor:   "",
+		PageSize: 2,
+	}); err == nil {
+		t.Fatal("expected wait timeout error")
 	}
 }

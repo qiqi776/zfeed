@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	contentpb "zfeed/app/rpc/content/content"
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
@@ -125,5 +126,58 @@ func TestPublishRebuild(t *testing.T) {
 	feedKey := redisconsts.BuildUserPublishFeedKey(2003)
 	if !store.Exists(feedKey) {
 		t.Fatalf("expected publish feed key %s to exist after rebuild", feedKey)
+	}
+}
+
+func TestPublishWaitEmpty(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	authorID := int64(2004)
+	lockKey := redisconsts.BuildUserPublishRebuildLockKey(authorID)
+	store.Set(lockKey, "rebuilding")
+
+	go func() {
+		time.Sleep(retryInterval / 2)
+		store.Del(lockKey)
+	}()
+
+	logic := NewUserPublishFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.UserPublishFeed(&contentpb.UserPublishFeedReq{
+		AuthorId: authorID,
+		Cursor:   "",
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("UserPublishFeed wait empty returned error: %v", err)
+	}
+	if len(resp.GetItems()) != 0 || resp.GetHasMore() || resp.GetNextCursor() != "" {
+		t.Fatalf("unexpected empty response: %+v", resp)
+	}
+}
+
+func TestPublishWaitBusy(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	authorID := int64(2005)
+	lockKey := redisconsts.BuildUserPublishRebuildLockKey(authorID)
+	store.Set(lockKey, "rebuilding")
+
+	logic := NewUserPublishFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	if _, err := logic.UserPublishFeed(&contentpb.UserPublishFeedReq{
+		AuthorId: authorID,
+		Cursor:   "",
+		PageSize: 2,
+	}); err == nil {
+		t.Fatal("expected wait timeout error")
 	}
 }

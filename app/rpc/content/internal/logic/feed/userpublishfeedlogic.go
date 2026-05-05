@@ -18,9 +18,9 @@ import (
 )
 
 const (
-	ttlSeconds = 30
-	retryTimes     = 3
-	retryInterval  = 80 * time.Millisecond
+	ttlSeconds    = 30
+	retryTimes    = 3
+	retryInterval = 80 * time.Millisecond
 )
 
 type UserPublishFeedLogic struct {
@@ -145,15 +145,36 @@ func (l *UserPublishFeedLogic) loadPageIDs(feedKey string, authorID int64, curso
 		return result, nextCursor, hasMore, nil
 	}
 
+	return l.waitPublishFeedReady(lockKey, feedKey, cursor, pageSize)
+}
+
+func (l *UserPublishFeedLogic) waitPublishFeedReady(lockKey, feedKey, cursor string, pageSize int) ([]int64, string, bool, error) {
 	for i := 0; i < retryTimes; i++ {
-		time.Sleep(retryInterval)
-		ids, nextCursor, hasMore, cacheExists, err = l.queryUserPublishIDs(feedKey, cursor, pageSize)
+		ids, nextCursor, hasMore, cacheExists, err := l.queryUserPublishIDs(feedKey, cursor, pageSize)
 		if err != nil {
 			return nil, "", false, err
 		}
 		if cacheExists {
 			return ids, nextCursor, hasMore, nil
 		}
+
+		lockExists, err := l.svcCtx.Redis.ExistsCtx(l.ctx, lockKey)
+		if err != nil {
+			return nil, "", false, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询失败请稍后重试"))
+		}
+		if !lockExists {
+			return nil, "", false, nil
+		}
+
+		time.Sleep(retryInterval)
+	}
+
+	lockExists, err := l.svcCtx.Redis.ExistsCtx(l.ctx, lockKey)
+	if err != nil {
+		return nil, "", false, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询失败请稍后重试"))
+	}
+	if !lockExists {
+		return nil, "", false, nil
 	}
 
 	return nil, "", false, errorx.NewMsg("查询失败请稍后重试")
