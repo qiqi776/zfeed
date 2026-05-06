@@ -4,7 +4,7 @@
 -- ARGV[1]=content_id
 -- ARGV[2]=expire_seconds
 -- 返回: {changed(0/1), cached(0/1)}
---   changed: 1=本次确实从未点赞->已点赞；0=重复点赞
+--   changed: 1=本次确实从未点赞/已取消->已点赞；0=重复点赞
 --   cached: 1=写入了缓存
 
 local cid = tonumber(ARGV[1])
@@ -14,12 +14,16 @@ if not cid then
     return {0, 0}
 end
 
-local added = redis.call('HSETNX', KEYS[1], ARGV[1], '1')
+local current = redis.call('HGET', KEYS[1], ARGV[1])
+
+if current ~= '1' then
+    redis.call('HSET', KEYS[1], ARGV[1], '1')
+end
 if expireTime > 0 then
     redis.call('EXPIRE', KEYS[1], expireTime)
 end
 
-if added == 0 then
+if current == '1' then
     return {0, 1}
 end
 

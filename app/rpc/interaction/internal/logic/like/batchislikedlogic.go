@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"zfeed/app/rpc/interaction/interaction"
-	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
@@ -104,7 +103,7 @@ func (l *BatchIsLikedLogic) loadLikedMap(userID int64, contentIDs []int64) (map[
 		return result, nil
 	}
 
-	userLikeKey := rediskey.BuildLikeUserKey(strconv.FormatInt(userID, 10))
+	userLikeKey := likeCacheKey(userID)
 	fields := make([]string, 0, len(contentIDs))
 	for _, contentID := range contentIDs {
 		fields = append(fields, strconv.FormatInt(contentID, 10))
@@ -117,9 +116,17 @@ func (l *BatchIsLikedLogic) loadLikedMap(userID int64, contentIDs []int64) (map[
 		missingIDs = append(missingIDs, contentIDs...)
 	} else {
 		for index, contentID := range contentIDs {
-			if index < len(cacheValues) && cacheValues[index] == "1" {
-				result[contentID] = true
-				continue
+			if index < len(cacheValues) {
+				if isLiked, ok := parseLikeCacheValue(cacheValues[index]); ok {
+					if isLiked {
+						result[contentID] = true
+					}
+					continue
+				}
+				if cacheValues[index] == "" {
+					missingIDs = append(missingIDs, contentID)
+					continue
+				}
 			}
 			missingIDs = append(missingIDs, contentID)
 		}
@@ -135,11 +142,12 @@ func (l *BatchIsLikedLogic) loadLikedMap(userID int64, contentIDs []int64) (map[
 	}
 
 	for _, contentID := range missingIDs {
-		if !dbMap[contentID] {
-			continue
+		isLiked := dbMap[contentID]
+		if isLiked {
+			result[contentID] = true
 		}
-		result[contentID] = true
-		if setErr := l.svcCtx.Redis.HsetCtx(l.ctx, userLikeKey, strconv.FormatInt(contentID, 10), "1"); setErr != nil {
+
+		if setErr := cacheLikeState(l.ctx, l.svcCtx.Redis, userLikeKey, strconv.FormatInt(contentID, 10), isLiked); setErr != nil {
 			l.Errorf("rebuild like relation cache failed, key=%s, content_id=%d, err=%v", userLikeKey, contentID, setErr)
 		}
 	}

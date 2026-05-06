@@ -2,6 +2,7 @@ package likelogic
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	miniredis "github.com/alicebob/miniredis/v2"
@@ -82,6 +83,22 @@ func TestQueryLikeInfoReturnsCountAndState(t *testing.T) {
 	if !resp.GetIsLiked() {
 		t.Fatal("is_liked = false, want true")
 	}
+
+	cacheValues, err := redisClient.HmgetCtx(context.Background(), likeCacheKey(1001), "9001")
+	if err != nil {
+		t.Fatalf("read cache: %v", err)
+	}
+	if len(cacheValues) != 1 || cacheValues[0] != likeCacheValueLiked {
+		t.Fatalf("cache value = %v, want [%s]", cacheValues, likeCacheValueLiked)
+	}
+
+	ttl, err := redisClient.TtlCtx(context.Background(), likeCacheKey(1001))
+	if err != nil {
+		t.Fatalf("read cache ttl: %v", err)
+	}
+	if ttl <= 0 {
+		t.Fatalf("cache ttl = %d, want > 0", ttl)
+	}
 }
 
 func TestBatchQueryLikeInfoMergesCacheAndDB(t *testing.T) {
@@ -123,6 +140,84 @@ func TestBatchQueryLikeInfoMergesCacheAndDB(t *testing.T) {
 	assertLikeInfo(t, resp.GetLikeInfos()[0], 9101, 2, true)
 	assertLikeInfo(t, resp.GetLikeInfos()[1], 9102, 1, true)
 	assertLikeInfo(t, resp.GetLikeInfos()[2], 9103, 0, false)
+}
+
+func TestQueryLikeInfoPrefersExplicitUnlikeCache(t *testing.T) {
+	db := newLikeLogicTestDB(t)
+	redisClient := newLikeLogicTestRedis(t)
+
+	rows := []likeTestRow{
+		{UserID: 1001, ContentID: 9201, ContentUserID: 2001, Status: 10, IsDeleted: 0},
+		{UserID: 1002, ContentID: 9201, ContentUserID: 2001, Status: 10, IsDeleted: 0},
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatalf("seed rows: %v", err)
+	}
+	if err := cacheLikeState(context.Background(), redisClient, likeCacheKey(1001), strconv.FormatInt(9201, 10), false); err != nil {
+		t.Fatalf("seed unlike cache: %v", err)
+	}
+
+	logic := NewQueryLikeInfoLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.QueryLikeInfo(&interaction.QueryLikeInfoReq{
+		UserId:    1001,
+		ContentId: 9201,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err != nil {
+		t.Fatalf("QueryLikeInfo returned error: %v", err)
+	}
+	if resp.GetLikeCount() != 2 {
+		t.Fatalf("like_count = %d, want 2", resp.GetLikeCount())
+	}
+	if resp.GetIsLiked() {
+		t.Fatal("is_liked = true, want false when explicit unlike cache exists")
+	}
+}
+
+func TestBatchLikeInfoPrefersExplicitUnlikeCache(t *testing.T) {
+	db := newLikeLogicTestDB(t)
+	redisClient := newLikeLogicTestRedis(t)
+
+	rows := []likeTestRow{
+		{UserID: 1001, ContentID: 9301, ContentUserID: 2001, Status: 10, IsDeleted: 0},
+		{UserID: 1002, ContentID: 9301, ContentUserID: 2001, Status: 10, IsDeleted: 0},
+		{UserID: 1001, ContentID: 9302, ContentUserID: 2002, Status: 10, IsDeleted: 0},
+	}
+	if err := db.Create(&rows).Error; err != nil {
+		t.Fatalf("seed rows: %v", err)
+	}
+	if err := cacheLikeState(context.Background(), redisClient, likeCacheKey(1001), strconv.FormatInt(9301, 10), false); err != nil {
+		t.Fatalf("seed unlike cache: %v", err)
+	}
+	if err := cacheLikeState(context.Background(), redisClient, likeCacheKey(1001), strconv.FormatInt(9302, 10), true); err != nil {
+		t.Fatalf("seed like cache: %v", err)
+	}
+
+	logic := NewBatchLikeInfoLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.BatchLikeInfo(&interaction.BatchLikeInfoReq{
+		UserId: 1001,
+		LikeInfos: []*interaction.LikeInfo{
+			{ContentId: 9301, Scene: interaction.Scene_ARTICLE},
+			{ContentId: 9302, Scene: interaction.Scene_VIDEO},
+		},
+	})
+	if err != nil {
+		t.Fatalf("BatchLikeInfo returned error: %v", err)
+	}
+	if len(resp.GetLikeInfos()) != 2 {
+		t.Fatalf("len(like_infos) = %d, want 2", len(resp.GetLikeInfos()))
+	}
+
+	assertLikeInfo(t, resp.GetLikeInfos()[0], 9301, 2, false)
+	assertLikeInfo(t, resp.GetLikeInfos()[1], 9302, 1, true)
 }
 
 func assertLikeInfo(t *testing.T, item *interaction.QueryLikeInfoRes, contentID int64, count int64, isLiked bool) {

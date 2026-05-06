@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"zfeed/app/rpc/interaction/interaction"
-	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
@@ -59,12 +58,15 @@ func (l *QueryLikeInfoLogic) QueryLikeInfo(in *interaction.QueryLikeInfoReq) (*i
 }
 
 func (l *QueryLikeInfoLogic) queryIsLiked(userID, contentID int64) (bool, error) {
-	userLikeKey := rediskey.BuildLikeUserKey(strconv.FormatInt(userID, 10))
+	userLikeKey := likeCacheKey(userID)
 	contentIDStr := strconv.FormatInt(contentID, 10)
 
-	if exists, err := l.svcCtx.Redis.HexistsCtx(l.ctx, userLikeKey, contentIDStr); err == nil {
-		if exists {
-			return true, nil
+	cacheValues, err := l.svcCtx.Redis.HmgetCtx(l.ctx, userLikeKey, contentIDStr)
+	if err == nil {
+		if len(cacheValues) > 0 {
+			if isLiked, ok := parseLikeCacheValue(cacheValues[0]); ok {
+				return isLiked, nil
+			}
 		}
 	} else {
 		l.Errorf("query like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, contentIDStr, err)
@@ -74,10 +76,8 @@ func (l *QueryLikeInfoLogic) queryIsLiked(userID, contentID int64) (bool, error)
 	if err != nil {
 		return false, err
 	}
-	if isLiked {
-		if setErr := l.svcCtx.Redis.HsetCtx(l.ctx, userLikeKey, contentIDStr, "1"); setErr != nil {
-			l.Errorf("rebuild like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, contentIDStr, setErr)
-		}
+	if setErr := cacheLikeState(l.ctx, l.svcCtx.Redis, userLikeKey, contentIDStr, isLiked); setErr != nil {
+		l.Errorf("rebuild like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, contentIDStr, setErr)
 	}
 
 	return isLiked, nil

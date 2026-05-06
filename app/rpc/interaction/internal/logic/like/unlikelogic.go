@@ -20,6 +20,7 @@ type UnlikeLogic struct {
 	svcCtx *svc.ServiceContext
 	logx.Logger
 	contentRepo repositories.ContentRepository
+	likeRepo    repositories.LikeRepository
 }
 
 func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogic {
@@ -28,6 +29,7 @@ func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogi
 		svcCtx:      svcCtx,
 		Logger:      logx.WithContext(ctx),
 		contentRepo: repositories.NewContentRepository(ctx, svcCtx.MysqlDb),
+		likeRepo:    repositories.NewLikeRepository(ctx, svcCtx.MysqlDb),
 	}
 }
 
@@ -83,7 +85,21 @@ func (l *UnlikeLogic) processUnlike(userID, contentID int64) (changed bool, err 
 	}
 
 	changedVal, _ := arr[0].(int64)
-	return changedVal == 1, nil
+	if changedVal == 1 {
+		return true, nil
+	}
+
+	existedVal, _ := arr[1].(int64)
+	if existedVal == 1 {
+		return false, nil
+	}
+
+	isLiked, err := l.likeRepo.IsLiked(userID, contentID)
+	if err != nil {
+		return false, err
+	}
+
+	return isLiked, nil
 }
 
 func (l *UnlikeLogic) publishCancelLikeEvent(userID, contentID, contentUserID int64, scene string) {
