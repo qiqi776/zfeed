@@ -19,11 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LikeService_Like_FullMethodName               = "/interaction.LikeService/Like"
-	LikeService_Unlike_FullMethodName             = "/interaction.LikeService/Unlike"
-	LikeService_QueryLikeInfo_FullMethodName      = "/interaction.LikeService/QueryLikeInfo"
-	LikeService_BatchQueryLikeInfo_FullMethodName = "/interaction.LikeService/BatchQueryLikeInfo"
-	LikeService_BatchQueryIsLiked_FullMethodName  = "/interaction.LikeService/BatchQueryIsLiked"
+	LikeService_Like_FullMethodName          = "/interaction.LikeService/Like"
+	LikeService_Unlike_FullMethodName        = "/interaction.LikeService/Unlike"
+	LikeService_QueryLikeInfo_FullMethodName = "/interaction.LikeService/QueryLikeInfo"
+	LikeService_BatchLikeInfo_FullMethodName = "/interaction.LikeService/BatchLikeInfo"
+	LikeService_BatchIsLiked_FullMethodName  = "/interaction.LikeService/BatchIsLiked"
 )
 
 // LikeServiceClient is the client API for LikeService service.
@@ -33,8 +33,8 @@ type LikeServiceClient interface {
 	Like(ctx context.Context, in *LikeReq, opts ...grpc.CallOption) (*LikeRes, error)
 	Unlike(ctx context.Context, in *UnlikeReq, opts ...grpc.CallOption) (*UnlikeRes, error)
 	QueryLikeInfo(ctx context.Context, in *QueryLikeInfoReq, opts ...grpc.CallOption) (*QueryLikeInfoRes, error)
-	BatchQueryLikeInfo(ctx context.Context, in *BatchQueryLikeInfoReq, opts ...grpc.CallOption) (*BatchQueryLikeInfoRes, error)
-	BatchQueryIsLiked(ctx context.Context, in *BatchQueryIsLikedReq, opts ...grpc.CallOption) (*BatchQueryIsLikedRes, error)
+	BatchLikeInfo(ctx context.Context, in *BatchLikeInfoReq, opts ...grpc.CallOption) (*BatchLikeInfoRes, error)
+	BatchIsLiked(ctx context.Context, in *BatchIsLikedReq, opts ...grpc.CallOption) (*BatchIsLikedRes, error)
 }
 
 type likeServiceClient struct {
@@ -75,20 +75,20 @@ func (c *likeServiceClient) QueryLikeInfo(ctx context.Context, in *QueryLikeInfo
 	return out, nil
 }
 
-func (c *likeServiceClient) BatchQueryLikeInfo(ctx context.Context, in *BatchQueryLikeInfoReq, opts ...grpc.CallOption) (*BatchQueryLikeInfoRes, error) {
+func (c *likeServiceClient) BatchLikeInfo(ctx context.Context, in *BatchLikeInfoReq, opts ...grpc.CallOption) (*BatchLikeInfoRes, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(BatchQueryLikeInfoRes)
-	err := c.cc.Invoke(ctx, LikeService_BatchQueryLikeInfo_FullMethodName, in, out, cOpts...)
+	out := new(BatchLikeInfoRes)
+	err := c.cc.Invoke(ctx, LikeService_BatchLikeInfo_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *likeServiceClient) BatchQueryIsLiked(ctx context.Context, in *BatchQueryIsLikedReq, opts ...grpc.CallOption) (*BatchQueryIsLikedRes, error) {
+func (c *likeServiceClient) BatchIsLiked(ctx context.Context, in *BatchIsLikedReq, opts ...grpc.CallOption) (*BatchIsLikedRes, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(BatchQueryIsLikedRes)
-	err := c.cc.Invoke(ctx, LikeService_BatchQueryIsLiked_FullMethodName, in, out, cOpts...)
+	out := new(BatchIsLikedRes)
+	err := c.cc.Invoke(ctx, LikeService_BatchIsLiked_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,8 +102,8 @@ type LikeServiceServer interface {
 	Like(context.Context, *LikeReq) (*LikeRes, error)
 	Unlike(context.Context, *UnlikeReq) (*UnlikeRes, error)
 	QueryLikeInfo(context.Context, *QueryLikeInfoReq) (*QueryLikeInfoRes, error)
-	BatchQueryLikeInfo(context.Context, *BatchQueryLikeInfoReq) (*BatchQueryLikeInfoRes, error)
-	BatchQueryIsLiked(context.Context, *BatchQueryIsLikedReq) (*BatchQueryIsLikedRes, error)
+	BatchLikeInfo(context.Context, *BatchLikeInfoReq) (*BatchLikeInfoRes, error)
+	BatchIsLiked(context.Context, *BatchIsLikedReq) (*BatchIsLikedRes, error)
 	mustEmbedUnimplementedLikeServiceServer()
 }
 
@@ -123,11 +123,11 @@ func (UnimplementedLikeServiceServer) Unlike(context.Context, *UnlikeReq) (*Unli
 func (UnimplementedLikeServiceServer) QueryLikeInfo(context.Context, *QueryLikeInfoReq) (*QueryLikeInfoRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueryLikeInfo not implemented")
 }
-func (UnimplementedLikeServiceServer) BatchQueryLikeInfo(context.Context, *BatchQueryLikeInfoReq) (*BatchQueryLikeInfoRes, error) {
-	return nil, status.Error(codes.Unimplemented, "method BatchQueryLikeInfo not implemented")
+func (UnimplementedLikeServiceServer) BatchLikeInfo(context.Context, *BatchLikeInfoReq) (*BatchLikeInfoRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchLikeInfo not implemented")
 }
-func (UnimplementedLikeServiceServer) BatchQueryIsLiked(context.Context, *BatchQueryIsLikedReq) (*BatchQueryIsLikedRes, error) {
-	return nil, status.Error(codes.Unimplemented, "method BatchQueryIsLiked not implemented")
+func (UnimplementedLikeServiceServer) BatchIsLiked(context.Context, *BatchIsLikedReq) (*BatchIsLikedRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchIsLiked not implemented")
 }
 func (UnimplementedLikeServiceServer) mustEmbedUnimplementedLikeServiceServer() {}
 func (UnimplementedLikeServiceServer) testEmbeddedByValue()                     {}
@@ -204,38 +204,38 @@ func _LikeService_QueryLikeInfo_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LikeService_BatchQueryLikeInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BatchQueryLikeInfoReq)
+func _LikeService_BatchLikeInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchLikeInfoReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LikeServiceServer).BatchQueryLikeInfo(ctx, in)
+		return srv.(LikeServiceServer).BatchLikeInfo(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LikeService_BatchQueryLikeInfo_FullMethodName,
+		FullMethod: LikeService_BatchLikeInfo_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LikeServiceServer).BatchQueryLikeInfo(ctx, req.(*BatchQueryLikeInfoReq))
+		return srv.(LikeServiceServer).BatchLikeInfo(ctx, req.(*BatchLikeInfoReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LikeService_BatchQueryIsLiked_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BatchQueryIsLikedReq)
+func _LikeService_BatchIsLiked_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchIsLikedReq)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LikeServiceServer).BatchQueryIsLiked(ctx, in)
+		return srv.(LikeServiceServer).BatchIsLiked(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LikeService_BatchQueryIsLiked_FullMethodName,
+		FullMethod: LikeService_BatchIsLiked_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LikeServiceServer).BatchQueryIsLiked(ctx, req.(*BatchQueryIsLikedReq))
+		return srv.(LikeServiceServer).BatchIsLiked(ctx, req.(*BatchIsLikedReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -260,12 +260,12 @@ var LikeService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LikeService_QueryLikeInfo_Handler,
 		},
 		{
-			MethodName: "BatchQueryLikeInfo",
-			Handler:    _LikeService_BatchQueryLikeInfo_Handler,
+			MethodName: "BatchLikeInfo",
+			Handler:    _LikeService_BatchLikeInfo_Handler,
 		},
 		{
-			MethodName: "BatchQueryIsLiked",
-			Handler:    _LikeService_BatchQueryIsLiked_Handler,
+			MethodName: "BatchIsLiked",
+			Handler:    _LikeService_BatchIsLiked_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

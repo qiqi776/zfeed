@@ -127,7 +127,7 @@ func (b *FeedItemBuilder) buildLikedMap(contents []*model.ZfeedContent, viewerID
 		return result
 	}
 
-	resp, err := b.svcCtx.LikeRpc.BatchQueryIsLiked(b.ctx, &likeservice.BatchQueryIsLikedReq{
+	resp, err := b.svcCtx.LikeRpc.BatchIsLiked(b.ctx, &likeservice.BatchIsLikedReq{
 		UserId:    viewerID,
 		LikeInfos: likeInfos,
 	})

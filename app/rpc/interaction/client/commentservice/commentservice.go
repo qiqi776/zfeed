@@ -16,10 +16,10 @@ import (
 type (
 	BatchGetCommentsReq   = interaction.BatchGetCommentsReq
 	BatchGetCommentsRes   = interaction.BatchGetCommentsRes
-	BatchQueryIsLikedReq  = interaction.BatchQueryIsLikedReq
-	BatchQueryIsLikedRes  = interaction.BatchQueryIsLikedRes
-	BatchQueryLikeInfoReq = interaction.BatchQueryLikeInfoReq
-	BatchQueryLikeInfoRes = interaction.BatchQueryLikeInfoRes
+	BatchIsLikedReq       = interaction.BatchIsLikedReq
+	BatchIsLikedRes       = interaction.BatchIsLikedRes
+	BatchLikeInfoReq      = interaction.BatchLikeInfoReq
+	BatchLikeInfoRes      = interaction.BatchLikeInfoRes
 	CommentItem           = interaction.CommentItem
 	CommentReq            = interaction.CommentReq
 	CommentRes            = interaction.CommentRes

@@ -1,50 +1,50 @@
 package redis
 
 const (
-	RedisLikeUserPrefix           = "like:user"
-	RedisLikeExpireSeconds        = 5 * 24 * 60 * 60
-	RedisFavoriteRelPrefix        = "favorite:rel"
-	RedisFavoriteRelExpireSecs    = 24 * 60 * 60
-	RedisFavoriteRelNegExpireSecs = 10 * 60
-	RedisUserFavoriteFeedPrefix   = "feed:user:favorite"
-	RedisCommentItemPrefix        = "comment:item"
-	RedisCommentListPrefix        = "comment:list"
-	RedisCommentReplyPrefix       = "comment:reply"
-	RedisCommentListLockPrefix    = "lock:comment:list"
-	RedisCommentReplyLockPrefix   = "lock:comment:reply"
-	RedisCommentItemExpireSecs    = 24 * 60 * 60
-	RedisCommentIndexExpireSecs   = 30 * 60
-	RedisCommentLockExpireSecs    = 5
+	LikeUserPrefix           = "like:user"
+	LikeExpireSeconds        = 5 * 24 * 60 * 60
+	FavoriteRelPrefix        = "favorite:rel"
+	FavoriteRelExpireSecs    = 24 * 60 * 60
+	FavoriteRelNegExpireSecs = 10 * 60
+	UserFavoriteFeedPrefix   = "feed:user:favorite"
+	CommentItemPrefix        = "comment:item"
+	CommentListPrefix        = "comment:list"
+	CommentReplyPrefix       = "comment:reply"
+	CommentListLockPrefix    = "lock:comment:list"
+	CommentReplyLockPrefix   = "lock:comment:reply"
+	CommentItemExpireSecs    = 24 * 60 * 60
+	CommentIndexExpireSecs   = 30 * 60
+	CommentLockExpireSecs    = 5
 )
 
 func BuildLikeUserKey(userID string) string {
-	return RedisLikeUserPrefix + ":" + userID
+	return LikeUserPrefix + ":" + userID
 }
 
 func BuildFavoriteRelKey(scene string, userID string, contentID string) string {
-	return RedisFavoriteRelPrefix + ":" + scene + ":" + userID + ":" + contentID
+	return FavoriteRelPrefix + ":" + scene + ":" + userID + ":" + contentID
 }
 
 func BuildUserFavoriteFeedKey(userID string) string {
-	return RedisUserFavoriteFeedPrefix + ":" + userID
+	return UserFavoriteFeedPrefix + ":" + userID
 }
 
 func BuildCommentItemKey(commentID string) string {
-	return RedisCommentItemPrefix + ":" + commentID
+	return CommentItemPrefix + ":" + commentID
 }
 
 func BuildCommentListKey(scene string, contentID string) string {
-	return RedisCommentListPrefix + ":" + scene + ":" + contentID
+	return CommentListPrefix + ":" + scene + ":" + contentID
 }
 
 func BuildCommentReplyKey(rootID string) string {
-	return RedisCommentReplyPrefix + ":" + rootID
+	return CommentReplyPrefix + ":" + rootID
 }
 
 func BuildCommentListLockKey(scene string, contentID string) string {
-	return RedisCommentListLockPrefix + ":" + scene + ":" + contentID
+	return CommentListLockPrefix + ":" + scene + ":" + contentID
 }
 
 func BuildCommentReplyLockKey(rootID string) string {
-	return RedisCommentReplyLockPrefix + ":" + rootID
+	return CommentReplyLockPrefix + ":" + rootID
 }

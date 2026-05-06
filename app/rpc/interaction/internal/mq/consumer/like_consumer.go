@@ -3,10 +3,13 @@ package consumer
 import (
 	"context"
 
+	"github.com/zeromicro/go-queue/kq"
 	"github.com/zeromicro/go-zero/core/logc"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/service"
 	"gorm.io/gorm"
 
+	"zfeed/app/rpc/interaction/internal/config"
 	"zfeed/app/rpc/interaction/internal/do"
 	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
@@ -18,6 +21,12 @@ type LikeConsumer struct {
 	svcCtx *svc.ServiceContext
 	logx.Logger
 	consumerName string
+}
+
+func Consumers(c config.Config, ctx context.Context, svcCtx *svc.ServiceContext) []service.Service {
+	return []service.Service{
+		kq.MustNewQueue(c.KqConsumerConf, NewLikeConsumer(ctx, svcCtx)),
+	}
 }
 
 func NewLikeConsumer(ctx context.Context, svcCtx *svc.ServiceContext) *LikeConsumer {

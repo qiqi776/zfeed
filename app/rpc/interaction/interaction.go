@@ -8,10 +8,7 @@ import (
 	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/config"
 	"zfeed/app/rpc/interaction/internal/mq/consumer"
-	commentserviceServer "zfeed/app/rpc/interaction/internal/server/commentservice"
-	favoriteserviceServer "zfeed/app/rpc/interaction/internal/server/favoriteservice"
-	followserviceServer "zfeed/app/rpc/interaction/internal/server/followservice"
-	likeserviceServer "zfeed/app/rpc/interaction/internal/server/likeservice"
+	"zfeed/app/rpc/interaction/internal/server"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/envx"
 	"zfeed/pkg/grpcx"
@@ -34,10 +31,10 @@ func main() {
 	ctx := svc.NewServiceContext(c)
 
 	rpcServer := zrpc.MustNewServer(c.RpcServerConf, func(grpcServer *grpc.Server) {
-		interaction.RegisterLikeServiceServer(grpcServer, likeserviceServer.NewLikeServiceServer(ctx))
-		interaction.RegisterFavoriteServiceServer(grpcServer, favoriteserviceServer.NewFavoriteServiceServer(ctx))
-		interaction.RegisterCommentServiceServer(grpcServer, commentserviceServer.NewCommentServiceServer(ctx))
-		interaction.RegisterFollowServiceServer(grpcServer, followserviceServer.NewFollowServiceServer(ctx))
+		interaction.RegisterLikeServiceServer(grpcServer, server.NewLikeServiceServer(ctx))
+		interaction.RegisterFavoriteServiceServer(grpcServer, server.NewFavoriteServiceServer(ctx))
+		interaction.RegisterCommentServiceServer(grpcServer, server.NewCommentServiceServer(ctx))
+		interaction.RegisterFollowServiceServer(grpcServer, server.NewFollowServiceServer(ctx))
 
 		if c.Mode == service.DevMode || c.Mode == service.TestMode {
 			reflection.Register(grpcServer)

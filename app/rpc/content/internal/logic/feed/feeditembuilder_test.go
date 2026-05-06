@@ -19,7 +19,7 @@ import (
 var _ likeservice.LikeService = (*fakeLikeService)(nil)
 
 type fakeLikeService struct {
-	batchQueryIsLikedFunc func(ctx context.Context, in *likeservice.BatchQueryIsLikedReq, opts ...grpc.CallOption) (*likeservice.BatchQueryIsLikedRes, error)
+	batchIsLikedFunc func(ctx context.Context, in *likeservice.BatchIsLikedReq, opts ...grpc.CallOption) (*likeservice.BatchIsLikedRes, error)
 }
 
 func (f *fakeLikeService) Like(context.Context, *likeservice.LikeReq, ...grpc.CallOption) (*likeservice.LikeRes, error) {
@@ -34,15 +34,15 @@ func (f *fakeLikeService) QueryLikeInfo(context.Context, *likeservice.QueryLikeI
 	return nil, errors.New("unexpected QueryLikeInfo call")
 }
 
-func (f *fakeLikeService) BatchQueryLikeInfo(context.Context, *likeservice.BatchQueryLikeInfoReq, ...grpc.CallOption) (*likeservice.BatchQueryLikeInfoRes, error) {
-	return nil, errors.New("unexpected BatchQueryLikeInfo call")
+func (f *fakeLikeService) BatchLikeInfo(context.Context, *likeservice.BatchLikeInfoReq, ...grpc.CallOption) (*likeservice.BatchLikeInfoRes, error) {
+	return nil, errors.New("unexpected BatchLikeInfo call")
 }
 
-func (f *fakeLikeService) BatchQueryIsLiked(ctx context.Context, in *likeservice.BatchQueryIsLikedReq, opts ...grpc.CallOption) (*likeservice.BatchQueryIsLikedRes, error) {
-	if f.batchQueryIsLikedFunc == nil {
-		return nil, errors.New("unexpected BatchQueryIsLiked call")
+func (f *fakeLikeService) BatchIsLiked(ctx context.Context, in *likeservice.BatchIsLikedReq, opts ...grpc.CallOption) (*likeservice.BatchIsLikedRes, error) {
+	if f.batchIsLikedFunc == nil {
+		return nil, errors.New("unexpected BatchIsLiked call")
 	}
-	return f.batchQueryIsLikedFunc(ctx, in, opts...)
+	return f.batchIsLikedFunc(ctx, in, opts...)
 }
 
 func newFeedBuilderTestDB(t *testing.T) *gorm.DB {
@@ -82,8 +82,8 @@ func TestLiked(t *testing.T) {
 	builder := NewFeedItemBuilder(context.Background(), &svc.ServiceContext{
 		MysqlDb: db,
 		LikeRpc: &fakeLikeService{
-			batchQueryIsLikedFunc: func(ctx context.Context, in *likeservice.BatchQueryIsLikedReq, opts ...grpc.CallOption) (*likeservice.BatchQueryIsLikedRes, error) {
-				return &likeservice.BatchQueryIsLikedRes{
+			batchIsLikedFunc: func(ctx context.Context, in *likeservice.BatchIsLikedReq, opts ...grpc.CallOption) (*likeservice.BatchIsLikedRes, error) {
+				return &likeservice.BatchIsLikedRes{
 					IsLikedInfos: []*likeservice.IsLikedInfo{
 						{ContentId: 1001, IsLiked: true},
 						{ContentId: 1002, IsLiked: false},

@@ -16,10 +16,10 @@ import (
 type (
 	BatchGetCommentsReq   = interaction.BatchGetCommentsReq
 	BatchGetCommentsRes   = interaction.BatchGetCommentsRes
-	BatchQueryIsLikedReq  = interaction.BatchQueryIsLikedReq
-	BatchQueryIsLikedRes  = interaction.BatchQueryIsLikedRes
-	BatchQueryLikeInfoReq = interaction.BatchQueryLikeInfoReq
-	BatchQueryLikeInfoRes = interaction.BatchQueryLikeInfoRes
+	BatchIsLikedReq       = interaction.BatchIsLikedReq
+	BatchIsLikedRes       = interaction.BatchIsLikedRes
+	BatchLikeInfoReq      = interaction.BatchLikeInfoReq
+	BatchLikeInfoRes      = interaction.BatchLikeInfoRes
 	CommentItem           = interaction.CommentItem
 	CommentReq            = interaction.CommentReq
 	CommentRes            = interaction.CommentRes
@@ -66,8 +66,8 @@ type (
 		Like(ctx context.Context, in *LikeReq, opts ...grpc.CallOption) (*LikeRes, error)
 		Unlike(ctx context.Context, in *UnlikeReq, opts ...grpc.CallOption) (*UnlikeRes, error)
 		QueryLikeInfo(ctx context.Context, in *QueryLikeInfoReq, opts ...grpc.CallOption) (*QueryLikeInfoRes, error)
-		BatchQueryLikeInfo(ctx context.Context, in *BatchQueryLikeInfoReq, opts ...grpc.CallOption) (*BatchQueryLikeInfoRes, error)
-		BatchQueryIsLiked(ctx context.Context, in *BatchQueryIsLikedReq, opts ...grpc.CallOption) (*BatchQueryIsLikedRes, error)
+		BatchLikeInfo(ctx context.Context, in *BatchLikeInfoReq, opts ...grpc.CallOption) (*BatchLikeInfoRes, error)
+		BatchIsLiked(ctx context.Context, in *BatchIsLikedReq, opts ...grpc.CallOption) (*BatchIsLikedRes, error)
 	}
 
 	defaultLikeService struct {
@@ -96,12 +96,12 @@ func (m *defaultLikeService) QueryLikeInfo(ctx context.Context, in *QueryLikeInf
 	return client.QueryLikeInfo(ctx, in, opts...)
 }
 
-func (m *defaultLikeService) BatchQueryLikeInfo(ctx context.Context, in *BatchQueryLikeInfoReq, opts ...grpc.CallOption) (*BatchQueryLikeInfoRes, error) {
+func (m *defaultLikeService) BatchLikeInfo(ctx context.Context, in *BatchLikeInfoReq, opts ...grpc.CallOption) (*BatchLikeInfoRes, error) {
 	client := interaction.NewLikeServiceClient(m.cli.Conn())
-	return client.BatchQueryLikeInfo(ctx, in, opts...)
+	return client.BatchLikeInfo(ctx, in, opts...)
 }
 
-func (m *defaultLikeService) BatchQueryIsLiked(ctx context.Context, in *BatchQueryIsLikedReq, opts ...grpc.CallOption) (*BatchQueryIsLikedRes, error) {
+func (m *defaultLikeService) BatchIsLiked(ctx context.Context, in *BatchIsLikedReq, opts ...grpc.CallOption) (*BatchIsLikedRes, error) {
 	client := interaction.NewLikeServiceClient(m.cli.Conn())
-	return client.BatchQueryIsLiked(ctx, in, opts...)
+	return client.BatchIsLiked(ctx, in, opts...)
 }

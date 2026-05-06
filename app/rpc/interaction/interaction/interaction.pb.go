@@ -513,7 +513,7 @@ func (x *QueryLikeInfoRes) GetScene() Scene {
 	return Scene_SCENE_UNKNOWN
 }
 
-type BatchQueryLikeInfoReq struct {
+type BatchLikeInfoReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	LikeInfos     []*LikeInfo            `protobuf:"bytes,2,rep,name=like_infos,json=likeInfos,proto3" json:"like_infos,omitempty"`
@@ -521,20 +521,20 @@ type BatchQueryLikeInfoReq struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchQueryLikeInfoReq) Reset() {
-	*x = BatchQueryLikeInfoReq{}
+func (x *BatchLikeInfoReq) Reset() {
+	*x = BatchLikeInfoReq{}
 	mi := &file_interaction_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchQueryLikeInfoReq) String() string {
+func (x *BatchLikeInfoReq) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchQueryLikeInfoReq) ProtoMessage() {}
+func (*BatchLikeInfoReq) ProtoMessage() {}
 
-func (x *BatchQueryLikeInfoReq) ProtoReflect() protoreflect.Message {
+func (x *BatchLikeInfoReq) ProtoReflect() protoreflect.Message {
 	mi := &file_interaction_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -546,46 +546,46 @@ func (x *BatchQueryLikeInfoReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchQueryLikeInfoReq.ProtoReflect.Descriptor instead.
-func (*BatchQueryLikeInfoReq) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchLikeInfoReq.ProtoReflect.Descriptor instead.
+func (*BatchLikeInfoReq) Descriptor() ([]byte, []int) {
 	return file_interaction_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *BatchQueryLikeInfoReq) GetUserId() int64 {
+func (x *BatchLikeInfoReq) GetUserId() int64 {
 	if x != nil {
 		return x.UserId
 	}
 	return 0
 }
 
-func (x *BatchQueryLikeInfoReq) GetLikeInfos() []*LikeInfo {
+func (x *BatchLikeInfoReq) GetLikeInfos() []*LikeInfo {
 	if x != nil {
 		return x.LikeInfos
 	}
 	return nil
 }
 
-type BatchQueryLikeInfoRes struct {
+type BatchLikeInfoRes struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LikeInfos     []*QueryLikeInfoRes    `protobuf:"bytes,1,rep,name=like_infos,json=likeInfos,proto3" json:"like_infos,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchQueryLikeInfoRes) Reset() {
-	*x = BatchQueryLikeInfoRes{}
+func (x *BatchLikeInfoRes) Reset() {
+	*x = BatchLikeInfoRes{}
 	mi := &file_interaction_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchQueryLikeInfoRes) String() string {
+func (x *BatchLikeInfoRes) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchQueryLikeInfoRes) ProtoMessage() {}
+func (*BatchLikeInfoRes) ProtoMessage() {}
 
-func (x *BatchQueryLikeInfoRes) ProtoReflect() protoreflect.Message {
+func (x *BatchLikeInfoRes) ProtoReflect() protoreflect.Message {
 	mi := &file_interaction_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -597,12 +597,12 @@ func (x *BatchQueryLikeInfoRes) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchQueryLikeInfoRes.ProtoReflect.Descriptor instead.
-func (*BatchQueryLikeInfoRes) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchLikeInfoRes.ProtoReflect.Descriptor instead.
+func (*BatchLikeInfoRes) Descriptor() ([]byte, []int) {
 	return file_interaction_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *BatchQueryLikeInfoRes) GetLikeInfos() []*QueryLikeInfoRes {
+func (x *BatchLikeInfoRes) GetLikeInfos() []*QueryLikeInfoRes {
 	if x != nil {
 		return x.LikeInfos
 	}
@@ -721,7 +721,7 @@ func (x *IsLikedInfo) GetIsLiked() bool {
 	return false
 }
 
-type BatchQueryIsLikedReq struct {
+type BatchIsLikedReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        *int64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3,oneof" json:"user_id,omitempty"`
 	LikeInfos     []*LikeInfo            `protobuf:"bytes,2,rep,name=like_infos,json=likeInfos,proto3" json:"like_infos,omitempty"`
@@ -729,20 +729,20 @@ type BatchQueryIsLikedReq struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchQueryIsLikedReq) Reset() {
-	*x = BatchQueryIsLikedReq{}
+func (x *BatchIsLikedReq) Reset() {
+	*x = BatchIsLikedReq{}
 	mi := &file_interaction_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchQueryIsLikedReq) String() string {
+func (x *BatchIsLikedReq) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchQueryIsLikedReq) ProtoMessage() {}
+func (*BatchIsLikedReq) ProtoMessage() {}
 
-func (x *BatchQueryIsLikedReq) ProtoReflect() protoreflect.Message {
+func (x *BatchIsLikedReq) ProtoReflect() protoreflect.Message {
 	mi := &file_interaction_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -754,46 +754,46 @@ func (x *BatchQueryIsLikedReq) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchQueryIsLikedReq.ProtoReflect.Descriptor instead.
-func (*BatchQueryIsLikedReq) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchIsLikedReq.ProtoReflect.Descriptor instead.
+func (*BatchIsLikedReq) Descriptor() ([]byte, []int) {
 	return file_interaction_proto_rawDescGZIP(), []int{12}
 }
 
-func (x *BatchQueryIsLikedReq) GetUserId() int64 {
+func (x *BatchIsLikedReq) GetUserId() int64 {
 	if x != nil && x.UserId != nil {
 		return *x.UserId
 	}
 	return 0
 }
 
-func (x *BatchQueryIsLikedReq) GetLikeInfos() []*LikeInfo {
+func (x *BatchIsLikedReq) GetLikeInfos() []*LikeInfo {
 	if x != nil {
 		return x.LikeInfos
 	}
 	return nil
 }
 
-type BatchQueryIsLikedRes struct {
+type BatchIsLikedRes struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	IsLikedInfos  []*IsLikedInfo         `protobuf:"bytes,1,rep,name=is_liked_infos,json=isLikedInfos,proto3" json:"is_liked_infos,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BatchQueryIsLikedRes) Reset() {
-	*x = BatchQueryIsLikedRes{}
+func (x *BatchIsLikedRes) Reset() {
+	*x = BatchIsLikedRes{}
 	mi := &file_interaction_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BatchQueryIsLikedRes) String() string {
+func (x *BatchIsLikedRes) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BatchQueryIsLikedRes) ProtoMessage() {}
+func (*BatchIsLikedRes) ProtoMessage() {}
 
-func (x *BatchQueryIsLikedRes) ProtoReflect() protoreflect.Message {
+func (x *BatchIsLikedRes) ProtoReflect() protoreflect.Message {
 	mi := &file_interaction_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -805,12 +805,12 @@ func (x *BatchQueryIsLikedRes) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BatchQueryIsLikedRes.ProtoReflect.Descriptor instead.
-func (*BatchQueryIsLikedRes) Descriptor() ([]byte, []int) {
+// Deprecated: Use BatchIsLikedRes.ProtoReflect.Descriptor instead.
+func (*BatchIsLikedRes) Descriptor() ([]byte, []int) {
 	return file_interaction_proto_rawDescGZIP(), []int{13}
 }
 
-func (x *BatchQueryIsLikedRes) GetIsLikedInfos() []*IsLikedInfo {
+func (x *BatchIsLikedRes) GetIsLikedInfos() []*IsLikedInfo {
 	if x != nil {
 		return x.IsLikedInfos
 	}
@@ -2973,12 +2973,12 @@ const file_interaction_proto_rawDesc = "" +
 	"\bis_liked\x18\x02 \x01(\bR\aisLiked\x12\x1d\n" +
 	"\n" +
 	"content_id\x18\x03 \x01(\x03R\tcontentId\x12(\n" +
-	"\x05scene\x18\x04 \x01(\x0e2\x12.interaction.SceneR\x05scene\"f\n" +
-	"\x15BatchQueryLikeInfoReq\x12\x17\n" +
+	"\x05scene\x18\x04 \x01(\x0e2\x12.interaction.SceneR\x05scene\"a\n" +
+	"\x10BatchLikeInfoReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x124\n" +
 	"\n" +
-	"like_infos\x18\x02 \x03(\v2\x15.interaction.LikeInfoR\tlikeInfos\"U\n" +
-	"\x15BatchQueryLikeInfoRes\x12<\n" +
+	"like_infos\x18\x02 \x03(\v2\x15.interaction.LikeInfoR\tlikeInfos\"P\n" +
+	"\x10BatchLikeInfoRes\x12<\n" +
 	"\n" +
 	"like_infos\x18\x01 \x03(\v2\x1d.interaction.QueryLikeInfoResR\tlikeInfos\"S\n" +
 	"\bLikeInfo\x12\x1d\n" +
@@ -2989,14 +2989,14 @@ const file_interaction_proto_rawDesc = "" +
 	"\n" +
 	"content_id\x18\x01 \x01(\x03R\tcontentId\x12(\n" +
 	"\x05scene\x18\x02 \x01(\x0e2\x12.interaction.SceneR\x05scene\x12\x19\n" +
-	"\bis_liked\x18\x03 \x01(\bR\aisLiked\"v\n" +
-	"\x14BatchQueryIsLikedReq\x12\x1c\n" +
+	"\bis_liked\x18\x03 \x01(\bR\aisLiked\"q\n" +
+	"\x0fBatchIsLikedReq\x12\x1c\n" +
 	"\auser_id\x18\x01 \x01(\x03H\x00R\x06userId\x88\x01\x01\x124\n" +
 	"\n" +
 	"like_infos\x18\x02 \x03(\v2\x15.interaction.LikeInfoR\tlikeInfosB\n" +
 	"\n" +
-	"\b_user_id\"V\n" +
-	"\x14BatchQueryIsLikedRes\x12>\n" +
+	"\b_user_id\"Q\n" +
+	"\x0fBatchIsLikedRes\x12>\n" +
 	"\x0eis_liked_infos\x18\x01 \x03(\v2\x18.interaction.IsLikedInfoR\fisLikedInfos\"\x97\x01\n" +
 	"\vFavoriteReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
@@ -3178,13 +3178,13 @@ const file_interaction_proto_rawDesc = "" +
 	"\aARTICLE\x10\n" +
 	"\x12\t\n" +
 	"\x05VIDEO\x10\x14\x12\v\n" +
-	"\aCOMMENT\x10\x1e2\x83\x03\n" +
+	"\aCOMMENT\x10\x1e2\xe5\x02\n" +
 	"\vLikeService\x122\n" +
 	"\x04Like\x12\x14.interaction.LikeReq\x1a\x14.interaction.LikeRes\x128\n" +
 	"\x06Unlike\x12\x16.interaction.UnlikeReq\x1a\x16.interaction.UnlikeRes\x12M\n" +
-	"\rQueryLikeInfo\x12\x1d.interaction.QueryLikeInfoReq\x1a\x1d.interaction.QueryLikeInfoRes\x12\\\n" +
-	"\x12BatchQueryLikeInfo\x12\".interaction.BatchQueryLikeInfoReq\x1a\".interaction.BatchQueryLikeInfoRes\x12Y\n" +
-	"\x11BatchQueryIsLiked\x12!.interaction.BatchQueryIsLikedReq\x1a!.interaction.BatchQueryIsLikedRes2\xd9\x02\n" +
+	"\rQueryLikeInfo\x12\x1d.interaction.QueryLikeInfoReq\x1a\x1d.interaction.QueryLikeInfoRes\x12M\n" +
+	"\rBatchLikeInfo\x12\x1d.interaction.BatchLikeInfoReq\x1a\x1d.interaction.BatchLikeInfoRes\x12J\n" +
+	"\fBatchIsLiked\x12\x1c.interaction.BatchIsLikedReq\x1a\x1c.interaction.BatchIsLikedRes2\xd9\x02\n" +
 	"\x0fFavoriteService\x12>\n" +
 	"\bFavorite\x12\x18.interaction.FavoriteReq\x1a\x18.interaction.FavoriteRes\x12P\n" +
 	"\x0eRemoveFavorite\x12\x1e.interaction.RemoveFavoriteReq\x1a\x1e.interaction.RemoveFavoriteRes\x12Y\n" +
@@ -3230,12 +3230,12 @@ var file_interaction_proto_goTypes = []any{
 	(*UnlikeRes)(nil),              // 6: interaction.UnlikeRes
 	(*QueryLikeInfoReq)(nil),       // 7: interaction.QueryLikeInfoReq
 	(*QueryLikeInfoRes)(nil),       // 8: interaction.QueryLikeInfoRes
-	(*BatchQueryLikeInfoReq)(nil),  // 9: interaction.BatchQueryLikeInfoReq
-	(*BatchQueryLikeInfoRes)(nil),  // 10: interaction.BatchQueryLikeInfoRes
+	(*BatchLikeInfoReq)(nil),       // 9: interaction.BatchLikeInfoReq
+	(*BatchLikeInfoRes)(nil),       // 10: interaction.BatchLikeInfoRes
 	(*LikeInfo)(nil),               // 11: interaction.LikeInfo
 	(*IsLikedInfo)(nil),            // 12: interaction.IsLikedInfo
-	(*BatchQueryIsLikedReq)(nil),   // 13: interaction.BatchQueryIsLikedReq
-	(*BatchQueryIsLikedRes)(nil),   // 14: interaction.BatchQueryIsLikedRes
+	(*BatchIsLikedReq)(nil),        // 13: interaction.BatchIsLikedReq
+	(*BatchIsLikedRes)(nil),        // 14: interaction.BatchIsLikedRes
 	(*FavoriteReq)(nil),            // 15: interaction.FavoriteReq
 	(*FavoriteRes)(nil),            // 16: interaction.FavoriteRes
 	(*RemoveFavoriteReq)(nil),      // 17: interaction.RemoveFavoriteReq
@@ -3278,12 +3278,12 @@ var file_interaction_proto_depIdxs = []int32{
 	0,  // 1: interaction.UnlikeReq.scene:type_name -> interaction.Scene
 	0,  // 2: interaction.QueryLikeInfoReq.scene:type_name -> interaction.Scene
 	0,  // 3: interaction.QueryLikeInfoRes.scene:type_name -> interaction.Scene
-	11, // 4: interaction.BatchQueryLikeInfoReq.like_infos:type_name -> interaction.LikeInfo
-	8,  // 5: interaction.BatchQueryLikeInfoRes.like_infos:type_name -> interaction.QueryLikeInfoRes
+	11, // 4: interaction.BatchLikeInfoReq.like_infos:type_name -> interaction.LikeInfo
+	8,  // 5: interaction.BatchLikeInfoRes.like_infos:type_name -> interaction.QueryLikeInfoRes
 	0,  // 6: interaction.LikeInfo.scene:type_name -> interaction.Scene
 	0,  // 7: interaction.IsLikedInfo.scene:type_name -> interaction.Scene
-	11, // 8: interaction.BatchQueryIsLikedReq.like_infos:type_name -> interaction.LikeInfo
-	12, // 9: interaction.BatchQueryIsLikedRes.is_liked_infos:type_name -> interaction.IsLikedInfo
+	11, // 8: interaction.BatchIsLikedReq.like_infos:type_name -> interaction.LikeInfo
+	12, // 9: interaction.BatchIsLikedRes.is_liked_infos:type_name -> interaction.IsLikedInfo
 	0,  // 10: interaction.FavoriteReq.scene:type_name -> interaction.Scene
 	0,  // 11: interaction.RemoveFavoriteReq.scene:type_name -> interaction.Scene
 	0,  // 12: interaction.QueryFavoriteInfoReq.scene:type_name -> interaction.Scene
@@ -3301,8 +3301,8 @@ var file_interaction_proto_depIdxs = []int32{
 	3,  // 24: interaction.LikeService.Like:input_type -> interaction.LikeReq
 	5,  // 25: interaction.LikeService.Unlike:input_type -> interaction.UnlikeReq
 	7,  // 26: interaction.LikeService.QueryLikeInfo:input_type -> interaction.QueryLikeInfoReq
-	9,  // 27: interaction.LikeService.BatchQueryLikeInfo:input_type -> interaction.BatchQueryLikeInfoReq
-	13, // 28: interaction.LikeService.BatchQueryIsLiked:input_type -> interaction.BatchQueryIsLikedReq
+	9,  // 27: interaction.LikeService.BatchLikeInfo:input_type -> interaction.BatchLikeInfoReq
+	13, // 28: interaction.LikeService.BatchIsLiked:input_type -> interaction.BatchIsLikedReq
 	15, // 29: interaction.FavoriteService.Favorite:input_type -> interaction.FavoriteReq
 	17, // 30: interaction.FavoriteService.RemoveFavorite:input_type -> interaction.RemoveFavoriteReq
 	19, // 31: interaction.FavoriteService.QueryFavoriteInfo:input_type -> interaction.QueryFavoriteInfoReq
@@ -3322,8 +3322,8 @@ var file_interaction_proto_depIdxs = []int32{
 	4,  // 45: interaction.LikeService.Like:output_type -> interaction.LikeRes
 	6,  // 46: interaction.LikeService.Unlike:output_type -> interaction.UnlikeRes
 	8,  // 47: interaction.LikeService.QueryLikeInfo:output_type -> interaction.QueryLikeInfoRes
-	10, // 48: interaction.LikeService.BatchQueryLikeInfo:output_type -> interaction.BatchQueryLikeInfoRes
-	14, // 49: interaction.LikeService.BatchQueryIsLiked:output_type -> interaction.BatchQueryIsLikedRes
+	10, // 48: interaction.LikeService.BatchLikeInfo:output_type -> interaction.BatchLikeInfoRes
+	14, // 49: interaction.LikeService.BatchIsLiked:output_type -> interaction.BatchIsLikedRes
 	16, // 50: interaction.FavoriteService.Favorite:output_type -> interaction.FavoriteRes
 	18, // 51: interaction.FavoriteService.RemoveFavorite:output_type -> interaction.RemoveFavoriteRes
 	20, // 52: interaction.FavoriteService.QueryFavoriteInfo:output_type -> interaction.QueryFavoriteInfoRes

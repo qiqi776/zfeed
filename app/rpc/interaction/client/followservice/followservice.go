@@ -18,10 +18,10 @@ type (
 	BatchGetCommentsRes    = interaction.BatchGetCommentsRes
 	BatchQueryFollowingReq = interaction.BatchQueryFollowingReq
 	BatchQueryFollowingRes = interaction.BatchQueryFollowingRes
-	BatchQueryIsLikedReq   = interaction.BatchQueryIsLikedReq
-	BatchQueryIsLikedRes   = interaction.BatchQueryIsLikedRes
-	BatchQueryLikeInfoReq  = interaction.BatchQueryLikeInfoReq
-	BatchQueryLikeInfoRes  = interaction.BatchQueryLikeInfoRes
+	BatchIsLikedReq        = interaction.BatchIsLikedReq
+	BatchIsLikedRes        = interaction.BatchIsLikedRes
+	BatchLikeInfoReq       = interaction.BatchLikeInfoReq
+	BatchLikeInfoRes       = interaction.BatchLikeInfoRes
 	CommentItem            = interaction.CommentItem
 	CommentReq             = interaction.CommentReq
 	CommentRes             = interaction.CommentRes

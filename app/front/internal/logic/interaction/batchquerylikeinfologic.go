@@ -52,7 +52,7 @@ func (l *BatchQueryLikeInfoLogic) BatchQueryLikeInfo(req *types.BatchQueryLikeIn
 	}
 
 	userID := utils.GetContextUserIdWithDefault(l.ctx)
-	rpcResp, err := l.svcCtx.LikeRpc.BatchQueryLikeInfo(l.ctx, &interactionpb.BatchQueryLikeInfoReq{
+	rpcResp, err := l.svcCtx.LikeRpc.BatchLikeInfo(l.ctx, &interactionpb.BatchLikeInfoReq{
 		UserId:    userID,
 		LikeInfos: likeInfos,
 	})

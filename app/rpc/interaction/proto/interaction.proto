@@ -50,11 +50,11 @@ message QueryLikeInfoRes{
   Scene scene = 4;
 }
 
-message BatchQueryLikeInfoReq{
+message BatchLikeInfoReq{
   int64 user_id = 1;
   repeated LikeInfo like_infos = 2;
 }
-message BatchQueryLikeInfoRes{
+message BatchLikeInfoRes{
   repeated QueryLikeInfoRes like_infos = 1;
 }
 
@@ -69,11 +69,11 @@ message IsLikedInfo{
   bool is_liked = 3;
 }
 
-message BatchQueryIsLikedReq{
+message BatchIsLikedReq{
   optional int64 user_id = 1;
   repeated LikeInfo like_infos = 2;
 }
-message BatchQueryIsLikedRes{
+message BatchIsLikedRes{
   repeated IsLikedInfo is_liked_infos = 1;
 }
 message FavoriteReq{
@@ -286,8 +286,8 @@ service LikeService {
   rpc Like(LikeReq) returns (LikeRes);
   rpc Unlike(UnlikeReq) returns (UnlikeRes);
   rpc QueryLikeInfo(QueryLikeInfoReq) returns (QueryLikeInfoRes);
-  rpc BatchQueryLikeInfo(BatchQueryLikeInfoReq) returns (BatchQueryLikeInfoRes);
-  rpc BatchQueryIsLiked(BatchQueryIsLikedReq) returns (BatchQueryIsLikedRes);
+  rpc BatchLikeInfo(BatchLikeInfoReq) returns (BatchLikeInfoRes);
+  rpc BatchIsLiked(BatchIsLikedReq) returns (BatchIsLikedRes);
 }
 service FavoriteService {
   rpc Favorite(FavoriteReq) returns (FavoriteRes);
