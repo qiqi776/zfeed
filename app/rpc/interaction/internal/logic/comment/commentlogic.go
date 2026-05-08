@@ -130,7 +130,7 @@ func (l *CommentLogic) updateCommentCacheAfterCreate(commentID, contentID int64,
 		}
 
 		items := buildCommentItems([]*do.CommentDO{commentDO}, userMap)
-		cacheCommentItemsAndIndexBestEffort(
+		cmtCacheItemsAndIndex(
 			l.ctx,
 			l.Logger,
 			l.svcCtx.Redis,
@@ -148,7 +148,7 @@ func (l *CommentLogic) updateCommentCacheAfterCreate(commentID, contentID int64,
 	if parentID > 0 {
 		keys = append(keys, rediskey.BuildCommentItemKey(strconv.FormatInt(parentID, 10)))
 	}
-	invalidateCommentCacheKeysBestEffort(l.ctx, l.Logger, l.svcCtx.Redis, keys...)
+	invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, keys...)
 }
 
 func (l *CommentLogic) resolveThread(commentRepo repositories.CommentRepository, contentID, parentID, rootID, replyToUserID int64) (int64, int64, int64, error) {

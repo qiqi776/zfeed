@@ -39,7 +39,7 @@ func (l *BatchGetCommentsLogic) BatchGetComments(in *interaction.BatchGetComment
 		}, nil
 	}
 
-	cachedMap, missIDs, err := readCachedCommentItems(l.ctx, l.svcCtx.Redis, commentIDs)
+	cachedMap, missIDs, err := readCmtCachedItems(l.ctx, l.svcCtx.Redis, commentIDs)
 	if err != nil {
 		l.Errorf("批量读取评论缓存失败: %v", err)
 		cachedMap = map[int64]*interaction.CommentItem{}
@@ -52,7 +52,7 @@ func (l *BatchGetCommentsLogic) BatchGetComments(in *interaction.BatchGetComment
 			return nil, errorx.Wrap(l.ctx, dbErr, errorx.NewMsg("批量查询评论失败"))
 		}
 
-		cacheCommentItemsBestEffort(l.ctx, l.Logger, l.svcCtx.Redis, dbItems)
+		cmtCacheItems(l.ctx, l.Logger, l.svcCtx.Redis, dbItems)
 		mergeCommentItems(dbItems, cachedMap)
 		missIDs = stillMiss
 	}

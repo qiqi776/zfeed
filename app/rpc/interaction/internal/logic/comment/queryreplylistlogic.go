@@ -41,7 +41,7 @@ func (l *QueryReplyListLogic) QueryReplyList(in *interaction.QueryReplyListReq) 
 		return nil, err
 	}
 
-	if res, ok := l.queryFromCache(in, pageSize); ok {
+	if res, ok := l.queryCache(in, pageSize); ok {
 		return res, nil
 	}
 
@@ -50,26 +50,26 @@ func (l *QueryReplyListLogic) QueryReplyList(in *interaction.QueryReplyListReq) 
 
 func (l *QueryReplyListLogic) queryWithRebuild(in *interaction.QueryReplyListReq, pageSize uint32) (*interaction.QueryReplyListRes, error) {
 	lockKey := rediskey.BuildCommentReplyLockKey(strconv.FormatInt(in.GetRootId(), 10))
-	locked, err := tryAcquireCommentRebuildLock(l.ctx, l.svcCtx.Redis, lockKey)
+	locked, err := tryAcquireCommentRebuild(l.ctx, l.svcCtx.Redis, lockKey)
 	if err != nil {
 		l.Errorf("获取回复列表重建锁失败: %v, root_id=%d", err, in.GetRootId())
 	}
 	if locked {
-		defer releaseCommentRebuildLock(l.ctx, l.Logger, l.svcCtx.Redis, lockKey)
-		return l.queryFromDB(in, pageSize, true)
+		defer releaseCommentRebuild(l.ctx, l.Logger, l.svcCtx.Redis, lockKey)
+		return l.queryDB(in, pageSize, true)
 	}
 
-	for i := 0; i < commentRebuildRetryTimes; i++ {
-		time.Sleep(commentRebuildRetryDelay)
-		if res, ok := l.queryFromCache(in, pageSize); ok {
+	for i := 0; i < retryTimes; i++ {
+		time.Sleep(retryDelay)
+		if res, ok := l.queryCache(in, pageSize); ok {
 			return res, nil
 		}
 	}
 
-	return l.queryFromDB(in, pageSize, false)
+	return l.queryDB(in, pageSize, false)
 }
 
-func (l *QueryReplyListLogic) queryFromDB(in *interaction.QueryReplyListReq, pageSize uint32, rebuildCache bool) (*interaction.QueryReplyListRes, error) {
+func (l *QueryReplyListLogic) queryDB(in *interaction.QueryReplyListReq, pageSize uint32, rebuildCache bool) (*interaction.QueryReplyListRes, error) {
 
 	replies, err := l.commentRepo.ListRepliesIncludeDeleted(in.GetRootId(), in.GetCursor(), pageSize)
 	if err != nil {
@@ -93,15 +93,15 @@ func (l *QueryReplyListLogic) queryFromDB(in *interaction.QueryReplyListReq, pag
 		HasMore:    hasMore,
 	}
 	if rebuildCache {
-		l.cacheDBResultBestEffort(in.GetRootId(), res.GetReplies())
+		l.cacheDBResult(in.GetRootId(), res.GetReplies())
 	}
 
 	return res, nil
 }
 
-func (l *QueryReplyListLogic) queryFromCache(in *interaction.QueryReplyListReq, pageSize uint32) (*interaction.QueryReplyListRes, bool) {
+func (l *QueryReplyListLogic) queryCache(in *interaction.QueryReplyListReq, pageSize uint32) (*interaction.QueryReplyListRes, bool) {
 	key := rediskey.BuildCommentReplyKey(strconv.FormatInt(in.GetRootId(), 10))
-	ids, exists, err := readCachedCommentIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
+	ids, exists, err := readCmtCachedIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
 	if err != nil {
 		l.Errorf("读取回复列表缓存失败: %v, root_id=%d", err, in.GetRootId())
 		return nil, false
@@ -118,7 +118,7 @@ func (l *QueryReplyListLogic) queryFromCache(in *interaction.QueryReplyListReq, 
 		}, true
 	}
 
-	cachedMap, missIDs, err := readCachedCommentItems(l.ctx, l.svcCtx.Redis, ids)
+	cachedMap, missIDs, err := readCmtCachedItems(l.ctx, l.svcCtx.Redis, ids)
 	if err != nil {
 		l.Errorf("读取回复对象缓存失败: %v, root_id=%d", err, in.GetRootId())
 		return nil, false
@@ -134,13 +134,13 @@ func (l *QueryReplyListLogic) queryFromCache(in *interaction.QueryReplyListReq, 
 		mergeCommentItems(refillRes.GetComments(), cachedMap)
 		for _, commentID := range missIDs {
 			if cachedMap[commentID] == nil {
-				invalidateCommentCacheKeysBestEffort(l.ctx, l.Logger, l.svcCtx.Redis, key)
+				invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
 				return nil, false
 			}
 		}
 	}
 
-	items, nextCursor, hasMore, ok := buildCachedCommentResult(ids, cachedMap, pageSize)
+	items, nextCursor, hasMore, ok := buildCmtCachedResult(ids, cachedMap, pageSize)
 	if !ok {
 		return nil, false
 	}
@@ -153,11 +153,11 @@ func (l *QueryReplyListLogic) queryFromCache(in *interaction.QueryReplyListReq, 
 	}, true
 }
 
-func (l *QueryReplyListLogic) cacheDBResultBestEffort(rootID int64, items []*interaction.CommentItem) {
+func (l *QueryReplyListLogic) cacheDBResult(rootID int64, items []*interaction.CommentItem) {
 	if len(items) == 0 {
 		return
 	}
-	cacheCommentItemsAndIndexBestEffort(
+	cmtCacheItemsAndIndex(
 		l.ctx,
 		l.Logger,
 		l.svcCtx.Redis,

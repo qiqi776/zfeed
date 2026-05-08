@@ -10,6 +10,7 @@ import (
 	"zfeed/app/rpc/interaction/interaction"
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	luautils "zfeed/app/rpc/interaction/internal/common/utils/lua"
+	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
 )
@@ -18,22 +19,32 @@ type LikeLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 	logx.Logger
+	contentRepo repositories.ContentRepository
 }
 
 func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 	return &LikeLogic{
-		ctx:    ctx,
-		svcCtx: svcCtx,
-		Logger: logx.WithContext(ctx),
+		ctx:         ctx,
+		svcCtx:      svcCtx,
+		Logger:      logx.WithContext(ctx),
+		contentRepo: repositories.NewContentRepository(ctx, svcCtx.MysqlDb),
 	}
 }
 
 func (l *LikeLogic) Like(in *interaction.LikeReq) (*interaction.LikeRes, error) {
-	if in == nil || in.GetUserId() <= 0 || in.GetContentId() <= 0 || in.GetContentUserId() <= 0 {
+	if in == nil || in.GetUserId() <= 0 || in.GetContentId() <= 0 {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if in.GetScene() == interaction.Scene_SCENE_UNKNOWN {
 		return nil, errorx.NewBadRequest("场景参数错误")
+	}
+
+	contentUserID, err := l.contentRepo.GetAuthorID(in.GetContentId())
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询内容作者失败"))
+	}
+	if contentUserID <= 0 {
+		return nil, errorx.NewNotFound("内容不存在")
 	}
 
 	changed, err := l.processLike(in.GetUserId(), in.GetContentId())
@@ -43,7 +54,7 @@ func (l *LikeLogic) Like(in *interaction.LikeReq) (*interaction.LikeRes, error) 
 	if changed {
 		scene := in.GetScene().String()
 		threading.GoSafe(func() {
-			l.publishLikeEvent(in.GetUserId(), in.GetContentId(), in.GetContentUserId(), scene)
+			l.publishLikeEvent(in.GetUserId(), in.GetContentId(), contentUserID, scene)
 		})
 	}
 

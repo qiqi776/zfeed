@@ -186,7 +186,7 @@ type GetMeRes struct {
 
 type LikeReq struct {
 	ContentId     *int64  `json:"content_id,string,optional" validate:"required"`
-	ContentUserId *int64  `json:"content_user_id,string,optional" validate:"required"`
+	ContentUserId *int64  `json:"content_user_id,string,optional"`
 	Scene         *string `json:"scene,optional" validate:"required"`
 }
 

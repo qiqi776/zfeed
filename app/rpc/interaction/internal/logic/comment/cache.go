@@ -16,11 +16,11 @@ import (
 )
 
 const (
-	commentRebuildRetryTimes = 3
-	commentRebuildRetryDelay = 50 * time.Millisecond
+	retryTimes = 3
+	retryDelay = 50 * time.Millisecond
 )
 
-func readCachedCommentIndexIDs(ctx context.Context, rds *goredis.Redis, key string, cursor int64, pageSize uint32) ([]int64, bool, error) {
+func readCmtCachedIndexIDs(ctx context.Context, rds *goredis.Redis, key string, cursor int64, pageSize uint32) ([]int64, bool, error) {
 	if rds == nil || key == "" {
 		return nil, false, nil
 	}
@@ -30,7 +30,7 @@ func readCachedCommentIndexIDs(ctx context.Context, rds *goredis.Redis, key stri
 		return nil, exists, err
 	}
 
-	upper := maxCommentCacheScore(cursor)
+	upper := maxScore(cursor)
 	pairs, err := rds.ZrevrangebyscoreWithScoresAndLimitCtx(ctx, key, 0, upper, 0, int(pageSize)+1)
 	if err != nil {
 		return nil, true, err
@@ -47,7 +47,7 @@ func readCachedCommentIndexIDs(ctx context.Context, rds *goredis.Redis, key stri
 	return ids, true, nil
 }
 
-func readCachedCommentItems(ctx context.Context, rds *goredis.Redis, commentIDs []int64) (map[int64]*interaction.CommentItem, []int64, error) {
+func readCmtCachedItems(ctx context.Context, rds *goredis.Redis, commentIDs []int64) (map[int64]*interaction.CommentItem, []int64, error) {
 	result := make(map[int64]*interaction.CommentItem, len(commentIDs))
 	ids := uniqueCommentIDs(commentIDs)
 	if rds == nil || len(ids) == 0 {
@@ -90,7 +90,7 @@ func readCachedCommentItems(ctx context.Context, rds *goredis.Redis, commentIDs 
 	return result, missIDs, nil
 }
 
-func cacheCommentItemsBestEffort(ctx context.Context, logger logx.Logger, rds *goredis.Redis, items []*interaction.CommentItem) {
+func cmtCacheItems(ctx context.Context, logger logx.Logger, rds *goredis.Redis, items []*interaction.CommentItem) {
 	if rds == nil {
 		return
 	}
@@ -113,7 +113,7 @@ func cacheCommentItemsBestEffort(ctx context.Context, logger logx.Logger, rds *g
 	}
 }
 
-func cacheCommentItemsAndIndexBestEffort(ctx context.Context, logger logx.Logger, rds *goredis.Redis, key string, items []*interaction.CommentItem) {
+func cmtCacheItemsAndIndex(ctx context.Context, logger logx.Logger, rds *goredis.Redis, key string, items []*interaction.CommentItem) {
 	if rds == nil || key == "" {
 		return
 	}
@@ -144,7 +144,7 @@ func cacheCommentItemsAndIndexBestEffort(ctx context.Context, logger logx.Logger
 	}
 }
 
-func invalidateCommentCacheKeysBestEffort(ctx context.Context, logger logx.Logger, rds *goredis.Redis, keys ...string) {
+func invalidateCmtCacheKey(ctx context.Context, logger logx.Logger, rds *goredis.Redis, keys ...string) {
 	if rds == nil {
 		return
 	}
@@ -171,7 +171,7 @@ func invalidateCommentCacheKeysBestEffort(ctx context.Context, logger logx.Logge
 	}
 }
 
-func buildCachedCommentResult(ids []int64, itemMap map[int64]*interaction.CommentItem, pageSize uint32) ([]*interaction.CommentItem, int64, bool, bool) {
+func buildCmtCachedResult(ids []int64, itemMap map[int64]*interaction.CommentItem, pageSize uint32) ([]*interaction.CommentItem, int64, bool, bool) {
 	if len(ids) == 0 {
 		return []*interaction.CommentItem{}, 0, false, true
 	}
@@ -233,7 +233,7 @@ func stringifyLuaValue(raw any) (string, bool) {
 	}
 }
 
-func tryAcquireCommentRebuildLock(ctx context.Context, rds *goredis.Redis, key string) (bool, error) {
+func tryAcquireCommentRebuild(ctx context.Context, rds *goredis.Redis, key string) (bool, error) {
 	if rds == nil || key == "" {
 		return false, nil
 	}
@@ -242,7 +242,7 @@ func tryAcquireCommentRebuildLock(ctx context.Context, rds *goredis.Redis, key s
 	return rds.SetnxExCtx(ctx, key, token, rediskey.CommentLockExpireSecs)
 }
 
-func releaseCommentRebuildLock(ctx context.Context, logger logx.Logger, rds *goredis.Redis, key string) {
+func releaseCommentRebuild(ctx context.Context, logger logx.Logger, rds *goredis.Redis, key string) {
 	if rds == nil || key == "" {
 		return
 	}
@@ -252,7 +252,7 @@ func releaseCommentRebuildLock(ctx context.Context, logger logx.Logger, rds *gor
 	}
 }
 
-func maxCommentCacheScore(cursor int64) int64 {
+func maxScore(cursor int64) int64 {
 	if cursor <= 0 {
 		return math.MaxInt64
 	}

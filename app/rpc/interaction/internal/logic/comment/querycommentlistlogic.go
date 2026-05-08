@@ -44,7 +44,7 @@ func (l *QueryCommentListLogic) QueryCommentList(in *interaction.QueryCommentLis
 		return nil, err
 	}
 
-	if res, ok := l.queryFromCache(in, pageSize); ok {
+	if res, ok := l.queryCache(in, pageSize); ok {
 		return res, nil
 	}
 
@@ -53,26 +53,26 @@ func (l *QueryCommentListLogic) QueryCommentList(in *interaction.QueryCommentLis
 
 func (l *QueryCommentListLogic) queryWithRebuild(in *interaction.QueryCommentListReq, pageSize uint32) (*interaction.QueryCommentListRes, error) {
 	lockKey := rediskey.BuildCommentListLockKey(in.GetScene().String(), strconv.FormatInt(in.GetContentId(), 10))
-	locked, err := tryAcquireCommentRebuildLock(l.ctx, l.svcCtx.Redis, lockKey)
+	locked, err := tryAcquireCommentRebuild(l.ctx, l.svcCtx.Redis, lockKey)
 	if err != nil {
 		l.Errorf("获取评论列表重建锁失败: %v, content_id=%d", err, in.GetContentId())
 	}
 	if locked {
-		defer releaseCommentRebuildLock(l.ctx, l.Logger, l.svcCtx.Redis, lockKey)
-		return l.queryFromDB(in, pageSize, true)
+		defer releaseCommentRebuild(l.ctx, l.Logger, l.svcCtx.Redis, lockKey)
+		return l.queryDB(in, pageSize, true)
 	}
 
-	for i := 0; i < commentRebuildRetryTimes; i++ {
-		time.Sleep(commentRebuildRetryDelay)
-		if res, ok := l.queryFromCache(in, pageSize); ok {
+	for i := 0; i < retryTimes; i++ {
+		time.Sleep(retryDelay)
+		if res, ok := l.queryCache(in, pageSize); ok {
 			return res, nil
 		}
 	}
 
-	return l.queryFromDB(in, pageSize, false)
+	return l.queryDB(in, pageSize, false)
 }
 
-func (l *QueryCommentListLogic) queryFromDB(in *interaction.QueryCommentListReq, pageSize uint32, rebuildCache bool) (*interaction.QueryCommentListRes, error) {
+func (l *QueryCommentListLogic) queryDB(in *interaction.QueryCommentListReq, pageSize uint32, rebuildCache bool) (*interaction.QueryCommentListRes, error) {
 
 	comments, err := l.commentRepo.ListRootCommentsIncludeDeleted(in.GetContentId(), in.GetCursor(), pageSize)
 	if err != nil {
@@ -95,15 +95,15 @@ func (l *QueryCommentListLogic) queryFromDB(in *interaction.QueryCommentListReq,
 		HasMore:    hasMore,
 	}
 	if rebuildCache {
-		l.cacheDBResultBestEffort(in.GetScene(), in.GetContentId(), res.GetComments())
+		l.cacheDBResult(in.GetScene(), in.GetContentId(), res.GetComments())
 	}
 
 	return res, nil
 }
 
-func (l *QueryCommentListLogic) queryFromCache(in *interaction.QueryCommentListReq, pageSize uint32) (*interaction.QueryCommentListRes, bool) {
+func (l *QueryCommentListLogic) queryCache(in *interaction.QueryCommentListReq, pageSize uint32) (*interaction.QueryCommentListRes, bool) {
 	key := rediskey.BuildCommentListKey(in.GetScene().String(), strconv.FormatInt(in.GetContentId(), 10))
-	ids, exists, err := readCachedCommentIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
+	ids, exists, err := readCmtCachedIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
 	if err != nil {
 		l.Errorf("读取评论列表缓存失败: %v, content_id=%d", err, in.GetContentId())
 		return nil, false
@@ -119,7 +119,7 @@ func (l *QueryCommentListLogic) queryFromCache(in *interaction.QueryCommentListR
 		}, true
 	}
 
-	cachedMap, missIDs, err := readCachedCommentItems(l.ctx, l.svcCtx.Redis, ids)
+	cachedMap, missIDs, err := readCmtCachedItems(l.ctx, l.svcCtx.Redis, ids)
 	if err != nil {
 		l.Errorf("读取评论对象缓存失败: %v, content_id=%d", err, in.GetContentId())
 		return nil, false
@@ -135,13 +135,13 @@ func (l *QueryCommentListLogic) queryFromCache(in *interaction.QueryCommentListR
 		mergeCommentItems(refillRes.GetComments(), cachedMap)
 		for _, commentID := range missIDs {
 			if cachedMap[commentID] == nil {
-				invalidateCommentCacheKeysBestEffort(l.ctx, l.Logger, l.svcCtx.Redis, key)
+				invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
 				return nil, false
 			}
 		}
 	}
 
-	items, nextCursor, hasMore, ok := buildCachedCommentResult(ids, cachedMap, pageSize)
+	items, nextCursor, hasMore, ok := buildCmtCachedResult(ids, cachedMap, pageSize)
 	if !ok {
 		return nil, false
 	}
@@ -153,11 +153,11 @@ func (l *QueryCommentListLogic) queryFromCache(in *interaction.QueryCommentListR
 	}, true
 }
 
-func (l *QueryCommentListLogic) cacheDBResultBestEffort(scene interaction.Scene, contentID int64, items []*interaction.CommentItem) {
+func (l *QueryCommentListLogic) cacheDBResult(scene interaction.Scene, contentID int64, items []*interaction.CommentItem) {
 	if len(items) == 0 {
 		return
 	}
-	cacheCommentItemsAndIndexBestEffort(
+	cmtCacheItemsAndIndex(
 		l.ctx,
 		l.Logger,
 		l.svcCtx.Redis,

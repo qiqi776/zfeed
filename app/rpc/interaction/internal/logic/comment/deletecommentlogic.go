@@ -143,5 +143,5 @@ func (l *DeleteCommentLogic) invalidateCommentCachesAfterDelete(commentDO *do.Co
 		keys = append(keys, rediskey.BuildCommentItemKey(strconv.FormatInt(commentDO.ParentID, 10)))
 	}
 
-	invalidateCommentCacheKeysBestEffort(l.ctx, l.Logger, l.svcCtx.Redis, keys...)
+	invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, keys...)
 }

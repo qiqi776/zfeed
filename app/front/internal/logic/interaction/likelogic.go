@@ -30,7 +30,7 @@ func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 }
 
 func (l *LikeLogic) Like(req *types.LikeReq) (resp *types.LikeRes, err error) {
-	if req == nil || req.ContentId == nil || req.ContentUserId == nil || req.Scene == nil {
+	if req == nil || req.ContentId == nil || req.Scene == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -45,10 +45,9 @@ func (l *LikeLogic) Like(req *types.LikeReq) (resp *types.LikeRes, err error) {
 	}
 
 	_, err = l.svcCtx.LikeRpc.Like(l.ctx, &interaction.LikeReq{
-		UserId:        userID,
-		ContentId:     *req.ContentId,
-		ContentUserId: *req.ContentUserId,
-		Scene:         scene,
+		UserId:    userID,
+		ContentId: *req.ContentId,
+		Scene:     scene,
 	})
 	if err != nil {
 		return nil, err

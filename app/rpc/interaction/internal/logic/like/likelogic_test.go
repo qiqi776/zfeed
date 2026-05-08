@@ -2,13 +2,17 @@ package likelogic
 
 import (
 	"context"
+	"strings"
 	"testing"
+	"time"
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/zeromicro/go-zero/core/logx"
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 
+	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/do"
+	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 )
 
@@ -39,6 +43,44 @@ func (r *stubLikeRepo) IsLiked(userID int64, contentID int64) (bool, error) {
 func (r *stubLikeRepo) BatchIsLiked(int64, []int64) (map[int64]bool, error) {
 	return map[int64]bool{}, nil
 }
+
+type stubContentRepo struct {
+	getAuthorIDFunc func(contentID int64) (int64, error)
+}
+
+func (r *stubContentRepo) GetAuthorID(contentID int64) (int64, error) {
+	if r.getAuthorIDFunc == nil {
+		return 0, nil
+	}
+
+	return r.getAuthorIDFunc(contentID)
+}
+
+type likeEventCall struct {
+	userID        int64
+	contentID     int64
+	contentUserID int64
+	scene         string
+}
+
+type stubLikeProducer struct {
+	likeCalls chan likeEventCall
+}
+
+func (p *stubLikeProducer) SendLikeEvent(ctx context.Context, userID, contentID, contentUserID int64, scene string) {
+	if p.likeCalls == nil {
+		return
+	}
+
+	p.likeCalls <- likeEventCall{
+		userID:        userID,
+		contentID:     contentID,
+		contentUserID: contentUserID,
+		scene:         scene,
+	}
+}
+
+func (p *stubLikeProducer) SendCancelLikeEvent(context.Context, int64, int64, int64, string) {}
 
 func TestLikeThenUnlikeStillWorksAfterManyWrites(t *testing.T) {
 	t.Parallel()
@@ -167,3 +209,85 @@ func TestProcessUnlikeSkipsDBWhenCacheShowsAlreadyUnliked(t *testing.T) {
 		t.Fatal("processUnlike changed=true, want false when cache already marks unlike")
 	}
 }
+
+func TestLikeReturnsNotFoundWhenContentDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	logic := &LikeLogic{
+		ctx:    context.Background(),
+		svcCtx: &svc.ServiceContext{},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				if contentID != 9001 {
+					t.Fatalf("unexpected content_id=%d", contentID)
+				}
+				return 0, nil
+			},
+		},
+	}
+
+	_, err := logic.Like(&interaction.LikeReq{
+		UserId:        1001,
+		ContentId:     9001,
+		ContentUserId: 9999,
+		Scene:         interaction.Scene_ARTICLE,
+	})
+	if err == nil {
+		t.Fatal("Like returned nil error, want content not found")
+	}
+	if !strings.Contains(err.Error(), "内容不存在") {
+		t.Fatalf("Like error = %v, want contains 内容不存在", err)
+	}
+}
+
+func TestLikePublishesResolvedContentAuthorInsteadOfClientValue(t *testing.T) {
+	t.Parallel()
+
+	redisClient := newLikeLogicTestRedis(t)
+	producer := &stubLikeProducer{likeCalls: make(chan likeEventCall, 1)}
+
+	logic := &LikeLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			Redis:        redisClient,
+			LikeProducer: producer,
+		},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				if contentID != 9001 {
+					t.Fatalf("unexpected content_id=%d", contentID)
+				}
+				return 2001, nil
+			},
+		},
+	}
+
+	_, err := logic.Like(&interaction.LikeReq{
+		UserId:        1001,
+		ContentId:     9001,
+		ContentUserId: 9999,
+		Scene:         interaction.Scene_ARTICLE,
+	})
+	if err != nil {
+		t.Fatalf("Like returned error: %v", err)
+	}
+
+	select {
+	case call := <-producer.likeCalls:
+		if call.userID != 1001 || call.contentID != 9001 {
+			t.Fatalf("unexpected like event payload: %+v", call)
+		}
+		if call.contentUserID != 2001 {
+			t.Fatalf("like event content_user_id = %d, want resolved author 2001", call.contentUserID)
+		}
+		if call.scene != interaction.Scene_ARTICLE.String() {
+			t.Fatalf("like event scene = %s, want %s", call.scene, interaction.Scene_ARTICLE.String())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("did not receive like event")
+	}
+}
+
+var _ repositories.ContentRepository = (*stubContentRepo)(nil)

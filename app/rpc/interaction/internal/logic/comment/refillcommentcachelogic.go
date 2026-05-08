@@ -42,7 +42,7 @@ func (l *RefillCommentCacheLogic) RefillCommentCache(in *interaction.RefillComme
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("回填评论缓存失败"))
 	}
 	if len(items) > 0 {
-		cacheCommentItemsBestEffort(l.ctx, l.Logger, l.svcCtx.Redis, items)
+		cmtCacheItems(l.ctx, l.Logger, l.svcCtx.Redis, items)
 	}
 
 	return &interaction.RefillCommentCacheRes{
