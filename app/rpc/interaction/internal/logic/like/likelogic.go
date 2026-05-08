@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/core/threading"
 
 	"zfeed/app/rpc/interaction/interaction"
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
@@ -55,9 +54,10 @@ func (l *LikeLogic) Like(in *interaction.LikeReq) (*interaction.LikeRes, error) 
 	}
 	if changed {
 		scene := in.GetScene().String()
-		threading.GoSafe(func() {
-			l.publishLikeEvent(in.GetUserId(), in.GetContentId(), contentUserID, scene)
-		})
+		if err := l.publishLikeEvent(in.GetUserId(), in.GetContentId(), contentUserID, scene); err != nil {
+			l.rollbackLikeCacheState(in.GetUserId(), in.GetScene(), in.GetContentId(), false)
+			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("持久化点赞事件失败"))
+		}
 	}
 
 	return &interaction.LikeRes{}, nil
@@ -88,8 +88,18 @@ func (l *LikeLogic) processLike(userID int64, scene interaction.Scene, contentID
 	return changedVal == 1, nil
 }
 
-func (l *LikeLogic) publishLikeEvent(userID, contentID, contentUserID int64, scene string) {
-	l.svcCtx.LikeProducer.SendLikeEvent(l.ctx, userID, contentID, contentUserID, scene)
+func (l *LikeLogic) publishLikeEvent(userID, contentID, contentUserID int64, scene string) error {
+	return l.svcCtx.LikeProducer.SendLikeEvent(l.ctx, userID, contentID, contentUserID, scene)
+}
+
+func (l *LikeLogic) rollbackLikeCacheState(userID int64, scene interaction.Scene, contentID int64, isLiked bool) {
+	if l.svcCtx == nil || l.svcCtx.Redis == nil {
+		return
+	}
+
+	if err := cacheLikeState(l.ctx, l.svcCtx.Redis, likeCacheKey(userID), likeTargetKey(scene, contentID), isLiked); err != nil {
+		l.Errorf("rollback like cache failed, user_id=%d, scene=%s, content_id=%d, err=%v", userID, scene.String(), contentID, err)
+	}
 }
 
 func resolveLikeTargetOwner(

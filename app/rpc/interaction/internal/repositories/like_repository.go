@@ -78,7 +78,7 @@ ON DUPLICATE KEY UPDATE
 	).Error
 }
 
-func LikeTargetKey(scene int32, contentID int64) string {
+func likeTargetKey(scene int32, contentID int64) string {
 	return strconv.FormatInt(int64(scene), 10) + ":" + strconv.FormatInt(contentID, 10)
 }
 
@@ -125,7 +125,7 @@ func (r *likeRepositoryImpl) CountByTargets(targets []LikeTarget) (map[string]in
 	}
 
 	for _, item := range rows {
-		result[LikeTargetKey(item.Scene, item.ContentID)] = item.Count
+		result[likeTargetKey(item.Scene, item.ContentID)] = item.Count
 	}
 	return result, nil
 }
@@ -172,7 +172,7 @@ func (r *likeRepositoryImpl) BatchIsLiked(userID int64, targets []LikeTarget) (m
 	}
 
 	for _, item := range rows {
-		result[LikeTargetKey(item.Scene, item.ContentID)] = true
+		result[likeTargetKey(item.Scene, item.ContentID)] = true
 	}
 	return result, nil
 }
@@ -199,7 +199,7 @@ func uniqueLikeTargets(targets []LikeTarget) []LikeTarget {
 		if target.ContentID <= 0 || target.Scene <= 0 {
 			continue
 		}
-		key := LikeTargetKey(target.Scene, target.ContentID)
+		key := likeTargetKey(target.Scene, target.ContentID)
 		if _, ok := seen[key]; ok {
 			continue
 		}

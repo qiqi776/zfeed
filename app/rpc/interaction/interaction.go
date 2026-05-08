@@ -46,6 +46,9 @@ func main() {
 	serviceGroup := service.NewServiceGroup()
 	defer serviceGroup.Stop()
 
+	if ctx.LikeRelay != nil {
+		serviceGroup.Add(ctx.LikeRelay)
+	}
 	for _, mq := range consumer.Consumers(c, context.Background(), ctx) {
 		serviceGroup.Add(mq)
 	}

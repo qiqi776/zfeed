@@ -2,6 +2,7 @@ package likelogic
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -107,12 +108,17 @@ type likeEventCall struct {
 }
 
 type stubLikeProducer struct {
-	likeCalls chan likeEventCall
+	likeCalls     chan likeEventCall
+	sendLikeErr   error
+	sendCancelErr error
 }
 
-func (p *stubLikeProducer) SendLikeEvent(ctx context.Context, userID, contentID, contentUserID int64, scene string) {
+func (p *stubLikeProducer) SendLikeEvent(ctx context.Context, userID, contentID, contentUserID int64, scene string) error {
+	if p.sendLikeErr != nil {
+		return p.sendLikeErr
+	}
 	if p.likeCalls == nil {
-		return
+		return nil
 	}
 
 	p.likeCalls <- likeEventCall{
@@ -121,9 +127,12 @@ func (p *stubLikeProducer) SendLikeEvent(ctx context.Context, userID, contentID,
 		contentUserID: contentUserID,
 		scene:         scene,
 	}
+	return nil
 }
 
-func (p *stubLikeProducer) SendCancelLikeEvent(context.Context, int64, int64, int64, string) {}
+func (p *stubLikeProducer) SendCancelLikeEvent(context.Context, int64, int64, int64, string) error {
+	return p.sendCancelErr
+}
 
 func TestLikeThenUnlikeStillWorksAfterManyWrites(t *testing.T) {
 	t.Parallel()
@@ -333,6 +342,86 @@ func TestLikePublishesResolvedContentAuthorInsteadOfClientValue(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("did not receive like event")
+	}
+}
+
+func TestLikeRollsBackCacheWhenEventPersistenceFails(t *testing.T) {
+	t.Parallel()
+
+	redisClient := newLikeLogicTestRedis(t)
+
+	logic := &LikeLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			Redis:        redisClient,
+			LikeProducer: &stubLikeProducer{sendLikeErr: errors.New("outbox unavailable")},
+		},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				return 2001, nil
+			},
+		},
+		commentRepo: &stubCommentRepo{},
+	}
+
+	_, err := logic.Like(&interaction.LikeReq{
+		UserId:    1001,
+		ContentId: 9001,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err == nil {
+		t.Fatal("Like returned nil error, want persistence failure")
+	}
+
+	values, err := redisClient.HmgetCtx(context.Background(), likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001))
+	if err != nil {
+		t.Fatalf("read like cache: %v", err)
+	}
+	if len(values) != 1 || values[0] != likeCacheValueUnliked {
+		t.Fatalf("cache value after rollback = %v, want [%s]", values, likeCacheValueUnliked)
+	}
+}
+
+func TestUnlikeRollsBackCacheWhenEventPersistenceFails(t *testing.T) {
+	t.Parallel()
+
+	redisClient := newLikeLogicTestRedis(t)
+	if err := cacheLikeState(context.Background(), redisClient, likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001), true); err != nil {
+		t.Fatalf("seed like cache: %v", err)
+	}
+
+	logic := &UnlikeLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			Redis:        redisClient,
+			LikeProducer: &stubLikeProducer{sendCancelErr: errors.New("outbox unavailable")},
+		},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				return 2001, nil
+			},
+		},
+		commentRepo: &stubCommentRepo{},
+		likeRepo:    &stubLikeRepo{},
+	}
+
+	_, err := logic.Unlike(&interaction.UnlikeReq{
+		UserId:    1001,
+		ContentId: 9001,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err == nil {
+		t.Fatal("Unlike returned nil error, want persistence failure")
+	}
+
+	values, err := redisClient.HmgetCtx(context.Background(), likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001))
+	if err != nil {
+		t.Fatalf("read like cache: %v", err)
+	}
+	if len(values) != 1 || values[0] != likeCacheValueLiked {
+		t.Fatalf("cache value after rollback = %v, want [%s]", values, likeCacheValueLiked)
 	}
 }
 

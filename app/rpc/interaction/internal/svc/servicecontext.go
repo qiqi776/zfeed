@@ -2,6 +2,7 @@ package svc
 
 import (
 	"github.com/zeromicro/go-queue/kq"
+	"github.com/zeromicro/go-zero/core/service"
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/zrpc"
 	"gorm.io/gorm"
@@ -10,8 +11,8 @@ import (
 	"zfeed/app/rpc/interaction/internal/config"
 	"zfeed/app/rpc/interaction/internal/mq/producer"
 	"zfeed/app/rpc/user/client/userservice"
-	"zfeed/pkg/grpcx"
 	"zfeed/orm"
+	"zfeed/pkg/grpcx"
 )
 
 type ServiceContext struct {
@@ -19,6 +20,7 @@ type ServiceContext struct {
 	Redis        *redis.Redis
 	KqProducer   *kq.Pusher
 	LikeProducer producer.EventProducer
+	LikeRelay    service.Service
 	MysqlDb      *gorm.DB
 	UserRpc      userservice.UserService
 	ContentRpc   contentservice.ContentService
@@ -37,12 +39,14 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	}
 	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf, grpcx.ClientInterceptorOption())
 	contentRpcClient := zrpc.MustNewClient(c.ContentRpcClientConf, grpcx.ClientInterceptorOption())
+	likeProducer := producer.NewLikeProducer(kqPusher, db, maxRetries)
 
 	return &ServiceContext{
 		Config:       c,
 		Redis:        redis.MustNewRedis(c.RedisConfig),
 		KqProducer:   kqPusher,
-		LikeProducer: producer.NewLikeProducer(kqPusher, maxRetries),
+		LikeProducer: likeProducer,
+		LikeRelay:    producer.NewLikeOutboxRelay(likeProducer),
 		MysqlDb:      db,
 		UserRpc:      userservice.NewUserService(userRpcClient),
 		ContentRpc:   contentservice.NewContentService(contentRpcClient),
