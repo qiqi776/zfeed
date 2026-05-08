@@ -98,6 +98,7 @@ func TestRealStoreFavoriteAndFollowFlow(t *testing.T) {
 
 	if err := db.AutoMigrate(
 		&interactionmodel.ZfeedFavorite{},
+		&interactionmodel.ZfeedFavoriteEvent{},
 		&interactionmodel.ZfeedFollow{},
 	); err != nil {
 		t.Fatalf("auto migrate interaction models: %v", err)
@@ -134,16 +135,16 @@ func TestRealStoreFavoriteAndFollowFlow(t *testing.T) {
 
 	firstContent, secondContent := seedFolloweePublishZSet(t, redisClient, followeeID)
 	t.Logf("seeded publish zset content ids: %d, %d", firstContent, secondContent)
+	seedFavoriteTargetContents(t, db, followeeID, firstContent, secondContent)
 
 	favoriteLogic := NewFavoriteLogic(ctx, interactionSvcCtx)
 	removeFavoriteLogic := NewRemoveFavoriteLogic(ctx, interactionSvcCtx)
 	queryFavoriteInfoLogic := NewQueryFavoriteInfoLogic(ctx, interactionSvcCtx)
 
 	favoriteReq := &interaction.FavoriteReq{
-		UserId:        viewerID,
-		ContentId:     firstContent,
-		ContentUserId: followeeID,
-		Scene:         interaction.Scene_ARTICLE,
+		UserId:    viewerID,
+		ContentId: firstContent,
+		Scene:     interaction.Scene_ARTICLE,
 	}
 	if _, err := favoriteLogic.Favorite(favoriteReq); err != nil {
 		t.Fatalf("favorite once: %v", err)
@@ -184,7 +185,7 @@ func TestRealStoreFavoriteAndFollowFlow(t *testing.T) {
 	}
 
 	var favoriteRows int64
-	if err := db.Table("zfeed_favorite").Where("user_id = ? AND content_id = ?", viewerID, firstContent).Count(&favoriteRows).Error; err != nil {
+	if err := db.Table("zfeed_favorite").Where("user_id = ? AND scene = ? AND content_id = ?", viewerID, int32(interaction.Scene_ARTICLE), firstContent).Count(&favoriteRows).Error; err != nil {
 		t.Fatalf("count favorite rows: %v", err)
 	}
 
@@ -317,6 +318,36 @@ func seedFolloweePublishZSet(t *testing.T, redisClient *gzredis.Redis, followeeI
 	return firstContent, secondContent
 }
 
+func seedFavoriteTargetContents(t *testing.T, db *gorm.DB, authorID, firstContent, secondContent int64) {
+	t.Helper()
+
+	rows := []map[string]any{
+		{
+			"id":           firstContent,
+			"user_id":      authorID,
+			"content_type": 1,
+			"status":       1,
+			"visibility":   1,
+			"is_deleted":   0,
+			"created_by":   authorID,
+			"updated_by":   authorID,
+		},
+		{
+			"id":           secondContent,
+			"user_id":      authorID,
+			"content_type": 1,
+			"status":       1,
+			"visibility":   1,
+			"is_deleted":   0,
+			"created_by":   authorID,
+			"updated_by":   authorID,
+		},
+	}
+	if err := db.Table("zfeed_content").Create(rows).Error; err != nil {
+		t.Fatalf("seed favorite target contents: %v", err)
+	}
+}
+
 func waitForInboxMembers(t *testing.T, redisClient *gzredis.Redis, key string, want int) []string {
 	t.Helper()
 
@@ -341,6 +372,7 @@ func cleanupRealStoreTables(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
 	for _, stmt := range []string{
+		"DELETE FROM zfeed_favorite_event",
 		"DELETE FROM zfeed_follow",
 		"DELETE FROM zfeed_favorite",
 		"DELETE FROM zfeed_article",

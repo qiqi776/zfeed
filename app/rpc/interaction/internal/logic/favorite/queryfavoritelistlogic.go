@@ -40,7 +40,7 @@ func (l *QueryFavoriteListLogic) QueryFavoriteList(in *interaction.QueryFavorite
 		pageSize = 100
 	}
 
-	rows, err := l.favoriteRepo.ListByUserCursor(in.GetUserId(), in.GetCursor(), pageSize+1)
+	rows, err := l.favoriteRepo.ListContentByUserCursor(in.GetUserId(), in.GetCursor(), pageSize+1)
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询收藏列表失败"))
 	}

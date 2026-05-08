@@ -74,6 +74,7 @@ func EnsureLikeTables(db *gorm.DB) error {
 		createMqConsumeDedupTableDDL,
 		createLikeTableDDL,
 		createLikeEventOutboxTableDDL,
+		createFavoriteEventTableDDL,
 	} {
 		if err := db.Exec(ddl).Error; err != nil {
 			return err
@@ -134,6 +135,15 @@ func EnsureLikeTables(db *gorm.DB) error {
 		"zfeed_like_event_outbox",
 		"idx_status_retry",
 		"ALTER TABLE zfeed_like_event_outbox ADD KEY idx_status_retry (status, next_retry_at, id)",
+	); err != nil {
+		return err
+	}
+
+	if err := ensureUniqueIndex(
+		db,
+		"zfeed_favorite_event",
+		"uniq_event_id",
+		"ALTER TABLE zfeed_favorite_event ADD UNIQUE KEY uniq_event_id (event_id)",
 	); err != nil {
 		return err
 	}
@@ -507,6 +517,23 @@ CREATE TABLE IF NOT EXISTS zfeed_content (
   PRIMARY KEY (id),
   KEY idx_user_publish_list (user_id, status, visibility, is_deleted, id),
   KEY idx_user_publish_time (user_id, status, visibility, is_deleted, published_at, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+`
+
+const createFavoriteEventTableDDL = `
+CREATE TABLE IF NOT EXISTS zfeed_favorite_event (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  event_id VARCHAR(128) NOT NULL,
+  event_type VARCHAR(32) NOT NULL,
+  scene TINYINT NOT NULL DEFAULT 0,
+  user_id BIGINT NOT NULL,
+  content_id BIGINT NOT NULL,
+  content_user_id BIGINT NOT NULL DEFAULT 0,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uniq_event_id (event_id),
+  KEY idx_user_created (user_id, created_at),
+  KEY idx_content_created (content_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 `
 

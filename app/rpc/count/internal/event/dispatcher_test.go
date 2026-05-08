@@ -200,6 +200,47 @@ func TestLikeCommentSceneDoesNotTouchContentCount(t *testing.T) {
 	}
 }
 
+func TestFavoriteCommentSceneDoesNotTouchContentCount(t *testing.T) {
+	svcCtx := newDispatcherTestServiceContext(t)
+	ctx := context.Background()
+
+	dispatcher := NewDispatcher(ctx, svcCtx, "count.dispatcher.test")
+	evt := changeevent.ChangeEvent{
+		EventID:   "favorite-comment-9010",
+		Source:    "mock",
+		Table:     "zfeed_favorite",
+		Operation: "INSERT",
+		Current: map[string]any{
+			"id":              4,
+			"scene":           30,
+			"content_id":      9010,
+			"content_user_id": 3010,
+			"status":          10,
+		},
+	}
+
+	applied, err := dispatcher.Dispatch(ctx, evt)
+	if err != nil {
+		t.Fatalf("dispatch comment favorite event: %v", err)
+	}
+	if applied != 0 {
+		t.Fatalf("applied updates = %d, want 0 for comment scene", applied)
+	}
+
+	getCountLogic := logic.NewGetCountLogic(ctx, svcCtx)
+	getCountResp, err := getCountLogic.GetCount(&count.GetCountReq{
+		BizType:    count.BizType_FAVORITE,
+		TargetType: count.TargetType_CONTENT,
+		TargetId:   9010,
+	})
+	if err != nil {
+		t.Fatalf("get count after comment favorite dispatch: %v", err)
+	}
+	if getCountResp.GetValue() != 0 {
+		t.Fatalf("content favorite count = %d, want 0", getCountResp.GetValue())
+	}
+}
+
 func TestFollow(t *testing.T) {
 	svcCtx := newDispatcherTestServiceContext(t)
 	ctx := context.Background()

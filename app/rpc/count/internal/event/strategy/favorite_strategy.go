@@ -29,6 +29,10 @@ func (s *favoriteStrategy) ExtractUpdates(ctx context.Context, evt changeevent.C
 		return nil
 	}
 	ownerID, _ := getInt64(evt.Current["content_user_id"])
+	targetType, ok := favoriteTargetType(evt.Current)
+	if !ok {
+		return nil
+	}
 
 	var delta int64
 	switch strings.ToUpper(strings.TrimSpace(evt.Operation)) {
@@ -50,9 +54,25 @@ func (s *favoriteStrategy) ExtractUpdates(ctx context.Context, evt changeevent.C
 
 	return []Update{{
 		BizType:    count.BizType_FAVORITE,
-		TargetType: count.TargetType_CONTENT,
+		TargetType: targetType,
 		TargetID:   contentID,
 		OwnerID:    ownerID,
 		Delta:      delta,
 	}}
+}
+
+func favoriteTargetType(current map[string]any) (count.TargetType, bool) {
+	scene, ok := getInt64(current["scene"])
+	if !ok {
+		return count.TargetType_CONTENT, true
+	}
+
+	switch scene {
+	case 10, 20:
+		return count.TargetType_CONTENT, true
+	case 30:
+		return count.TargetType_TARGET_TYPE_UNKNOWN, false
+	default:
+		return count.TargetType_TARGET_TYPE_UNKNOWN, false
+	}
 }

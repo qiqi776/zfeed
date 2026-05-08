@@ -119,9 +119,8 @@ type EditVideoRes struct {
 }
 
 type FavoriteReq struct {
-	ContentId     *int64  `json:"content_id,string,optional" validate:"required"`
-	ContentUserId *int64  `json:"content_user_id,string,optional" validate:"required"`
-	Scene         *string `json:"scene,optional" validate:"required"`
+	ContentId *int64  `json:"content_id,string,optional" validate:"required"`
+	Scene     *string `json:"scene,optional" validate:"required"`
 }
 
 type FavoriteRes struct {

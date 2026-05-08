@@ -821,7 +821,6 @@ type FavoriteReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	ContentId     int64                  `protobuf:"varint,2,opt,name=content_id,json=contentId,proto3" json:"content_id,omitempty"`
-	ContentUserId int64                  `protobuf:"varint,3,opt,name=content_user_id,json=contentUserId,proto3" json:"content_user_id,omitempty"`
 	Scene         Scene                  `protobuf:"varint,4,opt,name=scene,proto3,enum=interaction.Scene" json:"scene,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -867,13 +866,6 @@ func (x *FavoriteReq) GetUserId() int64 {
 func (x *FavoriteReq) GetContentId() int64 {
 	if x != nil {
 		return x.ContentId
-	}
-	return 0
-}
-
-func (x *FavoriteReq) GetContentUserId() int64 {
-	if x != nil {
-		return x.ContentUserId
 	}
 	return 0
 }
@@ -2997,13 +2989,12 @@ const file_interaction_proto_rawDesc = "" +
 	"\n" +
 	"\b_user_id\"Q\n" +
 	"\x0fBatchIsLikedRes\x12>\n" +
-	"\x0eis_liked_infos\x18\x01 \x03(\v2\x18.interaction.IsLikedInfoR\fisLikedInfos\"\x97\x01\n" +
+	"\x0eis_liked_infos\x18\x01 \x03(\v2\x18.interaction.IsLikedInfoR\fisLikedInfos\"u\n" +
 	"\vFavoriteReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
 	"\n" +
-	"content_id\x18\x02 \x01(\x03R\tcontentId\x12&\n" +
-	"\x0fcontent_user_id\x18\x03 \x01(\x03R\rcontentUserId\x12(\n" +
-	"\x05scene\x18\x04 \x01(\x0e2\x12.interaction.SceneR\x05scene\"\r\n" +
+	"content_id\x18\x02 \x01(\x03R\tcontentId\x12(\n" +
+	"\x05scene\x18\x04 \x01(\x0e2\x12.interaction.SceneR\x05sceneJ\x04\b\x03\x10\x04\"\r\n" +
 	"\vFavoriteRes\"u\n" +
 	"\x11RemoveFavoriteReq\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +

@@ -30,7 +30,7 @@ func NewFavoriteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Favorite
 }
 
 func (l *FavoriteLogic) Favorite(req *types.FavoriteReq) (resp *types.FavoriteRes, err error) {
-	if req == nil || req.ContentId == nil || req.ContentUserId == nil || req.Scene == nil {
+	if req == nil || req.ContentId == nil || req.Scene == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -45,10 +45,9 @@ func (l *FavoriteLogic) Favorite(req *types.FavoriteReq) (resp *types.FavoriteRe
 	}
 
 	_, err = l.svcCtx.FavoriteRpc.Favorite(l.ctx, &interaction.FavoriteReq{
-		UserId:        userID,
-		ContentId:     *req.ContentId,
-		ContentUserId: *req.ContentUserId,
-		Scene:         scene,
+		UserId:    userID,
+		ContentId: *req.ContentId,
+		Scene:     scene,
 	})
 	if err != nil {
 		return nil, err

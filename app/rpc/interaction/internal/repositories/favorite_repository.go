@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/do"
 	"zfeed/app/rpc/interaction/internal/model"
 )
@@ -18,12 +19,12 @@ const (
 
 type FavoriteRepository interface {
 	WithTx(tx *gorm.DB) FavoriteRepository
-	CountByContentID(contentID int64) (int64, error)
-	IsFavorited(userID int64, contentID int64) (bool, error)
+	CountByTarget(scene int32, contentID int64) (int64, error)
+	IsFavorited(userID int64, scene int32, contentID int64) (bool, error)
 	Upsert(favoriteDO *do.FavoriteDO) error
-	DeleteByUserAndContent(userID int64, contentID int64) (bool, error)
-	ListByUserCursor(userID int64, cursor int64, limit int) ([]*model.ZfeedFavorite, error)
-	GetByUserAndContent(userID int64, contentID int64) (*model.ZfeedFavorite, error)
+	DeleteByUserAndTarget(userID int64, scene int32, contentID int64) (bool, error)
+	ListContentByUserCursor(userID int64, cursor int64, limit int) ([]*model.ZfeedFavorite, error)
+	GetByUserAndTarget(userID int64, scene int32, contentID int64) (*model.ZfeedFavorite, error)
 }
 
 type favoriteRepositoryImpl struct {
@@ -57,28 +58,28 @@ func (r *favoriteRepositoryImpl) getDB() *gorm.DB {
 	return r.db
 }
 
-func (r *favoriteRepositoryImpl) CountByContentID(contentID int64) (int64, error) {
-	if contentID <= 0 {
+func (r *favoriteRepositoryImpl) CountByTarget(scene int32, contentID int64) (int64, error) {
+	if contentID <= 0 || scene <= 0 {
 		return 0, nil
 	}
 
 	var count int64
 	err := r.getDB().WithContext(r.ctx).
 		Model(&model.ZfeedFavorite{}).
-		Where("content_id = ? AND status = ?", contentID, FavoriteStatusActive).
+		Where("scene = ? AND content_id = ? AND status = ?", scene, contentID, FavoriteStatusActive).
 		Count(&count).Error
 	return count, err
 }
 
-func (r *favoriteRepositoryImpl) IsFavorited(userID int64, contentID int64) (bool, error) {
-	if userID <= 0 || contentID <= 0 {
+func (r *favoriteRepositoryImpl) IsFavorited(userID int64, scene int32, contentID int64) (bool, error) {
+	if userID <= 0 || contentID <= 0 || scene <= 0 {
 		return false, nil
 	}
 
 	var count int64
 	err := r.getDB().WithContext(r.ctx).
 		Model(&model.ZfeedFavorite{}).
-		Where("user_id = ? AND content_id = ? AND status = ?", userID, contentID, FavoriteStatusActive).
+		Where("user_id = ? AND scene = ? AND content_id = ? AND status = ?", userID, scene, contentID, FavoriteStatusActive).
 		Count(&count).Error
 	if err != nil {
 		return false, err
@@ -89,6 +90,7 @@ func (r *favoriteRepositoryImpl) IsFavorited(userID int64, contentID int64) (boo
 func (r *favoriteRepositoryImpl) Upsert(favoriteDO *do.FavoriteDO) error {
 	row := &model.ZfeedFavorite{
 		UserID:        favoriteDO.UserID,
+		Scene:         favoriteDO.Scene,
 		Status:        favoriteDO.Status,
 		ContentID:     favoriteDO.ContentID,
 		ContentUserID: favoriteDO.ContentUserID,
@@ -98,7 +100,7 @@ func (r *favoriteRepositoryImpl) Upsert(favoriteDO *do.FavoriteDO) error {
 
 	return r.getDB().WithContext(r.ctx).
 		Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "user_id"}, {Name: "content_id"}},
+			Columns: []clause.Column{{Name: "user_id"}, {Name: "scene"}, {Name: "content_id"}},
 			DoUpdates: clause.Assignments(map[string]any{
 				"status":          row.Status,
 				"content_user_id": row.ContentUserID,
@@ -108,9 +110,9 @@ func (r *favoriteRepositoryImpl) Upsert(favoriteDO *do.FavoriteDO) error {
 		Create(row).Error
 }
 
-func (r *favoriteRepositoryImpl) DeleteByUserAndContent(userID int64, contentID int64) (bool, error) {
+func (r *favoriteRepositoryImpl) DeleteByUserAndTarget(userID int64, scene int32, contentID int64) (bool, error) {
 	tx := r.getDB().WithContext(r.ctx).
-		Where("user_id = ? AND content_id = ?", userID, contentID).
+		Where("user_id = ? AND scene = ? AND content_id = ?", userID, scene, contentID).
 		Delete(&model.ZfeedFavorite{})
 	if tx.Error != nil {
 		return false, tx.Error
@@ -118,7 +120,7 @@ func (r *favoriteRepositoryImpl) DeleteByUserAndContent(userID int64, contentID 
 	return tx.RowsAffected > 0, nil
 }
 
-func (r *favoriteRepositoryImpl) ListByUserCursor(userID int64, cursor int64, limit int) ([]*model.ZfeedFavorite, error) {
+func (r *favoriteRepositoryImpl) ListContentByUserCursor(userID int64, cursor int64, limit int) ([]*model.ZfeedFavorite, error) {
 	if userID <= 0 {
 		return []*model.ZfeedFavorite{}, nil
 	}
@@ -128,7 +130,10 @@ func (r *favoriteRepositoryImpl) ListByUserCursor(userID int64, cursor int64, li
 
 	query := r.getDB().WithContext(r.ctx).
 		Model(&model.ZfeedFavorite{}).
-		Where("user_id = ? AND status = ?", userID, FavoriteStatusActive)
+		Where("user_id = ? AND status = ? AND scene IN ?", userID, FavoriteStatusActive, []int32{
+			int32(interaction.Scene_ARTICLE),
+			int32(interaction.Scene_VIDEO),
+		})
 
 	if cursor > 0 {
 		query = query.Where("id < ?", cursor)
@@ -139,11 +144,11 @@ func (r *favoriteRepositoryImpl) ListByUserCursor(userID int64, cursor int64, li
 	return rows, err
 }
 
-func (r *favoriteRepositoryImpl) GetByUserAndContent(userID int64, contentID int64) (*model.ZfeedFavorite, error) {
+func (r *favoriteRepositoryImpl) GetByUserAndTarget(userID int64, scene int32, contentID int64) (*model.ZfeedFavorite, error) {
 	var row model.ZfeedFavorite
 	err := r.getDB().WithContext(r.ctx).
 		Model(&model.ZfeedFavorite{}).
-		Where("user_id = ? AND content_id = ? AND status = ?", userID, contentID, FavoriteStatusActive).
+		Where("user_id = ? AND scene = ? AND content_id = ? AND status = ?", userID, scene, contentID, FavoriteStatusActive).
 		Take(&row).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

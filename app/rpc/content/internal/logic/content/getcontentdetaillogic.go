@@ -82,15 +82,13 @@ type countResult struct {
 }
 
 type likeStateResult struct {
-	isLiked   bool
-	likeCount int64
-	ok        bool
+	isLiked bool
+	ok      bool
 }
 
 type favoriteStateResult struct {
-	isFavorited   bool
-	favoriteCount int64
-	ok            bool
+	isFavorited bool
+	ok          bool
 }
 
 type followStateResult struct {
@@ -408,9 +406,8 @@ func (l *ContentDetailLogic) queryLikeState(viewerID, contentID int64, scene int
 	}
 
 	return likeStateResult{
-		isLiked:   resp.GetIsLiked(),
-		likeCount: resp.GetLikeCount(),
-		ok:        true,
+		isLiked: resp.GetIsLiked(),
+		ok:      true,
 	}
 }
 
@@ -436,9 +433,8 @@ func (l *ContentDetailLogic) queryFavoriteState(viewerID, contentID int64, scene
 	}
 
 	return favoriteStateResult{
-		isFavorited:   resp.GetIsFavorited(),
-		favoriteCount: resp.GetFavoriteCount(),
-		ok:            true,
+		isFavorited: resp.GetIsFavorited(),
+		ok:          true,
 	}
 }
 
@@ -475,12 +471,10 @@ func (l *ContentDetailLogic) applyViewerState(detail *content.ContentDetail, res
 
 	if res.like.ok {
 		detail.IsLiked = res.like.isLiked
-		detail.LikeCount = res.like.likeCount
 	}
 
 	if res.favorite.ok {
 		detail.IsFavorited = res.favorite.isFavorited
-		detail.FavoriteCount = res.favorite.favoriteCount
 	}
 
 	if res.follow.ok {

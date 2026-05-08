@@ -37,7 +37,7 @@ func (l *QueryFavoriteInfoLogic) QueryFavoriteInfo(in *interaction.QueryFavorite
 		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
-	favoriteCount, err := l.favoriteRepo.CountByContentID(in.GetContentId())
+	favoriteCount, err := l.favoriteRepo.CountByTarget(int32(in.GetScene()), in.GetContentId())
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询收藏信息失败"))
 	}
@@ -73,7 +73,7 @@ func (l *QueryFavoriteInfoLogic) queryIsFavorited(userID, contentID int64, scene
 		l.Errorf("query favorite relation cache failed, key=%s, err=%v", relKey, err)
 	}
 
-	isFavorited, err := l.favoriteRepo.IsFavorited(userID, contentID)
+	isFavorited, err := l.favoriteRepo.IsFavorited(userID, int32(scene), contentID)
 	if err != nil {
 		return false, err
 	}

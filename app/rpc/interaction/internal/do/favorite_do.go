@@ -2,6 +2,7 @@ package do
 
 type FavoriteDO struct {
 	UserID        int64
+	Scene         int32
 	ContentID     int64
 	ContentUserID int64
 	Status        int32

@@ -15,7 +15,7 @@ import (
 	"zfeed/pkg/errorx"
 )
 
-func TestZeroCounts(t *testing.T) {
+func TestViewerStateDoesNotOverwriteCounts(t *testing.T) {
 	db := newContentServiceTestDB(t)
 	now := time.Unix(1_700_000_000, 0)
 	if err := db.Create(&contentServiceTestContent{
@@ -80,11 +80,11 @@ func TestZeroCounts(t *testing.T) {
 	if resp.GetDetail() == nil {
 		t.Fatal("expected detail")
 	}
-	if resp.GetDetail().GetLikeCount() != 0 {
-		t.Fatalf("like_count = %d, want 0", resp.GetDetail().GetLikeCount())
+	if resp.GetDetail().GetLikeCount() != 9 {
+		t.Fatalf("like_count = %d, want 9", resp.GetDetail().GetLikeCount())
 	}
-	if resp.GetDetail().GetFavoriteCount() != 0 {
-		t.Fatalf("favorite_count = %d, want 0", resp.GetDetail().GetFavoriteCount())
+	if resp.GetDetail().GetFavoriteCount() != 7 {
+		t.Fatalf("favorite_count = %d, want 7", resp.GetDetail().GetFavoriteCount())
 	}
 	if resp.GetDetail().GetCommentCount() != 3 {
 		t.Fatalf("comment_count = %d, want 3", resp.GetDetail().GetCommentCount())

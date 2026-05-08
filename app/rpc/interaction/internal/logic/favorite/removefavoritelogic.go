@@ -2,30 +2,40 @@ package favoritelogic
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"time"
 
 	"zfeed/app/rpc/interaction/interaction"
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
+	"zfeed/app/rpc/interaction/internal/model"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
 
 	"github.com/zeromicro/go-zero/core/logx"
+	"gorm.io/gorm"
 )
 
 type RemoveFavoriteLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 	logx.Logger
-	favoriteRepo repositories.FavoriteRepository
+	favoriteRepo      repositories.FavoriteRepository
+	favoriteEventRepo repositories.FavoriteEventRepository
+	contentRepo       repositories.ContentRepository
+	commentRepo       repositories.CommentRepository
 }
 
 func NewRemoveFavoriteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RemoveFavoriteLogic {
 	return &RemoveFavoriteLogic{
-		ctx:          ctx,
-		svcCtx:       svcCtx,
-		Logger:       logx.WithContext(ctx),
-		favoriteRepo: repositories.NewFavoriteRepository(ctx, svcCtx.MysqlDb),
+		ctx:               ctx,
+		svcCtx:            svcCtx,
+		Logger:            logx.WithContext(ctx),
+		favoriteRepo:      repositories.NewFavoriteRepository(ctx, svcCtx.MysqlDb),
+		favoriteEventRepo: repositories.NewFavoriteEventRepository(ctx, svcCtx.MysqlDb),
+		contentRepo:       repositories.NewContentRepository(ctx, svcCtx.MysqlDb),
+		commentRepo:       repositories.NewCommentRepository(ctx, svcCtx.MysqlDb),
 	}
 }
 
@@ -37,7 +47,42 @@ func (l *RemoveFavoriteLogic) RemoveFavorite(in *interaction.RemoveFavoriteReq) 
 		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
-	if _, err := l.favoriteRepo.DeleteByUserAndContent(in.GetUserId(), in.GetContentId()); err != nil {
+	contentUserID, err := resolveFavoriteTargetOwner(l.contentRepo, l.commentRepo, in.GetScene(), in.GetContentId())
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询内容作者失败"))
+	}
+	if contentUserID <= 0 {
+		return nil, errorx.NewNotFound("内容不存在")
+	}
+
+	if err := l.svcCtx.MysqlDb.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
+		favoriteRepo := l.favoriteRepo.WithTx(tx)
+		favoriteEventRepo := l.favoriteEventRepo.WithTx(tx)
+
+		row, err := favoriteRepo.GetByUserAndTarget(in.GetUserId(), int32(in.GetScene()), in.GetContentId())
+		if err != nil {
+			return err
+		}
+		if row == nil {
+			return nil
+		}
+		contentUserID = row.ContentUserID
+
+		if _, err := favoriteRepo.DeleteByUserAndTarget(in.GetUserId(), int32(in.GetScene()), in.GetContentId()); err != nil {
+			return err
+		}
+
+		now := time.Now()
+		return favoriteEventRepo.Create(&model.ZfeedFavoriteEvent{
+			EventID:       fmt.Sprintf("remove_favorite_%d_%d_%d", in.GetUserId(), in.GetContentId(), now.UnixNano()),
+			EventType:     "remove_favorite",
+			Scene:         int32(in.GetScene()),
+			UserID:        in.GetUserId(),
+			ContentID:     in.GetContentId(),
+			ContentUserID: contentUserID,
+			CreatedAt:     now,
+		})
+	}); err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("取消收藏失败"))
 	}
 
@@ -50,9 +95,11 @@ func (l *RemoveFavoriteLogic) RemoveFavorite(in *interaction.RemoveFavoriteReq) 
 		l.Errorf("delete favorite relation cache failed: %v", delErr)
 	}
 
-	favKey := rediskey.BuildUserFavoriteFeedKey(userIDStr)
-	if _, zremErr := l.svcCtx.Redis.ZremCtx(l.ctx, favKey, contentIDStr); zremErr != nil {
-		l.Errorf("remove favorite feed cache failed, user_id=%d, content_id=%d, err=%v", in.GetUserId(), in.GetContentId(), zremErr)
+	if shouldUpdateFavoriteFeed(in.GetScene()) {
+		favKey := rediskey.BuildUserFavoriteFeedKey(userIDStr)
+		if _, zremErr := l.svcCtx.Redis.ZremCtx(l.ctx, favKey, contentIDStr); zremErr != nil {
+			l.Errorf("remove favorite feed cache failed, user_id=%d, content_id=%d, err=%v", in.GetUserId(), in.GetContentId(), zremErr)
+		}
 	}
 
 	return &interaction.RemoveFavoriteRes{}, nil
