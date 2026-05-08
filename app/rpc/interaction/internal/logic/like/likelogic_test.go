@@ -9,6 +9,7 @@ import (
 	miniredis "github.com/alicebob/miniredis/v2"
 	"github.com/zeromicro/go-zero/core/logx"
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
+	"gorm.io/gorm"
 
 	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/do"
@@ -17,31 +18,31 @@ import (
 )
 
 type stubLikeRepo struct {
-	isLikedFunc func(userID int64, contentID int64) (bool, error)
+	isLikedFunc func(userID int64, scene int32, contentID int64) (bool, error)
 }
 
 func (r *stubLikeRepo) Upsert(*do.LikeDO) error {
 	return nil
 }
 
-func (r *stubLikeRepo) CountByContentID(int64) (int64, error) {
+func (r *stubLikeRepo) CountByTarget(int32, int64) (int64, error) {
 	return 0, nil
 }
 
-func (r *stubLikeRepo) CountByContentIDs([]int64) (map[int64]int64, error) {
-	return map[int64]int64{}, nil
+func (r *stubLikeRepo) CountByTargets([]repositories.LikeTarget) (map[string]int64, error) {
+	return map[string]int64{}, nil
 }
 
-func (r *stubLikeRepo) IsLiked(userID int64, contentID int64) (bool, error) {
+func (r *stubLikeRepo) IsLiked(userID int64, scene int32, contentID int64) (bool, error) {
 	if r.isLikedFunc == nil {
 		return false, nil
 	}
 
-	return r.isLikedFunc(userID, contentID)
+	return r.isLikedFunc(userID, scene, contentID)
 }
 
-func (r *stubLikeRepo) BatchIsLiked(int64, []int64) (map[int64]bool, error) {
-	return map[int64]bool{}, nil
+func (r *stubLikeRepo) BatchIsLiked(int64, []repositories.LikeTarget) (map[string]bool, error) {
+	return map[string]bool{}, nil
 }
 
 type stubContentRepo struct {
@@ -55,6 +56,48 @@ func (r *stubContentRepo) GetAuthorID(contentID int64) (int64, error) {
 
 	return r.getAuthorIDFunc(contentID)
 }
+
+type stubCommentRepo struct{}
+
+func (r *stubCommentRepo) WithTx(tx *gorm.DB) repositories.CommentRepository {
+	return r
+}
+
+func (r *stubCommentRepo) Create(*do.CommentDO) (int64, error) { return 0, nil }
+
+func (r *stubCommentRepo) GetByID(int64) (*do.CommentDO, error) { return nil, nil }
+
+func (r *stubCommentRepo) GetByIDIncludeDeleted(int64) (*do.CommentDO, error) { return nil, nil }
+
+func (r *stubCommentRepo) ListRootComments(int64, int64, uint32) ([]*do.CommentDO, error) {
+	return nil, nil
+}
+
+func (r *stubCommentRepo) ListRootCommentsIncludeDeleted(int64, int64, uint32) ([]*do.CommentDO, error) {
+	return nil, nil
+}
+
+func (r *stubCommentRepo) ListReplies(int64, int64, uint32) ([]*do.CommentDO, error) { return nil, nil }
+
+func (r *stubCommentRepo) ListRepliesIncludeDeleted(int64, int64, uint32) ([]*do.CommentDO, error) {
+	return nil, nil
+}
+
+func (r *stubCommentRepo) BatchGetByIDs([]int64) (map[int64]*do.CommentDO, error) { return nil, nil }
+
+func (r *stubCommentRepo) BatchGetByIDsIncludeDeleted([]int64) (map[int64]*do.CommentDO, error) {
+	return nil, nil
+}
+
+func (r *stubCommentRepo) MarkDeleted(int64, int64) error { return nil }
+
+func (r *stubCommentRepo) DeleteByID(int64) error { return nil }
+
+func (r *stubCommentRepo) HasChildren(int64) (bool, error) { return false, nil }
+
+func (r *stubCommentRepo) IncReplyCount(int64) error { return nil }
+
+func (r *stubCommentRepo) DecReplyCount(int64) error { return nil }
 
 type likeEventCall struct {
 	userID        int64
@@ -105,7 +148,7 @@ func TestLikeThenUnlikeStillWorksAfterManyWrites(t *testing.T) {
 	)
 
 	for contentID := int64(1); contentID <= totalContents; contentID++ {
-		changed, err := likeLogic.processLike(userID, contentID)
+		changed, err := likeLogic.processLike(userID, interaction.Scene_ARTICLE, contentID)
 		if err != nil {
 			t.Fatalf("processLike(%d) returned error: %v", contentID, err)
 		}
@@ -114,7 +157,7 @@ func TestLikeThenUnlikeStillWorksAfterManyWrites(t *testing.T) {
 		}
 	}
 
-	changed, err := unlikeLogic.processUnlike(userID, firstContent)
+	changed, err := unlikeLogic.processUnlike(userID, interaction.Scene_ARTICLE, firstContent)
 	if err != nil {
 		t.Fatalf("processUnlike returned error: %v", err)
 	}
@@ -122,7 +165,7 @@ func TestLikeThenUnlikeStillWorksAfterManyWrites(t *testing.T) {
 		t.Fatalf("processUnlike(%d) changed=false, want true", firstContent)
 	}
 
-	changed, err = likeLogic.processLike(userID, firstContent)
+	changed, err = likeLogic.processLike(userID, interaction.Scene_ARTICLE, firstContent)
 	if err != nil {
 		t.Fatalf("processLike after unlike returned error: %v", err)
 	}
@@ -139,6 +182,7 @@ func TestProcessUnlikeFallsBackToDBWhenCacheExpired(t *testing.T) {
 
 	if err := db.Create(&likeTestRow{
 		UserID:        1001,
+		Scene:         int32(interaction.Scene_ARTICLE),
 		ContentID:     9001,
 		ContentUserID: 2001,
 		Status:        10,
@@ -152,7 +196,7 @@ func TestProcessUnlikeFallsBackToDBWhenCacheExpired(t *testing.T) {
 		Redis:   client,
 	})
 
-	changed, err := logic.processUnlike(1001, 9001)
+	changed, err := logic.processUnlike(1001, interaction.Scene_ARTICLE, 9001)
 	if err != nil {
 		t.Fatalf("processUnlike returned error: %v", err)
 	}
@@ -172,7 +216,7 @@ func TestProcessUnlikeReturnsFalseWhenCacheExpiredAndDBNotLiked(t *testing.T) {
 		Redis:   client,
 	})
 
-	changed, err := logic.processUnlike(1001, 9001)
+	changed, err := logic.processUnlike(1001, interaction.Scene_ARTICLE, 9001)
 	if err != nil {
 		t.Fatalf("processUnlike returned error: %v", err)
 	}
@@ -185,7 +229,7 @@ func TestProcessUnlikeSkipsDBWhenCacheShowsAlreadyUnliked(t *testing.T) {
 	t.Parallel()
 
 	client := newLikeLogicTestRedis(t)
-	if err := cacheLikeState(context.Background(), client, likeCacheKey(1001), "9001", false); err != nil {
+	if err := cacheLikeState(context.Background(), client, likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001), false); err != nil {
 		t.Fatalf("seed unlike cache: %v", err)
 	}
 
@@ -194,14 +238,14 @@ func TestProcessUnlikeSkipsDBWhenCacheShowsAlreadyUnliked(t *testing.T) {
 		svcCtx: &svc.ServiceContext{Redis: client},
 		Logger: logx.WithContext(context.Background()),
 		likeRepo: &stubLikeRepo{
-			isLikedFunc: func(userID int64, contentID int64) (bool, error) {
-				t.Fatalf("unexpected DB fallback, user_id=%d, content_id=%d", userID, contentID)
+			isLikedFunc: func(userID int64, scene int32, contentID int64) (bool, error) {
+				t.Fatalf("unexpected DB fallback, user_id=%d, scene=%d, content_id=%d", userID, scene, contentID)
 				return false, nil
 			},
 		},
 	}
 
-	changed, err := logic.processUnlike(1001, 9001)
+	changed, err := logic.processUnlike(1001, interaction.Scene_ARTICLE, 9001)
 	if err != nil {
 		t.Fatalf("processUnlike returned error: %v", err)
 	}
@@ -225,6 +269,7 @@ func TestLikeReturnsNotFoundWhenContentDoesNotExist(t *testing.T) {
 				return 0, nil
 			},
 		},
+		commentRepo: &stubCommentRepo{},
 	}
 
 	_, err := logic.Like(&interaction.LikeReq{
@@ -262,6 +307,7 @@ func TestLikePublishesResolvedContentAuthorInsteadOfClientValue(t *testing.T) {
 				return 2001, nil
 			},
 		},
+		commentRepo: &stubCommentRepo{},
 	}
 
 	_, err := logic.Like(&interaction.LikeReq{
@@ -291,3 +337,4 @@ func TestLikePublishesResolvedContentAuthorInsteadOfClientValue(t *testing.T) {
 }
 
 var _ repositories.ContentRepository = (*stubContentRepo)(nil)
+var _ repositories.CommentRepository = (*stubCommentRepo)(nil)

@@ -20,6 +20,7 @@ type UnlikeLogic struct {
 	svcCtx *svc.ServiceContext
 	logx.Logger
 	contentRepo repositories.ContentRepository
+	commentRepo repositories.CommentRepository
 	likeRepo    repositories.LikeRepository
 }
 
@@ -29,6 +30,7 @@ func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogi
 		svcCtx:      svcCtx,
 		Logger:      logx.WithContext(ctx),
 		contentRepo: repositories.NewContentRepository(ctx, svcCtx.MysqlDb),
+		commentRepo: repositories.NewCommentRepository(ctx, svcCtx.MysqlDb),
 		likeRepo:    repositories.NewLikeRepository(ctx, svcCtx.MysqlDb),
 	}
 }
@@ -41,7 +43,7 @@ func (l *UnlikeLogic) Unlike(in *interaction.UnlikeReq) (*interaction.UnlikeRes,
 		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
-	contentUserID, err := l.contentRepo.GetAuthorID(in.GetContentId())
+	contentUserID, err := resolveLikeTargetOwner(l.contentRepo, l.commentRepo, in.GetScene(), in.GetContentId())
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询内容作者失败"))
 	}
@@ -49,7 +51,7 @@ func (l *UnlikeLogic) Unlike(in *interaction.UnlikeReq) (*interaction.UnlikeRes,
 		return nil, errorx.NewNotFound("内容不存在")
 	}
 
-	changed, err := l.processUnlike(in.GetUserId(), in.GetContentId())
+	changed, err := l.processUnlike(in.GetUserId(), in.GetScene(), in.GetContentId())
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("取消点赞失败"))
 	}
@@ -63,16 +65,16 @@ func (l *UnlikeLogic) Unlike(in *interaction.UnlikeReq) (*interaction.UnlikeRes,
 	return &interaction.UnlikeRes{}, nil
 }
 
-func (l *UnlikeLogic) processUnlike(userID, contentID int64) (changed bool, err error) {
-	contentIDStr := strconv.FormatInt(contentID, 10)
+func (l *UnlikeLogic) processUnlike(userID int64, scene interaction.Scene, contentID int64) (changed bool, err error) {
 	userIDStr := strconv.FormatInt(userID, 10)
 	userLikeKey := rediskey.BuildLikeUserKey(userIDStr)
+	field := likeTargetKey(scene, contentID)
 
 	resultVal, err := l.svcCtx.Redis.EvalCtx(
 		l.ctx,
 		luautils.CancelLikeUserHashScript,
 		[]string{userLikeKey},
-		contentIDStr,
+		field,
 		strconv.FormatInt(rediskey.LikeExpireSeconds, 10),
 	)
 	if err != nil {
@@ -94,7 +96,7 @@ func (l *UnlikeLogic) processUnlike(userID, contentID int64) (changed bool, err 
 		return false, nil
 	}
 
-	isLiked, err := l.likeRepo.IsLiked(userID, contentID)
+	isLiked, err := l.likeRepo.IsLiked(userID, int32(scene), contentID)
 	if err != nil {
 		return false, err
 	}

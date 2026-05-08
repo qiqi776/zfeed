@@ -19,6 +19,7 @@ const (
 
 type consumedLikeRow struct {
 	UserID        int64 `gorm:"column:user_id"`
+	Scene         int32 `gorm:"column:scene"`
 	ContentID     int64 `gorm:"column:content_id"`
 	ContentUserID int64 `gorm:"column:content_user_id"`
 	Status        int32 `gorm:"column:status"`
@@ -49,9 +50,9 @@ func TestLikeConsumerDedupsSameEvent(t *testing.T) {
 	}
 
 	assertDedupCount(t, db, eventPrefix, 1)
-	assertLikeRowCount(t, db, likeConsumerTestMinID+1, likeConsumerTestMinID+101, 1)
+	assertLikeRowCount(t, db, likeConsumerTestMinID+1, 10, likeConsumerTestMinID+101, 1)
 
-	row := mustGetConsumedLikeRow(t, db, likeConsumerTestMinID+1, likeConsumerTestMinID+101)
+	row := mustGetConsumedLikeRow(t, db, likeConsumerTestMinID+1, 10, likeConsumerTestMinID+101)
 	if row.Status != 10 {
 		t.Fatalf("status = %d, want 10", row.Status)
 	}
@@ -97,9 +98,9 @@ func TestLikeConsumerCoalescesDifferentEvents(t *testing.T) {
 	}
 
 	assertDedupCount(t, db, eventPrefix, 2)
-	assertLikeRowCount(t, db, userID, contentID, 1)
+	assertLikeRowCount(t, db, userID, 10, contentID, 1)
 
-	row := mustGetConsumedLikeRow(t, db, userID, contentID)
+	row := mustGetConsumedLikeRow(t, db, userID, 10, contentID)
 	if row.Status != 10 {
 		t.Fatalf("status = %d, want 10", row.Status)
 	}
@@ -145,9 +146,9 @@ func TestLikeConsumerIgnoresStaleEvent(t *testing.T) {
 	}
 
 	assertDedupCount(t, db, eventPrefix, 2)
-	assertLikeRowCount(t, db, userID, contentID, 1)
+	assertLikeRowCount(t, db, userID, 10, contentID, 1)
 
-	row := mustGetConsumedLikeRow(t, db, userID, contentID)
+	row := mustGetConsumedLikeRow(t, db, userID, 10, contentID)
 	if row.Status != 20 {
 		t.Fatalf("status = %d, want 20", row.Status)
 	}
@@ -183,9 +184,9 @@ func TestLikeConsumerDedupsCancel(t *testing.T) {
 	}
 
 	assertDedupCount(t, db, eventPrefix, 1)
-	assertLikeRowCount(t, db, likeConsumerTestMinID+4, likeConsumerTestMinID+104, 1)
+	assertLikeRowCount(t, db, likeConsumerTestMinID+4, 10, likeConsumerTestMinID+104, 1)
 
-	row := mustGetConsumedLikeRow(t, db, likeConsumerTestMinID+4, likeConsumerTestMinID+104)
+	row := mustGetConsumedLikeRow(t, db, likeConsumerTestMinID+4, 10, likeConsumerTestMinID+104)
 	if row.Status != 20 {
 		t.Fatalf("status = %d, want 20", row.Status)
 	}
@@ -254,12 +255,12 @@ func assertDedupCount(t *testing.T, db *gorm.DB, eventPrefix string, want int64)
 	}
 }
 
-func assertLikeRowCount(t *testing.T, db *gorm.DB, userID, contentID int64, want int64) {
+func assertLikeRowCount(t *testing.T, db *gorm.DB, userID int64, scene int32, contentID int64, want int64) {
 	t.Helper()
 
 	var count int64
 	if err := db.Table("zfeed_like").
-		Where("user_id = ? AND content_id = ?", userID, contentID).
+		Where("user_id = ? AND scene = ? AND content_id = ?", userID, scene, contentID).
 		Count(&count).Error; err != nil {
 		t.Fatalf("count like rows: %v", err)
 	}
@@ -268,13 +269,13 @@ func assertLikeRowCount(t *testing.T, db *gorm.DB, userID, contentID int64, want
 	}
 }
 
-func mustGetConsumedLikeRow(t *testing.T, db *gorm.DB, userID, contentID int64) consumedLikeRow {
+func mustGetConsumedLikeRow(t *testing.T, db *gorm.DB, userID int64, scene int32, contentID int64) consumedLikeRow {
 	t.Helper()
 
 	var row consumedLikeRow
 	if err := db.Table("zfeed_like").
-		Select("user_id", "content_id", "content_user_id", "status", "last_event_ts").
-		Where("user_id = ? AND content_id = ?", userID, contentID).
+		Select("user_id", "scene", "content_id", "content_user_id", "status", "last_event_ts").
+		Where("user_id = ? AND scene = ? AND content_id = ?", userID, scene, contentID).
 		Take(&row).Error; err != nil {
 		t.Fatalf("query like row: %v", err)
 	}

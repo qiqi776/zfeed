@@ -1,23 +1,23 @@
 ---@diagnostic disable: undefined-global
 -- 用户维度点赞 HASH 写入脚本（TTL，原子性）
 -- KEYS[1]=userLikeKey (like:user:{user_id})
--- ARGV[1]=content_id
+-- ARGV[1]=cache_field
 -- ARGV[2]=expire_seconds
 -- 返回: {changed(0/1), cached(0/1)}
 --   changed: 1=本次确实从未点赞/已取消->已点赞；0=重复点赞
 --   cached: 1=写入了缓存
 
-local cid = tonumber(ARGV[1])
+local field = ARGV[1]
 local expireTime = tonumber(ARGV[2]) or 0
 
-if not cid then
+if not field or field == '' then
     return {0, 0}
 end
 
-local current = redis.call('HGET', KEYS[1], ARGV[1])
+local current = redis.call('HGET', KEYS[1], field)
 
 if current ~= '1' then
-    redis.call('HSET', KEYS[1], ARGV[1], '1')
+    redis.call('HSET', KEYS[1], field, '1')
 end
 if expireTime > 0 then
     redis.call('EXPIRE', KEYS[1], expireTime)

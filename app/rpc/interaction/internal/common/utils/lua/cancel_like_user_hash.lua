@@ -1,7 +1,7 @@
 ---@diagnostic disable: undefined-global
 -- 用户维度取消点赞 HASH 脚本（TTL，原子性）
 -- KEYS[1]=userLikeKey (like:user:{user_id})
--- ARGV[1]=content_id
+-- ARGV[1]=cache_field
 -- ARGV[2]=expire_seconds
 -- 返回: {changed(0/1), existed(0/1)}
 

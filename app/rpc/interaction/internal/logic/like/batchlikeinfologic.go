@@ -39,20 +39,20 @@ func (l *BatchLikeInfoLogic) BatchLikeInfo(in *interaction.BatchLikeInfoReq) (*i
 		}, nil
 	}
 
-	contentIDs := make([]int64, 0, len(normalized))
+	targets := make([]repositories.LikeTarget, 0, len(normalized))
 	for _, item := range normalized {
-		contentIDs = append(contentIDs, item.contentID)
+		targets = append(targets, item.repoTarget())
 	}
 
-	countMap, err := l.likeRepo.CountByContentIDs(contentIDs)
+	countMap, err := l.likeRepo.CountByTargets(targets)
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询点赞信息失败"))
 	}
 
-	isLikedMap := map[int64]bool{}
+	isLikedMap := map[string]bool{}
 	if in.GetUserId() > 0 {
 		stateLoader := NewBatchIsLikedLogic(l.ctx, l.svcCtx)
-		isLikedMap, err = stateLoader.loadLikedMap(in.GetUserId(), contentIDs)
+		isLikedMap, err = stateLoader.loadLikedMap(in.GetUserId(), normalized)
 		if err != nil {
 			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询点赞信息失败"))
 		}
@@ -61,8 +61,8 @@ func (l *BatchLikeInfoLogic) BatchLikeInfo(in *interaction.BatchLikeInfoReq) (*i
 	items := make([]*interaction.QueryLikeInfoRes, 0, len(normalized))
 	for _, item := range normalized {
 		items = append(items, &interaction.QueryLikeInfoRes{
-			LikeCount: countMap[item.contentID],
-			IsLiked:   isLikedMap[item.contentID],
+			LikeCount: countMap[item.key()],
+			IsLiked:   isLikedMap[item.key()],
 			ContentId: item.contentID,
 			Scene:     item.scene,
 		})

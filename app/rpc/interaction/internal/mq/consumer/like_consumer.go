@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"strings"
 
 	"github.com/zeromicro/go-queue/kq"
 	"github.com/zeromicro/go-zero/core/logc"
@@ -9,6 +10,7 @@ import (
 	"github.com/zeromicro/go-zero/core/service"
 	"gorm.io/gorm"
 
+	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/config"
 	"zfeed/app/rpc/interaction/internal/do"
 	"zfeed/app/rpc/interaction/internal/mq/event"
@@ -52,6 +54,12 @@ func (c *LikeConsumer) Consume(ctx context.Context, key, val string) error {
 		status = repositories.LikeStatusLike
 	}
 
+	sceneValue, ok := interaction.Scene_value[strings.TrimSpace(likeEvent.Scene)]
+	if !ok || sceneValue == int32(interaction.Scene_SCENE_UNKNOWN) {
+		logc.Errorf(ctx, "invalid like scene, event_id=%s, scene=%s", likeEvent.EventID, likeEvent.Scene)
+		return nil
+	}
+
 	return c.svcCtx.MysqlDb.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		dedupRepo := repositories.NewMqConsumeDedupRepository(ctx, tx)
 		inserted, err := dedupRepo.InsertIfAbsent(c.consumerName, likeEvent.EventID)
@@ -64,6 +72,7 @@ func (c *LikeConsumer) Consume(ctx context.Context, key, val string) error {
 
 		likeDO := &do.LikeDO{
 			UserID:        likeEvent.UserID,
+			Scene:         sceneValue,
 			ContentID:     likeEvent.ContentID,
 			ContentUserID: likeEvent.ContentUserID,
 			Status:        status,

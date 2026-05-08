@@ -40,15 +40,10 @@ func (l *BatchIsLikedLogic) BatchIsLiked(in *interaction.BatchIsLikedReq) (*inte
 		}, nil
 	}
 
-	contentIDs := make([]int64, 0, len(normalized))
-	for _, item := range normalized {
-		contentIDs = append(contentIDs, item.contentID)
-	}
-
-	likedMap := map[int64]bool{}
+	likedMap := map[string]bool{}
 	if in.GetUserId() > 0 {
 		var err error
-		likedMap, err = l.loadLikedMap(in.GetUserId(), contentIDs)
+		likedMap, err = l.loadLikedMap(in.GetUserId(), normalized)
 		if err != nil {
 			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询点赞信息失败"))
 		}
@@ -59,7 +54,7 @@ func (l *BatchIsLikedLogic) BatchIsLiked(in *interaction.BatchIsLikedReq) (*inte
 		items = append(items, &interaction.IsLikedInfo{
 			ContentId: item.contentID,
 			Scene:     item.scene,
-			IsLiked:   likedMap[item.contentID],
+			IsLiked:   likedMap[item.key()],
 		})
 	}
 
@@ -71,6 +66,17 @@ func (l *BatchIsLikedLogic) BatchIsLiked(in *interaction.BatchIsLikedReq) (*inte
 type normalizedLikeInfo struct {
 	contentID int64
 	scene     interaction.Scene
+}
+
+func (i normalizedLikeInfo) key() string {
+	return likeTargetKey(i.scene, i.contentID)
+}
+
+func (i normalizedLikeInfo) repoTarget() repositories.LikeTarget {
+	return repositories.LikeTarget{
+		Scene:     int32(i.scene),
+		ContentID: i.contentID,
+	}
 }
 
 func normalizeInfos(items []*interaction.LikeInfo) []normalizedLikeInfo {
@@ -97,58 +103,65 @@ func normalizeInfos(items []*interaction.LikeInfo) []normalizedLikeInfo {
 	return result
 }
 
-func (l *BatchIsLikedLogic) loadLikedMap(userID int64, contentIDs []int64) (map[int64]bool, error) {
-	result := make(map[int64]bool, len(contentIDs))
-	if userID <= 0 || len(contentIDs) == 0 {
+func (l *BatchIsLikedLogic) loadLikedMap(userID int64, infos []normalizedLikeInfo) (map[string]bool, error) {
+	result := make(map[string]bool, len(infos))
+	if userID <= 0 || len(infos) == 0 {
 		return result, nil
 	}
 
 	userLikeKey := likeCacheKey(userID)
-	fields := make([]string, 0, len(contentIDs))
-	for _, contentID := range contentIDs {
-		fields = append(fields, strconv.FormatInt(contentID, 10))
+	fields := make([]string, 0, len(infos))
+	for _, info := range infos {
+		fields = append(fields, likeTargetKey(info.scene, info.contentID))
 	}
 
-	missingIDs := make([]int64, 0)
+	missingTargets := make([]normalizedLikeInfo, 0)
 	cacheValues, err := l.svcCtx.Redis.HmgetCtx(l.ctx, userLikeKey, fields...)
 	if err != nil {
 		l.Errorf("batch query like relation cache failed, key=%s, err=%v", userLikeKey, err)
-		missingIDs = append(missingIDs, contentIDs...)
+		missingTargets = append(missingTargets, infos...)
 	} else {
-		for index, contentID := range contentIDs {
+		for index, info := range infos {
 			if index < len(cacheValues) {
 				if isLiked, ok := parseLikeCacheValue(cacheValues[index]); ok {
 					if isLiked {
-						result[contentID] = true
+						result[info.key()] = true
 					}
 					continue
 				}
 				if cacheValues[index] == "" {
-					missingIDs = append(missingIDs, contentID)
+					missingTargets = append(missingTargets, info)
 					continue
 				}
 			}
-			missingIDs = append(missingIDs, contentID)
+			missingTargets = append(missingTargets, info)
 		}
 	}
 
-	if len(missingIDs) == 0 {
+	if len(missingTargets) == 0 {
 		return result, nil
 	}
 
-	dbMap, err := l.likeRepo.BatchIsLiked(userID, missingIDs)
+	targets := make([]repositories.LikeTarget, 0, len(missingTargets))
+	for _, info := range missingTargets {
+		targets = append(targets, info.repoTarget())
+	}
+
+	dbMap, err := l.likeRepo.BatchIsLiked(userID, targets)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, contentID := range missingIDs {
-		isLiked := dbMap[contentID]
+	for _, info := range missingTargets {
+		field := likeTargetKey(info.scene, info.contentID)
+		mapKey := info.key()
+		isLiked := dbMap[mapKey]
 		if isLiked {
-			result[contentID] = true
+			result[mapKey] = true
 		}
 
-		if setErr := cacheLikeState(l.ctx, l.svcCtx.Redis, userLikeKey, strconv.FormatInt(contentID, 10), isLiked); setErr != nil {
-			l.Errorf("rebuild like relation cache failed, key=%s, content_id=%d, err=%v", userLikeKey, contentID, setErr)
+		if setErr := cacheLikeState(l.ctx, l.svcCtx.Redis, userLikeKey, field, isLiked); setErr != nil {
+			l.Errorf("rebuild like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, field, setErr)
 		}
 	}
 

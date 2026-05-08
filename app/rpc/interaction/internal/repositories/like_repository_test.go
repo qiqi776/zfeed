@@ -17,6 +17,7 @@ const (
 
 type likeRow struct {
 	UserID        int64 `gorm:"column:user_id"`
+	Scene         int32 `gorm:"column:scene"`
 	ContentID     int64 `gorm:"column:content_id"`
 	ContentUserID int64 `gorm:"column:content_user_id"`
 	Status        int32 `gorm:"column:status"`
@@ -31,9 +32,11 @@ func TestLikeUpsertNewerWins(t *testing.T) {
 	userID := likeRepositoryTestMinID + 1
 	contentID := likeRepositoryTestMinID + 101
 	contentUserID := likeRepositoryTestMinID + 201
+	scene := int32(10)
 
 	err := repo.Upsert(&do.LikeDO{
 		UserID:        userID,
+		Scene:         scene,
 		ContentID:     contentID,
 		ContentUserID: contentUserID,
 		Status:        LikeStatusLike,
@@ -47,6 +50,7 @@ func TestLikeUpsertNewerWins(t *testing.T) {
 
 	err = repo.Upsert(&do.LikeDO{
 		UserID:        userID,
+		Scene:         scene,
 		ContentID:     contentID,
 		ContentUserID: contentUserID,
 		Status:        LikeStatusCancel,
@@ -58,7 +62,7 @@ func TestLikeUpsertNewerWins(t *testing.T) {
 		t.Fatalf("second upsert returned error: %v", err)
 	}
 
-	row := mustGetLikeRow(t, db, userID, contentID)
+	row := mustGetLikeRow(t, db, userID, scene, contentID)
 	if row.Status != LikeStatusCancel {
 		t.Fatalf("status = %d, want %d", row.Status, LikeStatusCancel)
 	}
@@ -75,9 +79,11 @@ func TestLikeUpsertOlderIgnored(t *testing.T) {
 	userID := likeRepositoryTestMinID + 2
 	contentID := likeRepositoryTestMinID + 102
 	contentUserID := likeRepositoryTestMinID + 202
+	scene := int32(10)
 
 	err := repo.Upsert(&do.LikeDO{
 		UserID:        userID,
+		Scene:         scene,
 		ContentID:     contentID,
 		ContentUserID: contentUserID,
 		Status:        LikeStatusCancel,
@@ -91,6 +97,7 @@ func TestLikeUpsertOlderIgnored(t *testing.T) {
 
 	err = repo.Upsert(&do.LikeDO{
 		UserID:        userID,
+		Scene:         scene,
 		ContentID:     contentID,
 		ContentUserID: contentUserID + 1,
 		Status:        LikeStatusLike,
@@ -102,7 +109,7 @@ func TestLikeUpsertOlderIgnored(t *testing.T) {
 		t.Fatalf("second upsert returned error: %v", err)
 	}
 
-	row := mustGetLikeRow(t, db, userID, contentID)
+	row := mustGetLikeRow(t, db, userID, scene, contentID)
 	if row.Status != LikeStatusCancel {
 		t.Fatalf("status = %d, want %d", row.Status, LikeStatusCancel)
 	}
@@ -123,9 +130,11 @@ func TestLikeUpsertNewerAuthorWins(t *testing.T) {
 	contentID := likeRepositoryTestMinID + 103
 	initialContentUserID := likeRepositoryTestMinID + 203
 	updatedContentUserID := likeRepositoryTestMinID + 204
+	scene := int32(10)
 
 	err := repo.Upsert(&do.LikeDO{
 		UserID:        userID,
+		Scene:         scene,
 		ContentID:     contentID,
 		ContentUserID: initialContentUserID,
 		Status:        LikeStatusLike,
@@ -139,6 +148,7 @@ func TestLikeUpsertNewerAuthorWins(t *testing.T) {
 
 	err = repo.Upsert(&do.LikeDO{
 		UserID:        userID,
+		Scene:         scene,
 		ContentID:     contentID,
 		ContentUserID: updatedContentUserID,
 		Status:        LikeStatusCancel,
@@ -152,6 +162,7 @@ func TestLikeUpsertNewerAuthorWins(t *testing.T) {
 
 	err = repo.Upsert(&do.LikeDO{
 		UserID:        userID,
+		Scene:         scene,
 		ContentID:     contentID,
 		ContentUserID: initialContentUserID,
 		Status:        LikeStatusLike,
@@ -163,7 +174,7 @@ func TestLikeUpsertNewerAuthorWins(t *testing.T) {
 		t.Fatalf("third upsert returned error: %v", err)
 	}
 
-	row := mustGetLikeRow(t, db, userID, contentID)
+	row := mustGetLikeRow(t, db, userID, scene, contentID)
 	if row.Status != LikeStatusCancel {
 		t.Fatalf("status = %d, want %d", row.Status, LikeStatusCancel)
 	}
@@ -172,6 +183,53 @@ func TestLikeUpsertNewerAuthorWins(t *testing.T) {
 	}
 	if row.ContentUserID != updatedContentUserID {
 		t.Fatalf("content_user_id = %d, want %d", row.ContentUserID, updatedContentUserID)
+	}
+}
+
+func TestLikeUpsertDifferentScenesCoexist(t *testing.T) {
+	db, cleanup := openLikeRepositoryTestDB(t)
+	defer cleanup()
+
+	repo := NewLikeRepository(context.Background(), db)
+	userID := likeRepositoryTestMinID + 4
+	contentID := likeRepositoryTestMinID + 104
+
+	err := repo.Upsert(&do.LikeDO{
+		UserID:        userID,
+		Scene:         10,
+		ContentID:     contentID,
+		ContentUserID: likeRepositoryTestMinID + 204,
+		Status:        LikeStatusLike,
+		LastEventTs:   100,
+		CreatedBy:     userID,
+		UpdatedBy:     userID,
+	})
+	if err != nil {
+		t.Fatalf("article upsert returned error: %v", err)
+	}
+
+	err = repo.Upsert(&do.LikeDO{
+		UserID:        userID,
+		Scene:         30,
+		ContentID:     contentID,
+		ContentUserID: likeRepositoryTestMinID + 304,
+		Status:        LikeStatusLike,
+		LastEventTs:   100,
+		CreatedBy:     userID,
+		UpdatedBy:     userID,
+	})
+	if err != nil {
+		t.Fatalf("comment upsert returned error: %v", err)
+	}
+
+	articleRow := mustGetLikeRow(t, db, userID, 10, contentID)
+	if articleRow.ContentUserID != likeRepositoryTestMinID+204 {
+		t.Fatalf("article content_user_id = %d, want %d", articleRow.ContentUserID, likeRepositoryTestMinID+204)
+	}
+
+	commentRow := mustGetLikeRow(t, db, userID, 30, contentID)
+	if commentRow.ContentUserID != likeRepositoryTestMinID+304 {
+		t.Fatalf("comment content_user_id = %d, want %d", commentRow.ContentUserID, likeRepositoryTestMinID+304)
 	}
 }
 
@@ -203,13 +261,13 @@ func openLikeRepositoryTestDB(t *testing.T) (*gorm.DB, func()) {
 	}
 }
 
-func mustGetLikeRow(t *testing.T, db *gorm.DB, userID, contentID int64) likeRow {
+func mustGetLikeRow(t *testing.T, db *gorm.DB, userID int64, scene int32, contentID int64) likeRow {
 	t.Helper()
 
 	var row likeRow
 	if err := db.Table("zfeed_like").
-		Select("user_id", "content_id", "content_user_id", "status", "last_event_ts").
-		Where("user_id = ? AND content_id = ?", userID, contentID).
+		Select("user_id", "scene", "content_id", "content_user_id", "status", "last_event_ts").
+		Where("user_id = ? AND scene = ? AND content_id = ?", userID, scene, contentID).
 		Take(&row).Error; err != nil {
 		t.Fatalf("query like row: %v", err)
 	}

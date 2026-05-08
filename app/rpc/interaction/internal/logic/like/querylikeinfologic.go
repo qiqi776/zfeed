@@ -2,7 +2,6 @@ package likelogic
 
 import (
 	"context"
-	"strconv"
 
 	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/repositories"
@@ -36,14 +35,14 @@ func (l *QueryLikeInfoLogic) QueryLikeInfo(in *interaction.QueryLikeInfoReq) (*i
 		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
-	likeCount, err := l.likeRepo.CountByContentID(in.GetContentId())
+	likeCount, err := l.likeRepo.CountByTarget(int32(in.GetScene()), in.GetContentId())
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询点赞信息失败"))
 	}
 
 	isLiked := false
 	if in.GetUserId() > 0 {
-		isLiked, err = l.queryIsLiked(in.GetUserId(), in.GetContentId())
+		isLiked, err = l.queryIsLiked(in.GetUserId(), in.GetScene(), in.GetContentId())
 		if err != nil {
 			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询点赞信息失败"))
 		}
@@ -57,11 +56,11 @@ func (l *QueryLikeInfoLogic) QueryLikeInfo(in *interaction.QueryLikeInfoReq) (*i
 	}, nil
 }
 
-func (l *QueryLikeInfoLogic) queryIsLiked(userID, contentID int64) (bool, error) {
+func (l *QueryLikeInfoLogic) queryIsLiked(userID int64, scene interaction.Scene, contentID int64) (bool, error) {
 	userLikeKey := likeCacheKey(userID)
-	contentIDStr := strconv.FormatInt(contentID, 10)
+	field := likeTargetKey(scene, contentID)
 
-	cacheValues, err := l.svcCtx.Redis.HmgetCtx(l.ctx, userLikeKey, contentIDStr)
+	cacheValues, err := l.svcCtx.Redis.HmgetCtx(l.ctx, userLikeKey, field)
 	if err == nil {
 		if len(cacheValues) > 0 {
 			if isLiked, ok := parseLikeCacheValue(cacheValues[0]); ok {
@@ -69,15 +68,15 @@ func (l *QueryLikeInfoLogic) queryIsLiked(userID, contentID int64) (bool, error)
 			}
 		}
 	} else {
-		l.Errorf("query like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, contentIDStr, err)
+		l.Errorf("query like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, field, err)
 	}
 
-	isLiked, err := l.likeRepo.IsLiked(userID, contentID)
+	isLiked, err := l.likeRepo.IsLiked(userID, int32(scene), contentID)
 	if err != nil {
 		return false, err
 	}
-	if setErr := cacheLikeState(l.ctx, l.svcCtx.Redis, userLikeKey, contentIDStr, isLiked); setErr != nil {
-		l.Errorf("rebuild like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, contentIDStr, setErr)
+	if setErr := cacheLikeState(l.ctx, l.svcCtx.Redis, userLikeKey, field, isLiked); setErr != nil {
+		l.Errorf("rebuild like relation cache failed, key=%s, field=%s, err=%v", userLikeKey, field, setErr)
 	}
 
 	return isLiked, nil

@@ -4,6 +4,7 @@ type LikeDO struct {
 	UserID        int64
 	ContentID     int64
 	ContentUserID int64
+	Scene         int32
 	Status        int32
 	LastEventTs   int64
 	CreatedBy     int64

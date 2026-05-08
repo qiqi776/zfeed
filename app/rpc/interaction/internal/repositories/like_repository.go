@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"gorm.io/gorm"
@@ -14,12 +16,17 @@ const (
 	LikeStatusCancel int32 = 20
 )
 
+type LikeTarget struct {
+	Scene     int32
+	ContentID int64
+}
+
 type LikeRepository interface {
 	Upsert(likeDO *do.LikeDO) error
-	CountByContentID(contentID int64) (int64, error)
-	CountByContentIDs(contentIDs []int64) (map[int64]int64, error)
-	IsLiked(userID int64, contentID int64) (bool, error)
-	BatchIsLiked(userID int64, contentIDs []int64) (map[int64]bool, error)
+	CountByTarget(scene int32, contentID int64) (int64, error)
+	CountByTargets(targets []LikeTarget) (map[string]int64, error)
+	IsLiked(userID int64, scene int32, contentID int64) (bool, error)
+	BatchIsLiked(userID int64, targets []LikeTarget) (map[string]bool, error)
 }
 
 type likeRepositoryImpl struct {
@@ -40,6 +47,7 @@ func (r *likeRepositoryImpl) Upsert(likeDO *do.LikeDO) error {
 	query := `
 INSERT INTO zfeed_like (
   user_id,
+  scene,
   content_id,
   content_user_id,
   status,
@@ -60,6 +68,7 @@ ON DUPLICATE KEY UPDATE
 	return r.db.WithContext(r.ctx).Exec(
 		query,
 		likeDO.UserID,
+		likeDO.Scene,
 		likeDO.ContentID,
 		likeDO.ContentUserID,
 		likeDO.Status,
@@ -69,7 +78,11 @@ ON DUPLICATE KEY UPDATE
 	).Error
 }
 
-func (r *likeRepositoryImpl) CountByContentID(contentID int64) (int64, error) {
+func LikeTargetKey(scene int32, contentID int64) string {
+	return strconv.FormatInt(int64(scene), 10) + ":" + strconv.FormatInt(contentID, 10)
+}
+
+func (r *likeRepositoryImpl) CountByTarget(scene int32, contentID int64) (int64, error) {
 	if contentID <= 0 {
 		return 0, nil
 	}
@@ -77,7 +90,7 @@ func (r *likeRepositoryImpl) CountByContentID(contentID int64) (int64, error) {
 	var count int64
 	err := r.db.WithContext(r.ctx).
 		Table("zfeed_like").
-		Where("content_id = ? AND status = ? AND is_deleted = 0", contentID, LikeStatusLike).
+		Where("scene = ? AND content_id = ? AND status = ? AND is_deleted = 0", scene, contentID, LikeStatusLike).
 		Count(&count).Error
 	if err != nil {
 		return 0, err
@@ -86,35 +99,38 @@ func (r *likeRepositoryImpl) CountByContentID(contentID int64) (int64, error) {
 	return count, nil
 }
 
-func (r *likeRepositoryImpl) CountByContentIDs(contentIDs []int64) (map[int64]int64, error) {
-	result := make(map[int64]int64, len(contentIDs))
-	if len(contentIDs) == 0 {
+func (r *likeRepositoryImpl) CountByTargets(targets []LikeTarget) (map[string]int64, error) {
+	result := make(map[string]int64, len(targets))
+	targets = uniqueLikeTargets(targets)
+	if len(targets) == 0 {
 		return result, nil
 	}
 
 	type row struct {
+		Scene     int32 `gorm:"column:scene"`
 		ContentID int64 `gorm:"column:content_id"`
 		Count     int64 `gorm:"column:count"`
 	}
 
 	rows := make([]row, 0)
-	err := r.db.WithContext(r.ctx).
+	query := r.db.WithContext(r.ctx).
 		Table("zfeed_like").
-		Select("content_id, COUNT(*) AS count").
-		Where("content_id IN ? AND status = ? AND is_deleted = 0", contentIDs, LikeStatusLike).
-		Group("content_id").
-		Find(&rows).Error
+		Select("scene, content_id, COUNT(*) AS count").
+		Where("status = ? AND is_deleted = 0", LikeStatusLike)
+
+	query = applyLikeTargetFilter(query, targets)
+	err := query.Group("scene, content_id").Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}
 
 	for _, item := range rows {
-		result[item.ContentID] = item.Count
+		result[LikeTargetKey(item.Scene, item.ContentID)] = item.Count
 	}
 	return result, nil
 }
 
-func (r *likeRepositoryImpl) IsLiked(userID int64, contentID int64) (bool, error) {
+func (r *likeRepositoryImpl) IsLiked(userID int64, scene int32, contentID int64) (bool, error) {
 	if userID <= 0 || contentID <= 0 {
 		return false, nil
 	}
@@ -122,7 +138,7 @@ func (r *likeRepositoryImpl) IsLiked(userID int64, contentID int64) (bool, error
 	var count int64
 	err := r.db.WithContext(r.ctx).
 		Table("zfeed_like").
-		Where("user_id = ? AND content_id = ? AND status = ? AND is_deleted = 0", userID, contentID, LikeStatusLike).
+		Where("user_id = ? AND scene = ? AND content_id = ? AND status = ? AND is_deleted = 0", userID, scene, contentID, LikeStatusLike).
 		Count(&count).Error
 	if err != nil {
 		return false, err
@@ -131,28 +147,64 @@ func (r *likeRepositoryImpl) IsLiked(userID int64, contentID int64) (bool, error
 	return count > 0, nil
 }
 
-func (r *likeRepositoryImpl) BatchIsLiked(userID int64, contentIDs []int64) (map[int64]bool, error) {
-	result := make(map[int64]bool, len(contentIDs))
-	if userID <= 0 || len(contentIDs) == 0 {
+func (r *likeRepositoryImpl) BatchIsLiked(userID int64, targets []LikeTarget) (map[string]bool, error) {
+	result := make(map[string]bool, len(targets))
+	targets = uniqueLikeTargets(targets)
+	if userID <= 0 || len(targets) == 0 {
 		return result, nil
 	}
 
 	type row struct {
+		Scene     int32 `gorm:"column:scene"`
 		ContentID int64 `gorm:"column:content_id"`
 	}
 
 	rows := make([]row, 0)
-	err := r.db.WithContext(r.ctx).
+	query := r.db.WithContext(r.ctx).
 		Table("zfeed_like").
-		Select("content_id").
-		Where("user_id = ? AND content_id IN ? AND status = ? AND is_deleted = 0", userID, contentIDs, LikeStatusLike).
-		Find(&rows).Error
+		Select("scene, content_id").
+		Where("user_id = ? AND status = ? AND is_deleted = 0", userID, LikeStatusLike)
+
+	query = applyLikeTargetFilter(query, targets)
+	err := query.Find(&rows).Error
 	if err != nil {
 		return nil, err
 	}
 
 	for _, item := range rows {
-		result[item.ContentID] = true
+		result[LikeTargetKey(item.Scene, item.ContentID)] = true
 	}
 	return result, nil
+}
+
+func applyLikeTargetFilter(query *gorm.DB, targets []LikeTarget) *gorm.DB {
+	if len(targets) == 0 {
+		return query.Where("1 = 0")
+	}
+
+	clauses := make([]string, 0, len(targets))
+	args := make([]any, 0, len(targets)*2)
+	for _, target := range uniqueLikeTargets(targets) {
+		clauses = append(clauses, "(scene = ? AND content_id = ?)")
+		args = append(args, target.Scene, target.ContentID)
+	}
+
+	return query.Where(strings.Join(clauses, " OR "), args...)
+}
+
+func uniqueLikeTargets(targets []LikeTarget) []LikeTarget {
+	seen := make(map[string]struct{}, len(targets))
+	result := make([]LikeTarget, 0, len(targets))
+	for _, target := range targets {
+		if target.ContentID <= 0 || target.Scene <= 0 {
+			continue
+		}
+		key := LikeTargetKey(target.Scene, target.ContentID)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, target)
+	}
+	return result
 }

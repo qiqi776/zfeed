@@ -20,6 +20,7 @@ type LikeLogic struct {
 	svcCtx *svc.ServiceContext
 	logx.Logger
 	contentRepo repositories.ContentRepository
+	commentRepo repositories.CommentRepository
 }
 
 func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
@@ -28,6 +29,7 @@ func NewLikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LikeLogic {
 		svcCtx:      svcCtx,
 		Logger:      logx.WithContext(ctx),
 		contentRepo: repositories.NewContentRepository(ctx, svcCtx.MysqlDb),
+		commentRepo: repositories.NewCommentRepository(ctx, svcCtx.MysqlDb),
 	}
 }
 
@@ -39,7 +41,7 @@ func (l *LikeLogic) Like(in *interaction.LikeReq) (*interaction.LikeRes, error) 
 		return nil, errorx.NewBadRequest("场景参数错误")
 	}
 
-	contentUserID, err := l.contentRepo.GetAuthorID(in.GetContentId())
+	contentUserID, err := resolveLikeTargetOwner(l.contentRepo, l.commentRepo, in.GetScene(), in.GetContentId())
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询内容作者失败"))
 	}
@@ -47,7 +49,7 @@ func (l *LikeLogic) Like(in *interaction.LikeReq) (*interaction.LikeRes, error) 
 		return nil, errorx.NewNotFound("内容不存在")
 	}
 
-	changed, err := l.processLike(in.GetUserId(), in.GetContentId())
+	changed, err := l.processLike(in.GetUserId(), in.GetScene(), in.GetContentId())
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("点赞处理失败"))
 	}
@@ -61,16 +63,16 @@ func (l *LikeLogic) Like(in *interaction.LikeReq) (*interaction.LikeRes, error) 
 	return &interaction.LikeRes{}, nil
 }
 
-func (l *LikeLogic) processLike(userID, contentID int64) (changed bool, err error) {
-	contentIDStr := strconv.FormatInt(contentID, 10)
+func (l *LikeLogic) processLike(userID int64, scene interaction.Scene, contentID int64) (changed bool, err error) {
 	userIDStr := strconv.FormatInt(userID, 10)
 	userLikeKey := rediskey.BuildLikeUserKey(userIDStr)
+	field := likeTargetKey(scene, contentID)
 
 	resultVal, err := l.svcCtx.Redis.EvalCtx(
 		l.ctx,
 		luautils.LikeUserHashScript,
 		[]string{userLikeKey},
-		contentIDStr,
+		field,
 		strconv.FormatInt(rediskey.LikeExpireSeconds, 10),
 	)
 	if err != nil {
@@ -88,4 +90,27 @@ func (l *LikeLogic) processLike(userID, contentID int64) (changed bool, err erro
 
 func (l *LikeLogic) publishLikeEvent(userID, contentID, contentUserID int64, scene string) {
 	l.svcCtx.LikeProducer.SendLikeEvent(l.ctx, userID, contentID, contentUserID, scene)
+}
+
+func resolveLikeTargetOwner(
+	contentRepo repositories.ContentRepository,
+	commentRepo repositories.CommentRepository,
+	scene interaction.Scene,
+	contentID int64,
+) (int64, error) {
+	switch scene {
+	case interaction.Scene_ARTICLE, interaction.Scene_VIDEO:
+		return contentRepo.GetAuthorID(contentID)
+	case interaction.Scene_COMMENT:
+		commentDO, err := commentRepo.GetByID(contentID)
+		if err != nil {
+			return 0, err
+		}
+		if commentDO == nil {
+			return 0, nil
+		}
+		return commentDO.UserID, nil
+	default:
+		return 0, nil
+	}
 }
