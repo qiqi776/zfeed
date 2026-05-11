@@ -90,7 +90,7 @@ func EnsureLikeTables(db *gorm.DB) error {
 		return err
 	}
 
-	if err := ensureUniqueIndex(
+	if err := ensureColumn(
 		db,
 		"zfeed_like",
 		"scene",
@@ -119,6 +119,28 @@ func EnsureLikeTables(db *gorm.DB) error {
 		"ALTER TABLE zfeed_like ADD UNIQUE KEY uk_user_scene_content (user_id, scene, content_id)",
 	); err != nil {
 		return err
+	}
+
+	for _, ensure := range []struct {
+		indexName string
+		createDDL string
+	}{
+		{
+			indexName: "idx_scene_content_status",
+			createDDL: "ALTER TABLE zfeed_like ADD KEY idx_scene_content_status (scene, content_id, status, is_deleted)",
+		},
+		{
+			indexName: "idx_scene_content_user",
+			createDDL: "ALTER TABLE zfeed_like ADD KEY idx_scene_content_user (scene, content_user_id)",
+		},
+		{
+			indexName: "idx_user_status_scene_content",
+			createDDL: "ALTER TABLE zfeed_like ADD KEY idx_user_status_scene_content (user_id, status, is_deleted, scene, content_id)",
+		},
+	} {
+		if err := ensureIndex(db, "zfeed_like", ensure.indexName, ensure.createDDL); err != nil {
+			return err
+		}
 	}
 
 	if err := ensureUniqueIndex(
@@ -192,8 +214,16 @@ func EnsureCommentTables(db *gorm.DB) error {
 			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_content_root_list (content_id, root_id, is_deleted, id)",
 		},
 		{
+			indexName: "idx_content_root_status_list",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_content_root_status_list (content_id, root_id, is_deleted, status, id)",
+		},
+		{
 			indexName: "idx_root_reply_list",
 			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_root_reply_list (root_id, is_deleted, id)",
+		},
+		{
+			indexName: "idx_root_reply_status_list",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_root_reply_status_list (root_id, is_deleted, status, id)",
 		},
 		{
 			indexName: "idx_parent_list",
@@ -206,6 +236,10 @@ func EnsureCommentTables(db *gorm.DB) error {
 		{
 			indexName: "idx_user_comment_list",
 			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_user_comment_list (user_id, is_deleted, id)",
+		},
+		{
+			indexName: "idx_user_comment_status_list",
+			createDDL: "ALTER TABLE zfeed_comment ADD KEY idx_user_comment_status_list (user_id, is_deleted, status, id)",
 		},
 	} {
 		if err := ensureIndex(db, "zfeed_comment", ensure.indexName, ensure.createDDL); err != nil {
@@ -470,14 +504,14 @@ CREATE TABLE IF NOT EXISTS zfeed_like (
   created_by BIGINT NOT NULL DEFAULT 0,
   updated_by BIGINT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uk_user_scene_content (user_id, scene, content_id),
-  KEY idx_scene_content (scene, content_id),
-  KEY idx_scene_content_user (scene, content_user_id),
-  KEY idx_user_scene_status (user_id, scene, status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-`
+	  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	  PRIMARY KEY (id),
+	  UNIQUE KEY uk_user_scene_content (user_id, scene, content_id),
+	  KEY idx_scene_content_status (scene, content_id, status, is_deleted),
+	  KEY idx_scene_content_user (scene, content_user_id),
+	  KEY idx_user_status_scene_content (user_id, status, is_deleted, scene, content_id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+	`
 
 const createLikeEventOutboxTableDDL = `
 CREATE TABLE IF NOT EXISTS zfeed_like_event_outbox (
@@ -505,20 +539,25 @@ CREATE TABLE IF NOT EXISTS zfeed_content (
   content_type INT NOT NULL DEFAULT 0,
   status INT NOT NULL DEFAULT 0,
   visibility INT NOT NULL DEFAULT 0,
-  like_count BIGINT NOT NULL DEFAULT 0,
-  favorite_count BIGINT NOT NULL DEFAULT 0,
-  comment_count BIGINT NOT NULL DEFAULT 0,
-  published_at DATETIME DEFAULT NULL,
-  is_deleted TINYINT NOT NULL DEFAULT 0,
-  created_by BIGINT NOT NULL DEFAULT 0,
-  updated_by BIGINT NOT NULL DEFAULT 0,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_user_publish_list (user_id, status, visibility, is_deleted, id),
-  KEY idx_user_publish_time (user_id, status, visibility, is_deleted, published_at, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-`
+	  like_count BIGINT NOT NULL DEFAULT 0,
+	  favorite_count BIGINT NOT NULL DEFAULT 0,
+	  comment_count BIGINT NOT NULL DEFAULT 0,
+	  hot_score DOUBLE NOT NULL DEFAULT 0,
+	  last_hot_score_at DATETIME DEFAULT NULL,
+	  published_at DATETIME DEFAULT NULL,
+	  is_deleted TINYINT NOT NULL DEFAULT 0,
+	  created_by BIGINT NOT NULL DEFAULT 0,
+	  updated_by BIGINT NOT NULL DEFAULT 0,
+	  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	  PRIMARY KEY (id),
+	  KEY idx_user_publish_list (user_id, status, visibility, is_deleted, id),
+	  KEY idx_user_publish_time (user_id, status, visibility, is_deleted, published_at, id),
+	  KEY idx_public_feed (status, visibility, is_deleted, id),
+	  KEY idx_public_published (status, visibility, is_deleted, published_at, id),
+	  KEY idx_hot_score (hot_score, id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+	`
 
 const createFavoriteEventTableDDL = `
 CREATE TABLE IF NOT EXISTS zfeed_favorite_event (
@@ -554,12 +593,15 @@ CREATE TABLE IF NOT EXISTS zfeed_comment (
   created_by BIGINT NOT NULL DEFAULT 0,
   updated_by BIGINT NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_content_root_list (content_id, root_id, is_deleted, id),
-  KEY idx_root_reply_list (root_id, is_deleted, id),
-  KEY idx_parent_list (parent_id, is_deleted, id),
-  KEY idx_content_user (content_user_id),
-  KEY idx_user_comment_list (user_id, is_deleted, id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-`
+	  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	  PRIMARY KEY (id),
+	  KEY idx_content_root_list (content_id, root_id, is_deleted, id),
+	  KEY idx_content_root_status_list (content_id, root_id, is_deleted, status, id),
+	  KEY idx_root_reply_list (root_id, is_deleted, id),
+	  KEY idx_root_reply_status_list (root_id, is_deleted, status, id),
+	  KEY idx_parent_list (parent_id, is_deleted, id),
+	  KEY idx_content_user (content_user_id),
+	  KEY idx_user_comment_list (user_id, is_deleted, id),
+	  KEY idx_user_comment_status_list (user_id, is_deleted, status, id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+	`

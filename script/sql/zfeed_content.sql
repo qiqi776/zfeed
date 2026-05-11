@@ -18,5 +18,41 @@ CREATE TABLE IF NOT EXISTS `zfeed_content` (
   PRIMARY KEY (`id`),
   KEY `idx_user_publish_list` (`user_id`, `status`, `visibility`, `is_deleted`, `id`),
   KEY `idx_user_publish_time` (`user_id`, `status`, `visibility`, `is_deleted`, `published_at`, `id`),
+  KEY `idx_public_feed` (`status`, `visibility`, `is_deleted`, `id`),
+  KEY `idx_public_published` (`status`, `visibility`, `is_deleted`, `published_at`, `id`),
   KEY `idx_hot_score` (`hot_score`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_content'
+        AND index_name = 'idx_public_feed'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_content` ADD KEY `idx_public_feed` (`status`, `visibility`, `is_deleted`, `id`)'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_content'
+        AND index_name = 'idx_public_published'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_content` ADD KEY `idx_public_published` (`status`, `visibility`, `is_deleted`, `published_at`, `id`)'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

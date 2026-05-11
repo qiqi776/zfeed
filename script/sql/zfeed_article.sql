@@ -9,5 +9,23 @@ CREATE TABLE IF NOT EXISTS `zfeed_article` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_content_id` (`content_id`)
+  UNIQUE KEY `uk_content_id` (`content_id`),
+  FULLTEXT KEY `ft_article_search` (`title`, `description`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_article'
+        AND index_name = 'ft_article_search'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_article` ADD FULLTEXT KEY `ft_article_search` (`title`, `description`)'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

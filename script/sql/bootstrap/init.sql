@@ -11,10 +11,13 @@ USE `zfeed`;
 
 SOURCE /seed-sql/zfeed_user.sql;
 SOURCE /seed-sql/zfeed_content.sql;
+SOURCE /seed-sql/zfeed_content_hot_migrate.sql;
 SOURCE /seed-sql/zfeed_article.sql;
 SOURCE /seed-sql/zfeed_video.sql;
 SOURCE /seed-sql/zfeed_like.sql;
+SOURCE /seed-sql/zfeed_like_event_outbox.sql;
 SOURCE /seed-sql/zfeed_favorite.sql;
+SOURCE /seed-sql/zfeed_favorite_event.sql;
 SOURCE /seed-sql/zfeed_follow.sql;
 SOURCE /seed-sql/zfeed_mq_consume_dedup.sql;
 SOURCE /seed-sql/zfeed_comment.sql;

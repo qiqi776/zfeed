@@ -55,7 +55,7 @@ INSERT INTO zfeed_like (
   is_deleted,
   created_by,
   updated_by
-) VALUES (?, ?, ?, ?, ?, 0, ?, ?)
+) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
 ON DUPLICATE KEY UPDATE
   status = IF(VALUES(last_event_ts) >= last_event_ts, VALUES(status), status),
   content_user_id = IF(VALUES(last_event_ts) >= last_event_ts AND VALUES(content_user_id) <> 0, VALUES(content_user_id), content_user_id),

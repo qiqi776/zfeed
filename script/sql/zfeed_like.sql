@@ -13,9 +13,9 @@ CREATE TABLE IF NOT EXISTS `zfeed_like` (
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_user_scene_content` (`user_id`, `scene`, `content_id`),
-  KEY `idx_scene_content` (`scene`, `content_id`),
+  KEY `idx_scene_content_status` (`scene`, `content_id`, `status`, `is_deleted`),
   KEY `idx_scene_content_user` (`scene`, `content_user_id`),
-  KEY `idx_user_scene_status` (`user_id`, `scene`, `status`)
+  KEY `idx_user_status_scene_content` (`user_id`, `status`, `is_deleted`, `scene`, `content_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET @ddl := (
@@ -29,6 +29,74 @@ SET @ddl := (
     ),
     'SELECT 1',
     'ALTER TABLE `zfeed_like` ADD COLUMN `scene` TINYINT NOT NULL DEFAULT 0 AFTER `user_id`'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_like'
+        AND column_name = 'content_user_id'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_like` ADD COLUMN `content_user_id` BIGINT NOT NULL DEFAULT 0 AFTER `content_id`'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_like'
+        AND index_name = 'idx_scene_content_status'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_like` ADD KEY `idx_scene_content_status` (`scene`, `content_id`, `status`, `is_deleted`)'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_like'
+        AND index_name = 'idx_scene_content_user'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_like` ADD KEY `idx_scene_content_user` (`scene`, `content_user_id`)'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_like'
+        AND index_name = 'idx_user_status_scene_content'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_like` ADD KEY `idx_user_status_scene_content` (`user_id`, `status`, `is_deleted`, `scene`, `content_id`)'
   )
 );
 PREPARE stmt FROM @ddl;

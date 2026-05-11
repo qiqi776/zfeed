@@ -10,6 +10,23 @@ CREATE TABLE IF NOT EXISTS `zfeed_count_value` (
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_biz_target` (`biz_type`, `target_type`, `target_id`),
-  KEY `idx_owner` (`owner_id`),
+  KEY `idx_owner_biz_target` (`biz_type`, `target_type`, `owner_id`),
   KEY `idx_target` (`target_type`, `target_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @ddl := (
+  SELECT IF(
+    EXISTS (
+      SELECT 1
+      FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = 'zfeed_count_value'
+        AND index_name = 'idx_owner_biz_target'
+    ),
+    'SELECT 1',
+    'ALTER TABLE `zfeed_count_value` ADD KEY `idx_owner_biz_target` (`biz_type`, `target_type`, `owner_id`)'
+  )
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;

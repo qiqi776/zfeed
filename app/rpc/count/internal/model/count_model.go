@@ -4,12 +4,12 @@ import "time"
 
 type ZfeedCountValue struct {
 	ID         int64     `gorm:"column:id;primaryKey;autoIncrement"`
-	BizType    int32     `gorm:"column:biz_type;uniqueIndex:uk_biz_target;index:idx_target"`
-	TargetType int32     `gorm:"column:target_type;uniqueIndex:uk_biz_target;index:idx_target"`
+	BizType    int32     `gorm:"column:biz_type;uniqueIndex:uk_biz_target;index:idx_target;index:idx_owner_biz_target,priority:1"`
+	TargetType int32     `gorm:"column:target_type;uniqueIndex:uk_biz_target;index:idx_target;index:idx_owner_biz_target,priority:2"`
 	TargetID   int64     `gorm:"column:target_id;uniqueIndex:uk_biz_target;index:idx_target"`
 	Value      int64     `gorm:"column:value"`
 	Version    int64     `gorm:"column:version"`
-	OwnerID    int64     `gorm:"column:owner_id;index:idx_owner"`
+	OwnerID    int64     `gorm:"column:owner_id;index:idx_owner_biz_target,priority:3"`
 	CreatedAt  time.Time `gorm:"column:created_at"`
 	UpdatedAt  time.Time `gorm:"column:updated_at"`
 }
