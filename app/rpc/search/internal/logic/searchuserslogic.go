@@ -2,10 +2,9 @@ package logic
 
 import (
 	"context"
-	"strings"
+	"time"
 
 	followservice "zfeed/app/rpc/interaction/client/followservice"
-	"zfeed/app/rpc/search/internal/repositories"
 	"zfeed/app/rpc/search/internal/svc"
 	"zfeed/app/rpc/search/search"
 	"zfeed/pkg/errorx"
@@ -19,15 +18,13 @@ type SearchUsersLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 	logx.Logger
-	searchRepo repositories.SearchRepository
 }
 
 func NewSearchUsersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SearchUsersLogic {
 	return &SearchUsersLogic{
-		ctx:        ctx,
-		svcCtx:     svcCtx,
-		Logger:     logx.WithContext(ctx),
-		searchRepo: repositories.NewSearchRepository(ctx, svcCtx.MysqlDb),
+		ctx:    ctx,
+		svcCtx: svcCtx,
+		Logger: logx.WithContext(ctx),
 	}
 }
 
@@ -36,8 +33,8 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
-	query := strings.TrimSpace(in.GetQuery())
-	if query == "" {
+	normalized := l.svcCtx.NormalizeQuery(in.GetQuery())
+	if normalized.Empty() {
 		return nil, errorx.NewBadRequest("搜索词不能为空")
 	}
 
@@ -49,11 +46,27 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 		pageSize = maxSearchPageSize
 	}
 
-	rows, err := l.searchRepo.SearchUsers(query, in.GetCursor(), pageSize+1)
+	start := time.Now()
+	backend := l.svcCtx.SearchBackend(l.ctx)
+	result, err := backend.SearchUsers(l.ctx, normalized.SearchText, in.GetCursor(), pageSize+1)
 	if err != nil {
+		observeSearch(l.Logger, searchObservation{
+			entity:            searchEntityUsers,
+			query:             normalized,
+			cursor:            in.GetCursor(),
+			pageSize:          pageSize,
+			err:               err,
+			start:             start,
+			meta:              result.Meta,
+			cacheStatus:       cacheStatus(l.svcCtx),
+			configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+			effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+			svcCtx:            l.svcCtx,
+		})
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("搜索用户失败"))
 	}
 
+	rows := result.Rows
 	hasMore := len(rows) > pageSize
 	if hasMore {
 		rows = rows[:pageSize]
@@ -71,6 +84,21 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 			FollowUserIds: userIDs,
 		})
 		if err != nil {
+			observeSearch(l.Logger, searchObservation{
+				entity:            searchEntityUsers,
+				query:             normalized,
+				cursor:            in.GetCursor(),
+				pageSize:          pageSize,
+				resultCount:       len(rows),
+				hasMore:           hasMore,
+				err:               err,
+				start:             start,
+				meta:              result.Meta,
+				cacheStatus:       cacheStatus(l.svcCtx),
+				configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+				effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+				svcCtx:            l.svcCtx,
+			})
 			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("搜索用户失败"))
 		}
 		for _, item := range followResp.GetItems() {
@@ -96,6 +124,21 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 	if hasMore && len(rows) > 0 {
 		nextCursor = rows[len(rows)-1].UserID
 	}
+
+	observeSearch(l.Logger, searchObservation{
+		entity:            searchEntityUsers,
+		query:             normalized,
+		cursor:            in.GetCursor(),
+		pageSize:          pageSize,
+		resultCount:       len(items),
+		hasMore:           hasMore,
+		start:             start,
+		meta:              result.Meta,
+		cacheStatus:       cacheStatus(l.svcCtx),
+		configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+		effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+		svcCtx:            l.svcCtx,
+	})
 
 	return &search.SearchUsersRes{
 		Items:      items,

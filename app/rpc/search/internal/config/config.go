@@ -10,6 +10,10 @@ type Config struct {
 	InteractionRpcClientConf zrpc.RpcClientConf
 	RedisConfig              redis.RedisConf
 	MySQL                    MySQLConf
+	SearchCacheEnabled       bool
+	SearchSnapshotEnabled    bool
+	SearchHybridRankEnabled  bool
+	SearchBackend            string
 }
 
 type MySQLConf struct {

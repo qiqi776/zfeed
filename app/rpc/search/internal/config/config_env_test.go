@@ -14,6 +14,10 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	t.Setenv("ETCD_PORT", "12379")
 	t.Setenv("REDIS_HOST", "127.0.0.1")
 	t.Setenv("REDIS_PORT", "16379")
+	t.Setenv("SEARCH_CACHE_ENABLED", "true")
+	t.Setenv("SEARCH_SNAPSHOT_ENABLED", "false")
+	t.Setenv("SEARCH_HYBRID_RANK_ENABLED", "true")
+	t.Setenv("SEARCH_BACKEND", "mysql")
 	t.Setenv("MYSQL_HOST", "127.0.0.1")
 	t.Setenv("MYSQL_APP_PORT", "33306")
 	t.Setenv("MYSQL_USER", "zfeed")
@@ -35,6 +39,12 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	}
 	if len(cfg.InteractionRpcClientConf.Etcd.Hosts) != 1 || cfg.InteractionRpcClientConf.Etcd.Hosts[0] != "127.0.0.1:12379" {
 		t.Fatalf("unexpected interaction etcd hosts: %v", cfg.InteractionRpcClientConf.Etcd.Hosts)
+	}
+	if got := cfg.RedisConfig.Host; got != "127.0.0.1:16379" {
+		t.Fatalf("unexpected redis host: %q", got)
+	}
+	if !cfg.SearchCacheEnabled || cfg.SearchSnapshotEnabled || !cfg.SearchHybridRankEnabled || cfg.SearchBackend != "mysql" {
+		t.Fatalf("unexpected search feature config: %+v", cfg)
 	}
 	if cfg.Telemetry.Name != "search-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" || !cfg.Telemetry.Disabled {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)

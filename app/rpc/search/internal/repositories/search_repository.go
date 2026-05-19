@@ -16,8 +16,25 @@ const (
 
 type SearchRepository interface {
 	SearchUsers(query string, cursor int64, limit int) ([]SearchUserRow, error)
+	SearchUsersWithMeta(query string, cursor int64, limit int) (SearchUsersResult, error)
 	BatchFollowing(viewerID int64, userIDs []int64) (map[int64]bool, error)
 	SearchContents(query string, cursor int64, limit int) ([]SearchContentRow, error)
+	SearchContentsWithMeta(query string, cursor int64, limit int) (SearchContentsResult, error)
+}
+
+type SearchMeta struct {
+	QueryPath  string
+	DBFallback bool
+}
+
+type SearchUsersResult struct {
+	Rows []SearchUserRow
+	Meta SearchMeta
+}
+
+type SearchContentsResult struct {
+	Rows []SearchContentRow
+	Meta SearchMeta
 }
 
 type SearchUserRow struct {
@@ -55,16 +72,24 @@ func NewSearchRepository(ctx context.Context, db *gorm.DB) SearchRepository {
 }
 
 func (r *searchRepositoryImpl) SearchUsers(query string, cursor int64, limit int) ([]SearchUserRow, error) {
+	result, err := r.SearchUsersWithMeta(query, cursor, limit)
+	return result.Rows, err
+}
+
+func (r *searchRepositoryImpl) SearchUsersWithMeta(query string, cursor int64, limit int) (SearchUsersResult, error) {
 	rows := make([]SearchUserRow, 0, limit)
 	if r.db == nil {
-		return rows, nil
+		return SearchUsersResult{Rows: rows, Meta: SearchMeta{QueryPath: "none"}}, nil
 	}
 
 	trimmed := strings.TrimSpace(query)
 	if isMySQL(r.db) {
 		ftRows, err := r.searchUsersFullText(trimmed, cursor, limit)
 		if err == nil && len(ftRows) > 0 {
-			return ftRows, nil
+			return SearchUsersResult{
+				Rows: ftRows,
+				Meta: SearchMeta{QueryPath: "fulltext"},
+			}, nil
 		}
 	}
 
@@ -80,7 +105,13 @@ func (r *searchRepositoryImpl) SearchUsers(query string, cursor int64, limit int
 	}
 
 	err := dbQuery.Order("id DESC").Limit(limit).Find(&rows).Error
-	return rows, err
+	return SearchUsersResult{
+		Rows: rows,
+		Meta: SearchMeta{
+			QueryPath:  "like",
+			DBFallback: isMySQL(r.db),
+		},
+	}, err
 }
 
 func (r *searchRepositoryImpl) searchUsersFullText(query string, cursor int64, limit int) ([]SearchUserRow, error) {
@@ -127,16 +158,28 @@ func (r *searchRepositoryImpl) BatchFollowing(viewerID int64, userIDs []int64) (
 }
 
 func (r *searchRepositoryImpl) SearchContents(query string, cursor int64, limit int) ([]SearchContentRow, error) {
+	result, err := r.SearchContentsWithMeta(query, cursor, limit)
+	return result.Rows, err
+}
+
+func (r *searchRepositoryImpl) SearchContentsWithMeta(
+	query string,
+	cursor int64,
+	limit int,
+) (SearchContentsResult, error) {
 	rows := make([]SearchContentRow, 0, limit)
 	if r.db == nil {
-		return rows, nil
+		return SearchContentsResult{Rows: rows, Meta: SearchMeta{QueryPath: "none"}}, nil
 	}
 
 	trimmed := strings.TrimSpace(query)
 	if isMySQL(r.db) {
 		ftRows, err := r.searchContentsFullText(trimmed, cursor, limit)
 		if err == nil && len(ftRows) > 0 {
-			return ftRows, nil
+			return SearchContentsResult{
+				Rows: ftRows,
+				Meta: SearchMeta{QueryPath: "fulltext"},
+			}, nil
 		}
 	}
 
@@ -164,7 +207,13 @@ func (r *searchRepositoryImpl) SearchContents(query string, cursor int64, limit 
 	}
 
 	err := dbQuery.Order("c.id DESC").Limit(limit).Find(&rows).Error
-	return rows, err
+	return SearchContentsResult{
+		Rows: rows,
+		Meta: SearchMeta{
+			QueryPath:  "like",
+			DBFallback: isMySQL(r.db),
+		},
+	}, err
 }
 
 func (r *searchRepositoryImpl) searchContentsFullText(query string, cursor int64, limit int) ([]SearchContentRow, error) {

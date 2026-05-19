@@ -46,5 +46,10 @@ RedisConfig:
   Type: node
   Pass: ""
 
+SearchCacheEnabled: ${SEARCH_CACHE_ENABLED}
+SearchSnapshotEnabled: ${SEARCH_SNAPSHOT_ENABLED}
+SearchHybridRankEnabled: ${SEARCH_HYBRID_RANK_ENABLED}
+SearchBackend: "${SEARCH_BACKEND}"
+
 MySQL:
   DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"

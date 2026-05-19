@@ -2,10 +2,8 @@ package logic
 
 import (
 	"context"
-	"strings"
 	"time"
 
-	"zfeed/app/rpc/search/internal/repositories"
 	"zfeed/app/rpc/search/internal/svc"
 	"zfeed/app/rpc/search/search"
 	"zfeed/pkg/errorx"
@@ -17,15 +15,13 @@ type SearchContentsLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 	logx.Logger
-	searchRepo repositories.SearchRepository
 }
 
 func NewSearchContentsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *SearchContentsLogic {
 	return &SearchContentsLogic{
-		ctx:        ctx,
-		svcCtx:     svcCtx,
-		Logger:     logx.WithContext(ctx),
-		searchRepo: repositories.NewSearchRepository(ctx, svcCtx.MysqlDb),
+		ctx:    ctx,
+		svcCtx: svcCtx,
+		Logger: logx.WithContext(ctx),
 	}
 }
 
@@ -34,8 +30,8 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
-	query := strings.TrimSpace(in.GetQuery())
-	if query == "" {
+	normalized := l.svcCtx.NormalizeQuery(in.GetQuery())
+	if normalized.Empty() {
 		return nil, errorx.NewBadRequest("搜索词不能为空")
 	}
 
@@ -47,11 +43,27 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 		pageSize = maxSearchPageSize
 	}
 
-	rows, err := l.searchRepo.SearchContents(query, in.GetCursor(), pageSize+1)
+	start := time.Now()
+	backend := l.svcCtx.SearchBackend(l.ctx)
+	result, err := backend.SearchContents(l.ctx, normalized.SearchText, in.GetCursor(), pageSize+1)
 	if err != nil {
+		observeSearch(l.Logger, searchObservation{
+			entity:            searchEntityContents,
+			query:             normalized,
+			cursor:            in.GetCursor(),
+			pageSize:          pageSize,
+			err:               err,
+			start:             start,
+			meta:              result.Meta,
+			cacheStatus:       cacheStatus(l.svcCtx),
+			configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+			effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+			svcCtx:            l.svcCtx,
+		})
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("搜索内容失败"))
 	}
 
+	rows := result.Rows
 	hasMore := len(rows) > pageSize
 	if hasMore {
 		rows = rows[:pageSize]
@@ -75,6 +87,21 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 	if hasMore && len(rows) > 0 {
 		nextCursor = rows[len(rows)-1].ContentID
 	}
+
+	observeSearch(l.Logger, searchObservation{
+		entity:            searchEntityContents,
+		query:             normalized,
+		cursor:            in.GetCursor(),
+		pageSize:          pageSize,
+		resultCount:       len(items),
+		hasMore:           hasMore,
+		start:             start,
+		meta:              result.Meta,
+		cacheStatus:       cacheStatus(l.svcCtx),
+		configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+		effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+		svcCtx:            l.svcCtx,
+	})
 
 	return &search.SearchContentsRes{
 		Items:      items,
