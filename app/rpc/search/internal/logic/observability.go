@@ -65,6 +65,10 @@ type searchObservation struct {
 	pageSize          int
 	resultCount       int
 	hasMore           bool
+	mode              string
+	pageTokenProvided bool
+	snapshotID        string
+	snapshotStatus    string
 	err               error
 	start             time.Time
 	meta              repositories.SearchMeta
@@ -118,6 +122,10 @@ func observeSearch(logger logx.Logger, obs searchObservation) {
 		logx.Field("page_size", obs.pageSize),
 		logx.Field("result_count", obs.resultCount),
 		logx.Field("has_more", obs.hasMore),
+		logx.Field("mode", obs.mode),
+		logx.Field("page_token_provided", obs.pageTokenProvided),
+		logx.Field("snapshot_id", obs.snapshotID),
+		logx.Field("snapshot_status", obs.snapshotStatus),
 		logx.Field("result", result),
 		logx.Field("configured_backend", obs.configuredBackend),
 		logx.Field("effective_backend", obs.effectiveBackend),

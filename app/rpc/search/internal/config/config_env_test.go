@@ -18,6 +18,8 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	t.Setenv("SEARCH_SNAPSHOT_ENABLED", "false")
 	t.Setenv("SEARCH_HYBRID_RANK_ENABLED", "true")
 	t.Setenv("SEARCH_BACKEND", "mysql")
+	t.Setenv("SEARCH_SNAPSHOT_TTL_SECONDS", "60")
+	t.Setenv("SEARCH_SNAPSHOT_MAX_ITEMS", "100")
 	t.Setenv("MYSQL_HOST", "127.0.0.1")
 	t.Setenv("MYSQL_APP_PORT", "33306")
 	t.Setenv("MYSQL_USER", "zfeed")
@@ -45,6 +47,9 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	}
 	if !cfg.SearchCacheEnabled || cfg.SearchSnapshotEnabled || !cfg.SearchHybridRankEnabled || cfg.SearchBackend != "mysql" {
 		t.Fatalf("unexpected search feature config: %+v", cfg)
+	}
+	if cfg.SearchSnapshotTTLSeconds != 60 || cfg.SearchSnapshotMaxItems != 100 {
+		t.Fatalf("unexpected search snapshot config: %+v", cfg)
 	}
 	if cfg.Telemetry.Name != "search-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" || !cfg.Telemetry.Disabled {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)

@@ -9,6 +9,9 @@ message SearchUsersReq {
   int64 cursor = 2;
   uint32 page_size = 3;
   optional int64 viewer_id = 4;
+  string mode = 5;
+  string page_token = 6;
+  optional string snapshot_id = 7;
 }
 
 message SearchUserItem {
@@ -23,6 +26,8 @@ message SearchUsersRes {
   repeated SearchUserItem items = 1;
   int64 next_cursor = 2;
   bool has_more = 3;
+  string next_page_token = 4;
+  string snapshot_id = 5;
 }
 
 message SearchContentsReq {
@@ -30,6 +35,9 @@ message SearchContentsReq {
   int64 cursor = 2;
   uint32 page_size = 3;
   optional int64 viewer_id = 4;
+  string mode = 5;
+  string page_token = 6;
+  optional string snapshot_id = 7;
 }
 
 message SearchContentItem {
@@ -47,6 +55,8 @@ message SearchContentsRes {
   repeated SearchContentItem items = 1;
   int64 next_cursor = 2;
   bool has_more = 3;
+  string next_page_token = 4;
+  string snapshot_id = 5;
 }
 
 service SearchService {

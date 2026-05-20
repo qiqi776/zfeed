@@ -27,6 +27,9 @@ type SearchUsersReq struct {
 	Cursor        int64                  `protobuf:"varint,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	PageSize      uint32                 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	ViewerId      *int64                 `protobuf:"varint,4,opt,name=viewer_id,json=viewerId,proto3,oneof" json:"viewer_id,omitempty"`
+	Mode          string                 `protobuf:"bytes,5,opt,name=mode,proto3" json:"mode,omitempty"`
+	PageToken     string                 `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	SnapshotId    *string                `protobuf:"bytes,7,opt,name=snapshot_id,json=snapshotId,proto3,oneof" json:"snapshot_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -87,6 +90,27 @@ func (x *SearchUsersReq) GetViewerId() int64 {
 		return *x.ViewerId
 	}
 	return 0
+}
+
+func (x *SearchUsersReq) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *SearchUsersReq) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *SearchUsersReq) GetSnapshotId() string {
+	if x != nil && x.SnapshotId != nil {
+		return *x.SnapshotId
+	}
+	return ""
 }
 
 type SearchUserItem struct {
@@ -170,6 +194,8 @@ type SearchUsersRes struct {
 	Items         []*SearchUserItem      `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
 	NextCursor    int64                  `protobuf:"varint,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
 	HasMore       bool                   `protobuf:"varint,3,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,4,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	SnapshotId    string                 `protobuf:"bytes,5,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -225,12 +251,29 @@ func (x *SearchUsersRes) GetHasMore() bool {
 	return false
 }
 
+func (x *SearchUsersRes) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *SearchUsersRes) GetSnapshotId() string {
+	if x != nil {
+		return x.SnapshotId
+	}
+	return ""
+}
+
 type SearchContentsReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	Cursor        int64                  `protobuf:"varint,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
 	PageSize      uint32                 `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	ViewerId      *int64                 `protobuf:"varint,4,opt,name=viewer_id,json=viewerId,proto3,oneof" json:"viewer_id,omitempty"`
+	Mode          string                 `protobuf:"bytes,5,opt,name=mode,proto3" json:"mode,omitempty"`
+	PageToken     string                 `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	SnapshotId    *string                `protobuf:"bytes,7,opt,name=snapshot_id,json=snapshotId,proto3,oneof" json:"snapshot_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -291,6 +334,27 @@ func (x *SearchContentsReq) GetViewerId() int64 {
 		return *x.ViewerId
 	}
 	return 0
+}
+
+func (x *SearchContentsReq) GetMode() string {
+	if x != nil {
+		return x.Mode
+	}
+	return ""
+}
+
+func (x *SearchContentsReq) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *SearchContentsReq) GetSnapshotId() string {
+	if x != nil && x.SnapshotId != nil {
+		return *x.SnapshotId
+	}
+	return ""
 }
 
 type SearchContentItem struct {
@@ -398,6 +462,8 @@ type SearchContentsRes struct {
 	Items         []*SearchContentItem   `protobuf:"bytes,1,rep,name=items,proto3" json:"items,omitempty"`
 	NextCursor    int64                  `protobuf:"varint,2,opt,name=next_cursor,json=nextCursor,proto3" json:"next_cursor,omitempty"`
 	HasMore       bool                   `protobuf:"varint,3,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,4,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	SnapshotId    string                 `protobuf:"bytes,5,opt,name=snapshot_id,json=snapshotId,proto3" json:"snapshot_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -453,36 +519,65 @@ func (x *SearchContentsRes) GetHasMore() bool {
 	return false
 }
 
+func (x *SearchContentsRes) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+func (x *SearchContentsRes) GetSnapshotId() string {
+	if x != nil {
+		return x.SnapshotId
+	}
+	return ""
+}
+
 var File_search_proto protoreflect.FileDescriptor
 
 const file_search_proto_rawDesc = "" +
 	"\n" +
-	"\fsearch.proto\x12\x06search\"\x8b\x01\n" +
+	"\fsearch.proto\x12\x06search\"\xf4\x01\n" +
 	"\x0eSearchUsersReq\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\x03R\x06cursor\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\rR\bpageSize\x12 \n" +
-	"\tviewer_id\x18\x04 \x01(\x03H\x00R\bviewerId\x88\x01\x01B\f\n" +
+	"\tviewer_id\x18\x04 \x01(\x03H\x00R\bviewerId\x88\x01\x01\x12\x12\n" +
+	"\x04mode\x18\x05 \x01(\tR\x04mode\x12\x1d\n" +
 	"\n" +
-	"_viewer_id\"\x92\x01\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\x12$\n" +
+	"\vsnapshot_id\x18\a \x01(\tH\x01R\n" +
+	"snapshotId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_viewer_idB\x0e\n" +
+	"\f_snapshot_id\"\x92\x01\n" +
 	"\x0eSearchUserItem\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1a\n" +
 	"\bnickname\x18\x02 \x01(\tR\bnickname\x12\x16\n" +
 	"\x06avatar\x18\x03 \x01(\tR\x06avatar\x12\x10\n" +
 	"\x03bio\x18\x04 \x01(\tR\x03bio\x12!\n" +
-	"\fis_following\x18\x05 \x01(\bR\visFollowing\"z\n" +
+	"\fis_following\x18\x05 \x01(\bR\visFollowing\"\xc3\x01\n" +
 	"\x0eSearchUsersRes\x12,\n" +
 	"\x05items\x18\x01 \x03(\v2\x16.search.SearchUserItemR\x05items\x12\x1f\n" +
 	"\vnext_cursor\x18\x02 \x01(\x03R\n" +
 	"nextCursor\x12\x19\n" +
-	"\bhas_more\x18\x03 \x01(\bR\ahasMore\"\x8e\x01\n" +
+	"\bhas_more\x18\x03 \x01(\bR\ahasMore\x12&\n" +
+	"\x0fnext_page_token\x18\x04 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vsnapshot_id\x18\x05 \x01(\tR\n" +
+	"snapshotId\"\xf7\x01\n" +
 	"\x11SearchContentsReq\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x16\n" +
 	"\x06cursor\x18\x02 \x01(\x03R\x06cursor\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\rR\bpageSize\x12 \n" +
-	"\tviewer_id\x18\x04 \x01(\x03H\x00R\bviewerId\x88\x01\x01B\f\n" +
+	"\tviewer_id\x18\x04 \x01(\x03H\x00R\bviewerId\x88\x01\x01\x12\x12\n" +
+	"\x04mode\x18\x05 \x01(\tR\x04mode\x12\x1d\n" +
 	"\n" +
-	"_viewer_id\"\x8e\x02\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\x12$\n" +
+	"\vsnapshot_id\x18\a \x01(\tH\x01R\n" +
+	"snapshotId\x88\x01\x01B\f\n" +
+	"\n" +
+	"_viewer_idB\x0e\n" +
+	"\f_snapshot_id\"\x8e\x02\n" +
 	"\x11SearchContentItem\x12\x1d\n" +
 	"\n" +
 	"content_id\x18\x01 \x01(\x03R\tcontentId\x12!\n" +
@@ -493,12 +588,15 @@ const file_search_proto_rawDesc = "" +
 	"\rauthor_avatar\x18\x05 \x01(\tR\fauthorAvatar\x12\x14\n" +
 	"\x05title\x18\x06 \x01(\tR\x05title\x12\x1b\n" +
 	"\tcover_url\x18\a \x01(\tR\bcoverUrl\x12!\n" +
-	"\fpublished_at\x18\b \x01(\x03R\vpublishedAt\"\x80\x01\n" +
+	"\fpublished_at\x18\b \x01(\x03R\vpublishedAt\"\xc9\x01\n" +
 	"\x11SearchContentsRes\x12/\n" +
 	"\x05items\x18\x01 \x03(\v2\x19.search.SearchContentItemR\x05items\x12\x1f\n" +
 	"\vnext_cursor\x18\x02 \x01(\x03R\n" +
 	"nextCursor\x12\x19\n" +
-	"\bhas_more\x18\x03 \x01(\bR\ahasMore2\x96\x01\n" +
+	"\bhas_more\x18\x03 \x01(\bR\ahasMore\x12&\n" +
+	"\x0fnext_page_token\x18\x04 \x01(\tR\rnextPageToken\x12\x1f\n" +
+	"\vsnapshot_id\x18\x05 \x01(\tR\n" +
+	"snapshotId2\x96\x01\n" +
 	"\rSearchService\x12=\n" +
 	"\vSearchUsers\x12\x16.search.SearchUsersReq\x1a\x16.search.SearchUsersRes\x12F\n" +
 	"\x0eSearchContents\x12\x19.search.SearchContentsReq\x1a\x19.search.SearchContentsResB\n" +

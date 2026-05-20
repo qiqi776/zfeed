@@ -39,3 +39,4 @@ logs/
 docs/
 .cache/
 .codex
+.agents/

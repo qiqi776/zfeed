@@ -14,6 +14,8 @@ type Config struct {
 	SearchSnapshotEnabled    bool
 	SearchHybridRankEnabled  bool
 	SearchBackend            string
+	SearchSnapshotTTLSeconds int
+	SearchSnapshotMaxItems   int
 }
 
 type MySQLConf struct {

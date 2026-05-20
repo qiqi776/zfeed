@@ -364,15 +364,20 @@ type SearchContentItem struct {
 }
 
 type SearchContentsReq struct {
-	Query    *string `json:"query,optional" validate:"required,min=1,max=50"`
-	Cursor   *int64  `json:"cursor,optional"`
-	PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+	Query      *string `json:"query,optional" validate:"required,min=1,max=50"`
+	Cursor     *int64  `json:"cursor,optional"`
+	PageSize   *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+	Mode       *string `json:"mode,optional"`
+	PageToken  *string `json:"page_token,optional"`
+	SnapshotId *string `json:"snapshot_id,optional"`
 }
 
 type SearchContentsRes struct {
-	Items      []SearchContentItem `json:"items"`
-	NextCursor int64               `json:"next_cursor"`
-	HasMore    bool                `json:"has_more"`
+	Items         []SearchContentItem `json:"items"`
+	NextCursor    int64               `json:"next_cursor"`
+	HasMore       bool                `json:"has_more"`
+	NextPageToken string              `json:"next_page_token"`
+	SnapshotId    string              `json:"snapshot_id"`
 }
 
 type SearchUserItem struct {
@@ -384,15 +389,20 @@ type SearchUserItem struct {
 }
 
 type SearchUsersReq struct {
-	Query    *string `json:"query,optional" validate:"required,min=1,max=50"`
-	Cursor   *int64  `json:"cursor,optional"`
-	PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+	Query      *string `json:"query,optional" validate:"required,min=1,max=50"`
+	Cursor     *int64  `json:"cursor,optional"`
+	PageSize   *uint32 `json:"page_size,optional" validate:"required,min=1,max=20"`
+	Mode       *string `json:"mode,optional"`
+	PageToken  *string `json:"page_token,optional"`
+	SnapshotId *string `json:"snapshot_id,optional"`
 }
 
 type SearchUsersRes struct {
-	Items      []SearchUserItem `json:"items"`
-	NextCursor int64            `json:"next_cursor"`
-	HasMore    bool             `json:"has_more"`
+	Items         []SearchUserItem `json:"items"`
+	NextCursor    int64            `json:"next_cursor"`
+	HasMore       bool             `json:"has_more"`
+	NextPageToken string           `json:"next_page_token"`
+	SnapshotId    string           `json:"snapshot_id"`
 }
 
 type RegisterReq struct {
