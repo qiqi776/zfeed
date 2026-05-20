@@ -2,15 +2,19 @@ package logic
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
+	miniredis "github.com/alicebob/miniredis/v2"
+	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 	"google.golang.org/grpc"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	followservice "zfeed/app/rpc/interaction/client/followservice"
 	interactionpb "zfeed/app/rpc/interaction/interaction"
+	"zfeed/app/rpc/search/internal/config"
 	"zfeed/app/rpc/search/internal/svc"
 	searchpb "zfeed/app/rpc/search/search"
 )
@@ -77,6 +81,30 @@ func newSearchTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return db
+}
+
+func newSearchTestRedis(t *testing.T) *gzredis.Redis {
+	t.Helper()
+
+	store := miniredis.RunT(t)
+	return gzredis.MustNewRedis(gzredis.RedisConf{
+		Host: store.Addr(),
+		Type: "node",
+	})
+}
+
+func newSearchSnapshotTestSvc(t *testing.T, db *gorm.DB, maxItems int) *svc.ServiceContext {
+	t.Helper()
+
+	return &svc.ServiceContext{
+		Config: config.Config{
+			SearchSnapshotEnabled:    true,
+			SearchSnapshotTTLSeconds: 60,
+			SearchSnapshotMaxItems:   maxItems,
+		},
+		Redis:   newSearchTestRedis(t),
+		MysqlDb: db,
+	}
 }
 
 type stubSearchFollowService struct {
@@ -190,5 +218,183 @@ func TestSearchContentsReturnsContentRows(t *testing.T) {
 	}
 	if resp.Items[0].GetContentId() != 4001 {
 		t.Fatalf("content_id = %d, want 4001", resp.Items[0].GetContentId())
+	}
+}
+
+func TestSearchUsersSnapshotPaginationStableAcrossInserts(t *testing.T) {
+	db := newSearchTestDB(t)
+	users := make([]searchTestUser, 0, 10)
+	for i := 1; i <= 10; i++ {
+		users = append(users, searchTestUser{
+			ID:        int64(1000 + i),
+			Mobile:    fmt.Sprintf("+861%03d", i),
+			Nickname:  fmt.Sprintf("Alice %02d", i),
+			Avatar:    fmt.Sprintf("a%d", i),
+			Bio:       "snapshot user",
+			IsDeleted: 0,
+		})
+	}
+	if err := db.Create(&users).Error; err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+
+	logic := NewSearchUsersLogic(context.Background(), newSearchSnapshotTestSvc(t, db, 10))
+	resp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Alice",
+		PageSize: 2,
+		Mode:     "relevance",
+	})
+	if err != nil {
+		t.Fatalf("first SearchUsers returned error: %v", err)
+	}
+	if resp.GetSnapshotId() == "" || resp.GetNextPageToken() == "" {
+		t.Fatalf("expected snapshot pagination fields, got snapshot_id=%q token=%q", resp.GetSnapshotId(), resp.GetNextPageToken())
+	}
+
+	if err := db.Create(&searchTestUser{
+		ID:        2000,
+		Mobile:    "+862000",
+		Nickname:  "Alice New",
+		Avatar:    "new",
+		Bio:       "snapshot user",
+		IsDeleted: 0,
+	}).Error; err != nil {
+		t.Fatalf("insert concurrent user: %v", err)
+	}
+
+	gotIDs := collectSearchUserIDs(resp)
+	pageToken := resp.GetNextPageToken()
+	snapshotID := resp.GetSnapshotId()
+	pageCount := 1
+	for resp.GetHasMore() {
+		resp, err = logic.SearchUsers(&searchpb.SearchUsersReq{
+			Query:      "Alice",
+			PageSize:   2,
+			Mode:       "relevance",
+			PageToken:  pageToken,
+			SnapshotId: &snapshotID,
+		})
+		if err != nil {
+			t.Fatalf("paged SearchUsers returned error: %v", err)
+		}
+		pageCount++
+		gotIDs = append(gotIDs, collectSearchUserIDs(resp)...)
+		pageToken = resp.GetNextPageToken()
+	}
+
+	wantIDs := []int64{1010, 1009, 1008, 1007, 1006, 1005, 1004, 1003, 1002, 1001}
+	assertInt64SliceEqual(t, gotIDs, wantIDs)
+	if pageCount != 5 {
+		t.Fatalf("page count = %d, want 5", pageCount)
+	}
+}
+
+func TestSearchContentsSnapshotPaginationStableAcrossInserts(t *testing.T) {
+	db := newSearchTestDB(t)
+	now := time.Unix(1_700_000_000, 0)
+	if err := db.Create(&searchTestUser{ID: 3001, Nickname: "writer", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+
+	desc := "snapshot content"
+	for i := 1; i <= 3; i++ {
+		contentID := int64(4000 + i)
+		if err := db.Create(&searchTestContent{
+			ID:          contentID,
+			UserID:      3001,
+			ContentType: 10,
+			Status:      30,
+			Visibility:  10,
+			PublishedAt: &now,
+			IsDeleted:   0,
+		}).Error; err != nil {
+			t.Fatalf("seed content: %v", err)
+		}
+		if err := db.Create(&searchTestArticle{
+			ContentID:   contentID,
+			Title:       fmt.Sprintf("Growth Snapshot %d", i),
+			Description: &desc,
+			Cover:       fmt.Sprintf("cover%d", i),
+			IsDeleted:   0,
+		}).Error; err != nil {
+			t.Fatalf("seed article: %v", err)
+		}
+	}
+
+	logic := NewSearchContentsLogic(context.Background(), newSearchSnapshotTestSvc(t, db, 3))
+	resp, err := logic.SearchContents(&searchpb.SearchContentsReq{
+		Query:    "Growth",
+		PageSize: 2,
+		Mode:     "hybrid",
+	})
+	if err != nil {
+		t.Fatalf("first SearchContents returned error: %v", err)
+	}
+
+	if err := db.Create(&searchTestContent{
+		ID:          5000,
+		UserID:      3001,
+		ContentType: 10,
+		Status:      30,
+		Visibility:  10,
+		PublishedAt: &now,
+		IsDeleted:   0,
+	}).Error; err != nil {
+		t.Fatalf("insert concurrent content: %v", err)
+	}
+	if err := db.Create(&searchTestArticle{
+		ContentID:   5000,
+		Title:       "Growth Snapshot New",
+		Description: &desc,
+		Cover:       "new",
+		IsDeleted:   0,
+	}).Error; err != nil {
+		t.Fatalf("insert concurrent article: %v", err)
+	}
+
+	snapshotID := resp.GetSnapshotId()
+	nextResp, err := logic.SearchContents(&searchpb.SearchContentsReq{
+		Query:      "Growth",
+		PageSize:   2,
+		Mode:       "hybrid",
+		PageToken:  resp.GetNextPageToken(),
+		SnapshotId: &snapshotID,
+	})
+	if err != nil {
+		t.Fatalf("paged SearchContents returned error: %v", err)
+	}
+
+	gotIDs := append(collectSearchContentIDs(resp), collectSearchContentIDs(nextResp)...)
+	assertInt64SliceEqual(t, gotIDs, []int64{4003, 4002, 4001})
+	if nextResp.GetHasMore() {
+		t.Fatal("expected second snapshot content page to be the last page")
+	}
+}
+
+func collectSearchUserIDs(resp *searchpb.SearchUsersRes) []int64 {
+	ids := make([]int64, 0, len(resp.GetItems()))
+	for _, item := range resp.GetItems() {
+		ids = append(ids, item.GetUserId())
+	}
+	return ids
+}
+
+func collectSearchContentIDs(resp *searchpb.SearchContentsRes) []int64 {
+	ids := make([]int64, 0, len(resp.GetItems()))
+	for _, item := range resp.GetItems() {
+		ids = append(ids, item.GetContentId())
+	}
+	return ids
+}
+
+func assertInt64SliceEqual(t *testing.T, got []int64, want []int64) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("len(got) = %d, want %d; got=%v want=%v", len(got), len(want), got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got[%d] = %d, want %d; got=%v want=%v", i, got[i], want[i], got, want)
+		}
 	}
 }

@@ -56,6 +56,18 @@ func (l *SearchContentsLogic) SearchContents(req *types.SearchContentsReq) (*typ
 		Cursor:   cursor,
 		PageSize: uint32(pageSize),
 	}
+	if req.Mode != nil {
+		rpcReq.Mode = strings.TrimSpace(*req.Mode)
+	}
+	if req.PageToken != nil {
+		rpcReq.PageToken = strings.TrimSpace(*req.PageToken)
+	}
+	if req.SnapshotId != nil {
+		snapshotID := strings.TrimSpace(*req.SnapshotId)
+		if snapshotID != "" {
+			rpcReq.SnapshotId = &snapshotID
+		}
+	}
 	if viewerID > 0 {
 		rpcReq.ViewerId = &viewerID
 	}
@@ -83,8 +95,10 @@ func (l *SearchContentsLogic) SearchContents(req *types.SearchContentsReq) (*typ
 	}
 
 	return &types.SearchContentsRes{
-		Items:      items,
-		NextCursor: rpcResp.GetNextCursor(),
-		HasMore:    rpcResp.GetHasMore(),
+		Items:         items,
+		NextCursor:    rpcResp.GetNextCursor(),
+		HasMore:       rpcResp.GetHasMore(),
+		NextPageToken: rpcResp.GetNextPageToken(),
+		SnapshotId:    rpcResp.GetSnapshotId(),
 	}, nil
 }

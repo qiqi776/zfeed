@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"zfeed/app/rpc/search/internal/querynorm"
+	"zfeed/app/rpc/search/internal/repositories"
 	"zfeed/app/rpc/search/internal/svc"
 	"zfeed/app/rpc/search/search"
 	"zfeed/pkg/errorx"
@@ -44,6 +46,17 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 	}
 
 	start := time.Now()
+	mode, err := normalizeSearchMode(in.GetMode())
+	if err != nil {
+		return nil, err
+	}
+	if usesSnapshotPagination(mode) {
+		if !snapshotPaginationEnabled(l.svcCtx) {
+			return nil, errorx.NewBadRequest("搜索快照未开启")
+		}
+		return l.searchContentsWithSnapshot(in, normalized, mode, pageSize, start)
+	}
+
 	backend := l.svcCtx.SearchBackend(l.ctx)
 	result, err := backend.SearchContents(l.ctx, normalized.SearchText, in.GetCursor(), pageSize+1)
 	if err != nil {
@@ -52,6 +65,7 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 			query:             normalized,
 			cursor:            in.GetCursor(),
 			pageSize:          pageSize,
+			mode:              mode,
 			err:               err,
 			start:             start,
 			meta:              result.Meta,
@@ -95,6 +109,7 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 		pageSize:          pageSize,
 		resultCount:       len(items),
 		hasMore:           hasMore,
+		mode:              mode,
 		start:             start,
 		meta:              result.Meta,
 		cacheStatus:       cacheStatus(l.svcCtx),
@@ -108,6 +123,175 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 		NextCursor: nextCursor,
 		HasMore:    hasMore,
 	}, nil
+}
+
+func (l *SearchContentsLogic) searchContentsWithSnapshot(
+	in *search.SearchContentsReq,
+	normalized querynorm.Query,
+	mode string,
+	pageSize int,
+	start time.Time,
+) (*search.SearchContentsRes, error) {
+	pageReq, hasSnapshot, err := snapshotPageRequest(in.GetPageToken(), in.GetSnapshotId())
+	if err != nil {
+		observeSearch(l.Logger, searchObservation{
+			entity:            searchEntityContents,
+			query:             normalized,
+			cursor:            in.GetCursor(),
+			pageSize:          pageSize,
+			mode:              mode,
+			pageTokenProvided: in.GetPageToken() != "",
+			err:               err,
+			start:             start,
+			meta:              repositories.SearchMeta{QueryPath: "snapshot"},
+			cacheStatus:       cacheStatus(l.svcCtx),
+			configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+			effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+			svcCtx:            l.svcCtx,
+		})
+		return nil, err
+	}
+
+	var (
+		rows           []repositories.SearchContentRow
+		snapshotID     string
+		offset         int
+		meta           repositories.SearchMeta
+		snapshotStatus = "create"
+	)
+
+	if hasSnapshot {
+		snapshot, err := loadSearchSnapshot(l.ctx, l.svcCtx, pageReq.SnapshotID, searchEntityContents, mode, normalized)
+		if err != nil {
+			observeSearch(l.Logger, searchObservation{
+				entity:            searchEntityContents,
+				query:             normalized,
+				cursor:            in.GetCursor(),
+				pageSize:          pageSize,
+				mode:              mode,
+				pageTokenProvided: in.GetPageToken() != "",
+				snapshotID:        pageReq.SnapshotID,
+				snapshotStatus:    "miss",
+				err:               err,
+				start:             start,
+				meta:              repositories.SearchMeta{QueryPath: "snapshot"},
+				cacheStatus:       cacheStatus(l.svcCtx),
+				configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+				effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+				svcCtx:            l.svcCtx,
+			})
+			return nil, err
+		}
+		rows = snapshot.ContentRows
+		snapshotID = pageReq.SnapshotID
+		offset = pageReq.Offset
+		meta = repositories.SearchMeta{QueryPath: "snapshot"}
+		snapshotStatus = "hit"
+	} else {
+		backend := l.svcCtx.SearchBackend(l.ctx)
+		result, err := backend.SearchContents(l.ctx, normalized.SearchText, 0, snapshotMaxItems(l.svcCtx, pageSize))
+		if err != nil {
+			observeSearch(l.Logger, searchObservation{
+				entity:            searchEntityContents,
+				query:             normalized,
+				cursor:            in.GetCursor(),
+				pageSize:          pageSize,
+				mode:              mode,
+				err:               err,
+				start:             start,
+				meta:              result.Meta,
+				cacheStatus:       cacheStatus(l.svcCtx),
+				configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+				effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+				svcCtx:            l.svcCtx,
+			})
+			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("搜索内容失败"))
+		}
+
+		rows = result.Rows
+		meta = result.Meta
+		if len(rows) > 0 {
+			snapshotID, err = createContentSnapshot(l.ctx, l.svcCtx, mode, normalized, rows)
+			if err != nil {
+				observeSearch(l.Logger, searchObservation{
+					entity:            searchEntityContents,
+					query:             normalized,
+					cursor:            in.GetCursor(),
+					pageSize:          pageSize,
+					mode:              mode,
+					snapshotStatus:    "error",
+					err:               err,
+					start:             start,
+					meta:              result.Meta,
+					cacheStatus:       cacheStatus(l.svcCtx),
+					configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+					effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+					svcCtx:            l.svcCtx,
+				})
+				return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("搜索内容失败"))
+			}
+		}
+	}
+
+	pagedRows, hasMore, nextOffset := pageRows(rows, offset, pageSize)
+	items := buildSearchContentItems(pagedRows)
+
+	nextCursor := int64(0)
+	if hasMore && len(pagedRows) > 0 {
+		nextCursor = pagedRows[len(pagedRows)-1].ContentID
+	}
+
+	nextPageToken := ""
+	if hasMore && snapshotID != "" {
+		nextPageToken, err = encodePageToken(snapshotID, nextOffset)
+		if err != nil {
+			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("搜索内容失败"))
+		}
+	}
+
+	observeSearch(l.Logger, searchObservation{
+		entity:            searchEntityContents,
+		query:             normalized,
+		cursor:            in.GetCursor(),
+		pageSize:          pageSize,
+		resultCount:       len(items),
+		hasMore:           hasMore,
+		mode:              mode,
+		pageTokenProvided: in.GetPageToken() != "",
+		snapshotID:        snapshotID,
+		snapshotStatus:    snapshotStatus,
+		start:             start,
+		meta:              meta,
+		cacheStatus:       cacheStatus(l.svcCtx),
+		configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
+		effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
+		svcCtx:            l.svcCtx,
+	})
+
+	return &search.SearchContentsRes{
+		Items:         items,
+		NextCursor:    nextCursor,
+		HasMore:       hasMore,
+		NextPageToken: nextPageToken,
+		SnapshotId:    snapshotID,
+	}, nil
+}
+
+func buildSearchContentItems(rows []repositories.SearchContentRow) []*search.SearchContentItem {
+	items := make([]*search.SearchContentItem, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, &search.SearchContentItem{
+			ContentId:    row.ContentID,
+			ContentType:  row.ContentType,
+			AuthorId:     row.AuthorID,
+			AuthorName:   row.AuthorName,
+			AuthorAvatar: row.AuthorAvatar,
+			Title:        row.Title,
+			CoverUrl:     row.CoverURL,
+			PublishedAt:  unixOrZero(row.PublishedAt),
+		})
+	}
+	return items
 }
 
 func unixOrZero(value *time.Time) int64 {

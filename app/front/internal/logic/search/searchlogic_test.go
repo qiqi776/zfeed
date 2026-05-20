@@ -27,10 +27,17 @@ func (s *stubSearchService) SearchContents(ctx context.Context, in *searchservic
 
 func TestSearchUsersReturnsFollowingState(t *testing.T) {
 	ctx := context.WithValue(context.Background(), "user_id", int64(2001))
+	mode := "relevance"
+	pageToken := "token-1"
+	snapshotID := "snapshot-1"
 	logic := NewSearchUsersLogic(ctx, &svc.ServiceContext{
 		SearchRpc: &stubSearchService{
 			searchUsersFunc: func(_ context.Context, in *searchservice.SearchUsersReq, _ ...grpc.CallOption) (*searchservice.SearchUsersRes, error) {
-				if in.GetQuery() != "Ali" || in.GetViewerId() != 2001 {
+				if in.GetQuery() != "Ali" ||
+					in.GetViewerId() != 2001 ||
+					in.GetMode() != "relevance" ||
+					in.GetPageToken() != "token-1" ||
+					in.GetSnapshotId() != "snapshot-1" {
 					t.Fatalf("unexpected rpc request: %+v", in)
 				}
 				return &searchservice.SearchUsersRes{
@@ -38,16 +45,21 @@ func TestSearchUsersReturnsFollowingState(t *testing.T) {
 						{UserId: 1001, Nickname: "Alice", Avatar: "a1", Bio: "growth notes", IsFollowing: false},
 						{UserId: 1002, Nickname: "Alicia", Avatar: "a2", Bio: "design", IsFollowing: true},
 					},
-					NextCursor: 1002,
-					HasMore:    false,
+					NextCursor:    1002,
+					HasMore:       false,
+					NextPageToken: "token-2",
+					SnapshotId:    "snapshot-1",
 				}, nil
 			},
 		},
 	})
 
 	resp, err := logic.SearchUsers(&types.SearchUsersReq{
-		Query:    stringPtr("Ali"),
-		PageSize: uint32Ptr(10),
+		Query:      stringPtr("Ali"),
+		PageSize:   uint32Ptr(10),
+		Mode:       &mode,
+		PageToken:  &pageToken,
+		SnapshotId: &snapshotID,
 	})
 	if err != nil {
 		t.Fatalf("SearchUsers returned error: %v", err)
@@ -58,13 +70,17 @@ func TestSearchUsersReturnsFollowingState(t *testing.T) {
 	if !resp.Items[1].IsFollowing {
 		t.Fatal("expected second item to be following")
 	}
+	if resp.NextPageToken != "token-2" || resp.SnapshotId != "snapshot-1" {
+		t.Fatalf("unexpected snapshot response fields: %+v", resp)
+	}
 }
 
 func TestSearchContentsReturnsContentRows(t *testing.T) {
+	mode := "hybrid"
 	logic := NewSearchContentsLogic(context.Background(), &svc.ServiceContext{
 		SearchRpc: &stubSearchService{
 			searchContentsFunc: func(_ context.Context, in *searchservice.SearchContentsReq, _ ...grpc.CallOption) (*searchservice.SearchContentsRes, error) {
-				if in.GetQuery() != "Growth" {
+				if in.GetQuery() != "Growth" || in.GetMode() != "hybrid" {
 					t.Fatalf("unexpected rpc request: %+v", in)
 				}
 				return &searchservice.SearchContentsRes{
@@ -80,8 +96,10 @@ func TestSearchContentsReturnsContentRows(t *testing.T) {
 							PublishedAt:  1700000000,
 						},
 					},
-					NextCursor: 0,
-					HasMore:    false,
+					NextCursor:    0,
+					HasMore:       false,
+					NextPageToken: "",
+					SnapshotId:    "snapshot-2",
 				}, nil
 			},
 		},
@@ -90,6 +108,7 @@ func TestSearchContentsReturnsContentRows(t *testing.T) {
 	resp, err := logic.SearchContents(&types.SearchContentsReq{
 		Query:    stringPtr("Growth"),
 		PageSize: uint32Ptr(10),
+		Mode:     &mode,
 	})
 	if err != nil {
 		t.Fatalf("SearchContents returned error: %v", err)
@@ -99,6 +118,9 @@ func TestSearchContentsReturnsContentRows(t *testing.T) {
 	}
 	if resp.Items[0].ContentId != 4001 {
 		t.Fatalf("content_id = %d, want 4001", resp.Items[0].ContentId)
+	}
+	if resp.SnapshotId != "snapshot-2" {
+		t.Fatalf("snapshot_id = %q, want snapshot-2", resp.SnapshotId)
 	}
 }
 
