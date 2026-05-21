@@ -1,0 +1,7 @@
+user_id,mobile,password,nickname,avatar,bio,email,birthday
+10001,+8619000000001,123456Aa!,bench_user_10001,https://example.com/bench/avatar-10001.png,bench user 10001,bench_user_10001@example.com,946684800
+10002,+8619000000002,123456Aa!,bench_user_10002,https://example.com/bench/avatar-10002.png,bench user 10002,bench_user_10002@example.com,946684800
+10003,+8619000000003,123456Aa!,bench_user_10003,https://example.com/bench/avatar-10003.png,bench user 10003,bench_user_10003@example.com,946684800
+10004,+8619000000004,123456Aa!,bench_user_10004,https://example.com/bench/avatar-10004.png,bench user 10004,bench_user_10004@example.com,946684800
+10005,+8619000000005,123456Aa!,bench_user_10005,https://example.com/bench/avatar-10005.png,bench user 10005,bench_user_10005@example.com,946684800
+

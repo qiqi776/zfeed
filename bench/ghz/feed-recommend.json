@@ -1,0 +1,17 @@
+{
+  "name": "feed-recommend",
+  "proto": "app/rpc/content/proto/content.proto",
+  "call": "content.FeedService.RecommendFeed",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "user_id": 10001,
+    "cursor": "0",
+    "page_size": 10
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-feed-recommend"
+  },
+  "format": "summary"
+}

@@ -1,0 +1,59 @@
+groups:
+  - name: zfeed-benchmark
+    interval: 30s
+    rules:
+      - alert: ZfeedBenchmarkHTTPHighErrorRate
+        expr: |
+          sum(rate(http_server_requests_code_total{code!~"2..|3.."}[2m]))
+            / clamp_min(sum(rate(http_server_requests_code_total[2m])), 1) > 0.005
+        for: 3m
+        labels:
+          severity: warning
+          scope: benchmark
+        annotations:
+          summary: "zfeed HTTP error rate is above 0.5% during benchmark"
+          description: "HTTP non-2xx/3xx ratio has stayed above the benchmark threshold for 3 minutes."
+
+      - alert: ZfeedBenchmarkRPCServerErrors
+        expr: |
+          sum by (job) (rate(rpc_server_requests_code_total{code!="OK"}[2m])) > 0
+        for: 3m
+        labels:
+          severity: warning
+          scope: benchmark
+        annotations:
+          summary: "zfeed RPC server errors detected during benchmark"
+          description: "{{ $labels.job }} has non-OK gRPC responses while benchmark traffic is running."
+
+      - alert: ZfeedBenchmarkDBSlowStatements
+        expr: |
+          sum by (service, table) (rate(zfeed_db_statement_slow_total[2m])) > 0
+        for: 3m
+        labels:
+          severity: warning
+          scope: benchmark
+        annotations:
+          summary: "zfeed DB slow statements detected during benchmark"
+          description: "{{ $labels.service }} has slow DB statements on table {{ $labels.table }}."
+
+      - alert: ZfeedBenchmarkGoroutineGrowth
+        expr: |
+          increase(go_goroutines{job=~"zfeed-.*"}[10m]) > 200
+        for: 5m
+        labels:
+          severity: warning
+          scope: benchmark
+        annotations:
+          summary: "zfeed goroutine count is growing during benchmark"
+          description: "{{ $labels.job }} goroutine count increased by more than 200 over 10 minutes."
+
+      - alert: ZfeedBenchmarkTargetDown
+        expr: |
+          up{job=~"zfeed-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          scope: benchmark
+        annotations:
+          summary: "zfeed benchmark target is down"
+          description: "Prometheus cannot scrape {{ $labels.job }}."

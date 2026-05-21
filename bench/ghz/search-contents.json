@@ -1,0 +1,19 @@
+{
+  "name": "search-contents",
+  "proto": "app/rpc/search/proto/search.proto",
+  "call": "search.SearchService.SearchContents",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "query": "bench",
+    "cursor": 0,
+    "page_size": 10,
+    "viewer_id": 10001,
+    "mode": "cursor"
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-search-contents"
+  },
+  "format": "summary"
+}

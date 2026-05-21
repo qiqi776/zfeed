@@ -1,114 +1,74 @@
 # zfeed
 
-`zfeed` 是一个基于 Go、go-zero 和 Docker Compose 的内容社区后端与交付栈。仓库当前包含 6 个后端服务边界：`front-api`、`user-rpc`、`content-rpc`、`interaction-rpc`、`count-rpc`、`search-rpc`，并配套 MySQL、Redis、Kafka、Canal、etcd 和本地可观测性组件。
+![Go](https://img.shields.io/badge/Go-1.26.2-00ADD8?logo=go&logoColor=white)
+![go-zero](https://img.shields.io/badge/go--zero-service%20framework-2f6fed)
+![Docker Compose](https://img.shields.io/badge/Docker%20Compose-local%20stack-2496ED?logo=docker&logoColor=white)
 
-## 项目概览
+`zfeed` 是一个基于 Go、go-zero 和 Docker Compose 的内容社区系统。它将用户、内容、互动、计数、推荐流和搜索拆分为独立服务，并配套 MySQL、Redis、Kafka、Canal、etcd、Prometheus、Jaeger 等基础设施。
 
-当前包含 6 个后端服务边界：
+## 快速开始
 
-- `front-api`：HTTP 入口，做参数校验、鉴权、聚合和下游 RPC 调用
-- `user-rpc`：用户注册、登录、登出、资料查询、会话管理
-- `content-rpc`：内容发布、内容详情、发布流索引、follow inbox 回填
-- `interaction-rpc`：点赞、评论、收藏、关注等交互关系写链路
-- `count-rpc`：计数写链、读链、批量查询和用户资料聚合
-- `search-rpc`：用户 / 内容搜索，以及搜索结果的关系状态补充
-
-## 当前能力状态
-
-| 模块         | 状态     | 说明                                                                             |
-| ------------ | -------- | -------------------------------------------------------------------------------- |
-| 用户与登录态 | 可用     | 注册、登录、登出、个人信息查询，登录态保存在 Redis                               |
-| 内容         | 可用     | 文章/视频发布、内容详情、用户发布流索引                                          |
-| 互动         | 可用     | 点赞、评论、收藏、关注                                                           |
-| 计数         | 基础可用 | 写链消费、读链回填、批量查询、用户资料聚合                                       |
-| Feed         | 部分可用 | 用户发布流、收藏流、follow inbox 回填已接通，完整 follow feed 和 miss 重建仍在补 |
-| 推荐/热榜    | 基础可用 | 热榜快照读取已接通，完整推荐策略仍在补                                           |
-| 搜索         | 可用     | `search-rpc` 已接通，支持基础用户 / 内容搜索和 viewer 关系补充                   |
-| 可观测性     | 可用     | Prometheus、结构化 DB 日志、Jaeger trace 已接通；日志采集链按需开启              |
-
-## 技术栈
-
-- Go `1.25.5`
-- go-zero
-- gRPC / Protocol Buffers
-- GORM
-- MySQL
-- Redis
-- Kafka
-- Jaeger
-- Canal
-- etcd
-- Docker Compose
-
-## 目录结构
-
-```text
-zfeed/
-├── app/
-│   ├── front/                    # HTTP API / BFF
-│   └── rpc/
-│       ├── user/                 # 用户服务
-│       ├── content/              # 内容服务
-│       ├── interaction/          # 点赞/评论/收藏/关注
-│       ├── count/                # 计数服务
-│       └── search/               # 搜索服务
-├── deploy/                       # Docker Compose、网关与观测配置
-├── e2e/                          # 显式触发的全栈端到端测试
-├── pkg/                          # 通用组件与工具
-├── script/                       # 启停脚本、SQL bootstrap
-```
-
-## 本地开发
-
-### 全量 Docker 模式
+### 启动本地环境
 
 ```bash
-bash ./script/start.sh
+bash ./scripts/start.sh
 ```
 
-停止：
+脚本会读取 `deploy/.env`，自动检查端口冲突，补齐缺失镜像，并通过 `deploy/docker-compose.yml` 拉起基础设施、6 个后端服务、nginx 网关和 Prometheus
 
-```bash
-bash ./script/stop.sh
-```
+## 功能
 
-这个入口会拉起完整 Docker 栈：
+### 服务边界
 
-- 基础设施：`etcd`、`redis`、`mysql`、`kafka`、`canal`、`xxl-job-admin`
-- 后端服务：`front-api`、`user-rpc`、`content-rpc`、`interaction-rpc`、`count-rpc`、`search-rpc`
-- 网关入口：`nginx`
-- 默认观测：`prometheus`
-- 可选观测：`otel-collector`、`jaeger`、`logstash`、`filebeat`
+| 服务              |   端口 | 职责                                              |
+| ----------------- | -----: | ------------------------------------------------- |
+| `front-api`       | `5000` | HTTP 入口、参数校验、鉴权、RPC 聚合               |
+| `user-rpc`        | `5003` | 注册、登录、会话、用户资料、用户统计聚合          |
+| `content-rpc`     | `5001` | 内容发布、详情读取、推荐流、关注流、冷热内容快照  |
+| `interaction-rpc` | `5002` | 点赞、评论、收藏、关注关系及互动事件              |
+| `count-rpc`       | `5004` | 高频计数写链、读链、批量查询和延迟失效            |
+| `search-rpc`      | `5006` | 用户与内容搜索、Redis snapshot 稳定分页、搜索观测 |
 
-启动成功后默认访问：
+### 主要能力
 
-- Gateway `/v1/*`：`http://127.0.0.1:18080`
-- API 直连：`http://127.0.0.1:5000`
-- Prometheus：`http://127.0.0.1:19090`
-- Jaeger：`http://127.0.0.1:16686`
+- 用户：注册、登录、登出、个人资料、头像上传、粉丝列表、用户主页统计。
+- 内容：文章和视频发布、编辑、删除、详情聚合、上传凭证。
+- Feed：推荐流、关注流、用户发布列表、用户收藏列表。
+- 互动：点赞、取消点赞、评论、回复、收藏、关注关系查询。
+- 计数：点赞数、评论数、收藏数、用户获赞和获收藏等高频计数。
+- 搜索：用户搜索、内容搜索、`latest` cursor 分页、`relevance/hybrid` page token 稳定分页。
+- 观测：Prometheus 指标、结构化日志、慢查询日志、可选 OTEL + Jaeger 链路追踪。
+- 压测：k6 HTTP 场景、ghz gRPC 场景、Go benchmark、结果归档。
 
-### 日志
+## API
 
-后端容器日志会落到宿主机 `logs/` 目录：
+HTTP API 定义在 [app/front/doc/front.api](./app/front/doc/front.api)，按业务拆分在 `app/front/doc/*/*.api`。当前主要入口如下：
 
-- `logs/front-api`
-- `logs/user-rpc`
-- `logs/content-rpc`
-- `logs/interaction-rpc`
-- `logs/count-rpc`
-- `logs/search-rpc`
+| 分组 | 路径前缀          | 示例                                                             |
+| ---- | ----------------- | ---------------------------------------------------------------- |
+| 用户 | `/v1`             | `POST /v1/users`、`POST /v1/login`、`GET /v1/users/me`           |
+| 内容 | `/v1/content`     | `POST /v1/content/article/publish`、`POST /v1/content/detail`    |
+| Feed | `/v1/feed`        | `POST /v1/feed/recommend`、`POST /v1/feed/follow`                |
+| 互动 | `/v1/interaction` | `POST /v1/interaction/like`、`POST /v1/interaction/comment/list` |
+| 搜索 | `/v1/search`      | `POST /v1/search/users`、`POST /v1/search/contents`              |
 
-开启 `ENABLE_LOG_PIPELINE=1` 后，`filebeat` 会采集这些日志并写入 `logs/collected/`。
+RPC 协议定义在各服务的 `app/rpc/*/proto/*.proto`，生成代码位于对应服务目录下的 `client/`、`*service/` 和 protobuf 包。
+
+## 可观测性
+
+服务日志默认写入 `logs/`，例如 `logs/front-api`、`logs/content-rpc`、`logs/search-rpc`。go-zero 会输出 `access.log`、`error.log`、`slow.log`、`stat.log` 等文件。开启 `ENABLE_LOG_PIPELINE=1` 后，filebeat 会采集日志并写入 `logs/collected/`。
+
+Prometheus 配置位于 [deploy/prometheus/prometheus.yml](./deploy/prometheus/prometheus.yml)。Tracing 配置位于 [deploy/otel/otel-collector.yaml](./deploy/otel/otel-collector.yaml)，启用后可在 Jaeger UI 查看跨服务调用链。
 
 ## 测试
 
-### 常规测试
+单元测试和包级集成测试可以直接运行：
 
 ```bash
-GOCACHE=/tmp/go-build go test ./...
+go test ./...
 ```
 
-### 定向验证
+完整 Docker 栈启动后，可以运行 e2e 测试。注意这些测试会写入和修改本地开发数据，仅建议在当前仓库自己的 Docker 栈上执行：
 
 ```bash
 GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestObservabilityE2E -count=1
@@ -116,4 +76,40 @@ GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestCountChainE2E -count=1
 GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestRecommendHotSnapshotE2E -count=1
 ```
 
-这些 `e2e` 测试依赖本地完整 Docker 栈已启动，并且会修改本地开发用 MySQL / Redis / Kafka 状态；默认 `go test ./...` 不会执行它们。
+## 性能测试
+
+压测入口统一在 [scripts/bench/run.sh](./scripts/bench/run.sh)：
+
+```bash
+bash ./scripts/bench/run.sh ports
+bash ./scripts/bench/run.sh start-stack
+bash ./scripts/bench/run.sh smoke
+bash ./scripts/bench/run.sh search
+bash ./scripts/bench/run.sh go-bench
+bash ./scripts/bench/run.sh ghz
+```
+
+测试数据在 [bench/data](./bench/data)，k6 场景在 [bench/k6](./bench/k6)，ghz 配置在 [bench/ghz](./bench/ghz)，结果默认归档到 `bench/results/`。
+
+## 项目结构
+
+```text
+app/front/          HTTP API 网关，handlers，中间件，请求/响应类型定义
+app/rpc/            go-zero zrpc 服务：用户、内容、互动、计数、搜索
+build/              应用服务 Dockerfile
+deploy/             Docker Compose 栈，环境变量，nginx，MySQL，Prometheus，OTEL
+docs/               架构说明，端口清单，绘图辅助
+e2e/                Docker 栈端到端测试
+orm/                共享 GORM 初始化及指标插件
+pkg/                共享包：errorx, grpcx, hotrank, mobilex, xxljob
+scripts/            启动/停止脚本，SQL 初始化脚本，压测运行器
+bench/              k6, ghz, Go benchmark 测试数据与结果归档
+```
+
+## 文档
+
+- [deploy/README.md](./deploy/README.md)：本地 Docker 栈入口、网关路由和 e2e 命令。
+- [docs/ports.md](./docs/ports.md)：默认端口占用和冲突排查。
+- [docs/System.md](./docs/System.md)：Timeline Feed 系统设计说明。
+- [docs/benchmark/README.md](./docs/benchmark/README.md)：压测目标、场景和结果解读。
+- [docs/diagrams/README.md](./docs/diagrams/README.md)：架构图维护说明。

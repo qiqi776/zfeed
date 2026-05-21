@@ -13,7 +13,7 @@
 仓库根目录执行：
 
 ```bash
-bash ./script/start.sh
+bash ./scripts/start.sh
 ```
 
 该脚本会通过 `deploy/docker-compose.yml` 拉起：
@@ -27,7 +27,7 @@ bash ./script/start.sh
 停止：
 
 ```bash
-bash ./script/stop.sh
+bash ./scripts/stop.sh
 ```
 
 ## E2E 验证

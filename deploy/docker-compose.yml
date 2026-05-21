@@ -90,7 +90,7 @@ services:
     volumes:
       - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
       - ./mysql/mysql-reseed.sh:/usr/local/bin/mysql-reseed.sh:ro
-      - ../script/sql:/seed-sql:ro
+      - ../scripts/sql:/seed-sql:ro
       - mysql-data:/var/lib/mysql
     entrypoint: ["/bin/bash", "/usr/local/bin/mysql-reseed.sh"]
     healthcheck:
@@ -343,6 +343,7 @@ services:
       - "${PROMETHEUS_HOST_PORT}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     extra_hosts:
       - "host.docker.internal:host-gateway"

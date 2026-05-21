@@ -1,0 +1,5 @@
+query,kind
+bench,common
+bench_article,content
+bench_user,user
+unlikely_bench_empty_term,empty

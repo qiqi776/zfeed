@@ -8,6 +8,7 @@ import (
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 
 	contentpb "zfeed/app/rpc/content/content"
+	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	"zfeed/app/rpc/content/internal/svc"
 )
 
@@ -144,5 +145,38 @@ func TestColdStart(t *testing.T) {
 	}
 	if len(resp.GetItems()) != 0 || resp.GetHasMore() || resp.GetNextCursor() != 0 || resp.GetSnapshotId() != "" {
 		t.Fatalf("unexpected cold start response: %+v", resp)
+	}
+}
+
+func TestQueryHotIDsCursorZeroUsesFirstPage(t *testing.T) {
+	store := miniredis.RunT(t)
+	store.ZAdd(redisconsts.HotFeedKey, 9003, "1003")
+	store.ZAdd(redisconsts.HotFeedKey, 9002, "1002")
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "1001")
+
+	redisClient := gzredis.MustNewRedis(gzredis.RedisConf{
+		Host: store.Addr(),
+		Type: "node",
+	})
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Redis: redisClient,
+	})
+
+	result, cacheResult := logic.queryFromRedis("", "", "0", 2)
+	if cacheResult != cacheHit {
+		t.Fatalf("expected cache hit, got %v", cacheResult)
+	}
+	if result == nil {
+		t.Fatalf("expected non-nil result")
+	}
+	if len(result.ids) != 2 || result.ids[0] != 1003 || result.ids[1] != 1002 {
+		t.Fatalf("unexpected ids: %#v", result.ids)
+	}
+	if !result.hasMore {
+		t.Fatalf("expected hasMore=true")
+	}
+	if result.nextCursor != 1002 {
+		t.Fatalf("expected nextCursor=1002, got %d", result.nextCursor)
 	}
 }

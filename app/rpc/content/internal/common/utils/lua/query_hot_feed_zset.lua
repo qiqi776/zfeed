@@ -56,9 +56,13 @@ end
 
 local cursorScore = nil
 local cursorId = nil
-if cursor ~= nil and cursor ~= "" then
+if cursor ~= nil and cursor ~= "" and cursor ~= "0" then
     cursorScore = redis.call('ZSCORE', key, cursor)
-    cursorId = tonumber(cursor)
+    if cursorScore == false then
+        cursorScore = nil
+    else
+        cursorId = tonumber(cursor)
+    end
 end
 
 local maxScore = "+inf"
