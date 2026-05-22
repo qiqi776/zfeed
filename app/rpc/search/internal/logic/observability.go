@@ -18,6 +18,10 @@ const (
 
 	searchCacheDisabled = "disabled"
 	searchCacheBypass   = "bypass"
+	searchCacheHit      = "hit"
+	searchCacheMiss     = "miss"
+	searchCacheFallback = "fallback"
+	searchCacheError    = "error"
 
 	defaultSearchSlowThreshold = 200 * time.Millisecond
 )
@@ -55,6 +59,14 @@ var (
 		Name:      "slow_total",
 		Help:      "Search slow request count.",
 		Labels:    []string{"entity", "backend", "query_path", "db_fallback", "cache_status"},
+	})
+
+	metricSearchCacheTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed_search",
+		Subsystem: "cache",
+		Name:      "total",
+		Help:      "Search cache event count.",
+		Labels:    []string{"layer", "entity", "mode", "status"},
 	})
 )
 
@@ -161,6 +173,10 @@ func cacheStatus(svcCtx *svc.ServiceContext) string {
 		return searchCacheBypass
 	}
 	return searchCacheDisabled
+}
+
+func observeSearchCache(layer string, entity string, mode string, status string) {
+	metricSearchCacheTotal.Inc(layer, entity, mode, status)
 }
 
 func normalizeQueryPath(value string) string {

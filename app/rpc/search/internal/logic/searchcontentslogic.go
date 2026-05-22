@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	searchbackend "zfeed/app/rpc/search/internal/backend"
 	"zfeed/app/rpc/search/internal/querynorm"
 	"zfeed/app/rpc/search/internal/repositories"
 	"zfeed/app/rpc/search/internal/svc"
@@ -57,8 +58,38 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 		return l.searchContentsWithSnapshot(in, normalized, mode, pageSize, start)
 	}
 
-	backend := l.svcCtx.SearchBackend(l.ctx)
-	result, err := backend.SearchContents(l.ctx, normalized.SearchText, in.GetCursor(), pageSize+1)
+	searchBackend := l.svcCtx.SearchBackend(l.ctx)
+	var (
+		result             searchbackend.SearchContentsResult
+		requestCacheStatus = cacheStatus(l.svcCtx)
+		usedCursorCache    bool
+	)
+	if in.GetCursor() > 0 {
+		if cachedResult, ok := l.cachedContentsAfterCursor(normalized, mode, in.GetCursor(), pageSize); ok {
+			result = cachedResult
+			requestCacheStatus = searchCacheHit
+			usedCursorCache = true
+		}
+	}
+	if !usedCursorCache {
+		limit := pageSize + 1
+		cachePage := -1
+		if in.GetCursor() == 0 {
+			cachePage = 0
+			if searchQueryCacheEnabled(l.svcCtx) {
+				limit = latestQueryCacheLimit(l.svcCtx)
+			}
+		}
+		result, requestCacheStatus, err = l.queryContentsWithCache(
+			normalized,
+			mode,
+			cachePage,
+			limit,
+			func() (searchbackend.SearchContentsResult, error) {
+				return searchBackend.SearchContents(l.ctx, normalized.SearchText, in.GetCursor(), limit)
+			},
+		)
+	}
 	if err != nil {
 		observeSearch(l.Logger, searchObservation{
 			entity:            searchEntityContents,
@@ -69,7 +100,7 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 			err:               err,
 			start:             start,
 			meta:              result.Meta,
-			cacheStatus:       cacheStatus(l.svcCtx),
+			cacheStatus:       requestCacheStatus,
 			configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 			effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 			svcCtx:            l.svcCtx,
@@ -112,7 +143,7 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 		mode:              mode,
 		start:             start,
 		meta:              result.Meta,
-		cacheStatus:       cacheStatus(l.svcCtx),
+		cacheStatus:       requestCacheStatus,
 		configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 		effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 		svcCtx:            l.svcCtx,
@@ -157,6 +188,7 @@ func (l *SearchContentsLogic) searchContentsWithSnapshot(
 		snapshotID     string
 		offset         int
 		meta           repositories.SearchMeta
+		cacheState     = cacheStatus(l.svcCtx)
 		snapshotStatus = "create"
 	)
 
@@ -175,7 +207,7 @@ func (l *SearchContentsLogic) searchContentsWithSnapshot(
 				err:               err,
 				start:             start,
 				meta:              repositories.SearchMeta{QueryPath: "snapshot"},
-				cacheStatus:       cacheStatus(l.svcCtx),
+				cacheStatus:       cacheState,
 				configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 				effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 				svcCtx:            l.svcCtx,
@@ -188,8 +220,18 @@ func (l *SearchContentsLogic) searchContentsWithSnapshot(
 		meta = repositories.SearchMeta{QueryPath: "snapshot"}
 		snapshotStatus = "hit"
 	} else {
-		backend := l.svcCtx.SearchBackend(l.ctx)
-		result, err := backend.SearchContents(l.ctx, normalized.SearchText, 0, snapshotMaxItems(l.svcCtx, pageSize))
+		searchBackend := l.svcCtx.SearchBackend(l.ctx)
+		limit := snapshotMaxItems(l.svcCtx, pageSize)
+		result, requestCacheStatus, err := l.queryContentsWithCache(
+			normalized,
+			mode,
+			0,
+			limit,
+			func() (searchbackend.SearchContentsResult, error) {
+				return searchBackend.SearchContents(l.ctx, normalized.SearchText, 0, limit)
+			},
+		)
+		cacheState = requestCacheStatus
 		if err != nil {
 			observeSearch(l.Logger, searchObservation{
 				entity:            searchEntityContents,
@@ -200,7 +242,7 @@ func (l *SearchContentsLogic) searchContentsWithSnapshot(
 				err:               err,
 				start:             start,
 				meta:              result.Meta,
-				cacheStatus:       cacheStatus(l.svcCtx),
+				cacheStatus:       cacheState,
 				configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 				effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 				svcCtx:            l.svcCtx,
@@ -223,7 +265,7 @@ func (l *SearchContentsLogic) searchContentsWithSnapshot(
 					err:               err,
 					start:             start,
 					meta:              result.Meta,
-					cacheStatus:       cacheStatus(l.svcCtx),
+					cacheStatus:       cacheState,
 					configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 					effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 					svcCtx:            l.svcCtx,
@@ -262,7 +304,7 @@ func (l *SearchContentsLogic) searchContentsWithSnapshot(
 		snapshotStatus:    snapshotStatus,
 		start:             start,
 		meta:              meta,
-		cacheStatus:       cacheStatus(l.svcCtx),
+		cacheStatus:       cacheState,
 		configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 		effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 		svcCtx:            l.svcCtx,

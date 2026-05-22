@@ -107,6 +107,21 @@ func newSearchSnapshotTestSvc(t *testing.T, db *gorm.DB, maxItems int) *svc.Serv
 	}
 }
 
+func newSearchCacheTestSvc(t *testing.T, db *gorm.DB) *svc.ServiceContext {
+	t.Helper()
+
+	return &svc.ServiceContext{
+		Config: config.Config{
+			SearchCacheEnabled:         true,
+			SearchQueryCacheTTLSeconds: 60,
+			SearchDocCacheTTLSeconds:   600,
+			SearchQueryCacheMaxPages:   3,
+		},
+		Redis:   newSearchTestRedis(t),
+		MysqlDb: db,
+	}
+}
+
 type stubSearchFollowService struct {
 	batchQueryFollowingFunc func(ctx context.Context, in *followservice.BatchQueryFollowingReq, opts ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error)
 }
@@ -219,6 +234,355 @@ func TestSearchContentsReturnsContentRows(t *testing.T) {
 	if resp.Items[0].GetContentId() != 4001 {
 		t.Fatalf("content_id = %d, want 4001", resp.Items[0].GetContentId())
 	}
+}
+
+func TestSearchUsersQueryCacheKeepsViewerEnrichmentRealtime(t *testing.T) {
+	db := newSearchTestDB(t)
+	if err := db.Create(&[]searchTestUser{
+		{ID: 1001, Mobile: "+861001", Nickname: "Alice", Avatar: "a1", Bio: "growth notes", IsDeleted: 0},
+		{ID: 1002, Mobile: "+861002", Nickname: "Alicia", Avatar: "a2", Bio: "design", IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+
+	svcCtx := newSearchCacheTestSvc(t, db)
+	svcCtx.FollowRpc = &stubSearchFollowService{
+		batchQueryFollowingFunc: func(_ context.Context, in *followservice.BatchQueryFollowingReq, _ ...grpc.CallOption) (*followservice.BatchQueryFollowingRes, error) {
+			if in.GetUserId() == 2002 {
+				return &followservice.BatchQueryFollowingRes{
+					Items: []*interactionpb.FollowingState{{UserId: 1002, IsFollowing: true}},
+				}, nil
+			}
+			return &followservice.BatchQueryFollowingRes{
+				Items: []*interactionpb.FollowingState{{UserId: 1001, IsFollowing: true}},
+			}, nil
+		},
+	}
+
+	logic := NewSearchUsersLogic(context.Background(), svcCtx)
+	firstViewerID := int64(2001)
+	firstResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Ali",
+		PageSize: 10,
+		ViewerId: &firstViewerID,
+	})
+	if err != nil {
+		t.Fatalf("first SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(firstResp), []int64{1002, 1001})
+	if !firstResp.Items[1].GetIsFollowing() {
+		t.Fatal("expected first viewer enrichment to mark user 1001 as following")
+	}
+
+	if err := db.Create(&searchTestUser{
+		ID:        2000,
+		Mobile:    "+862000",
+		Nickname:  "Alice New",
+		Avatar:    "new",
+		Bio:       "new match",
+		IsDeleted: 0,
+	}).Error; err != nil {
+		t.Fatalf("insert concurrent user: %v", err)
+	}
+
+	secondViewerID := int64(2002)
+	secondResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Ali",
+		PageSize: 10,
+		ViewerId: &secondViewerID,
+	})
+	if err != nil {
+		t.Fatalf("second SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(secondResp), []int64{1002, 1001})
+	if !secondResp.Items[0].GetIsFollowing() {
+		t.Fatal("expected second viewer enrichment to be recomputed from follow-rpc")
+	}
+	if secondResp.Items[1].GetIsFollowing() {
+		t.Fatal("expected cached result to avoid leaking first viewer following state")
+	}
+
+	normalized := svcCtx.NormalizeQuery("Ali")
+	queryCache, err := svcCtx.Redis.GetCtx(context.Background(), searchQueryCacheKey(searchEntityUsers, searchModeLatest, normalized.Hash, 0))
+	if err != nil {
+		t.Fatalf("get query cache: %v", err)
+	}
+	if queryCache == "" {
+		t.Fatal("expected query snapshot cache to be written")
+	}
+	docCache, err := svcCtx.Redis.GetCtx(context.Background(), searchUserDocCacheKey(1002))
+	if err != nil {
+		t.Fatalf("get doc cache: %v", err)
+	}
+	if docCache == "" {
+		t.Fatal("expected user doc summary cache to be written")
+	}
+}
+
+func TestSearchUsersQueryCacheStoresEmptyResult(t *testing.T) {
+	db := newSearchTestDB(t)
+	svcCtx := newSearchCacheTestSvc(t, db)
+	logic := NewSearchUsersLogic(context.Background(), svcCtx)
+
+	firstResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Nobody",
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("first SearchUsers returned error: %v", err)
+	}
+	if len(firstResp.GetItems()) != 0 {
+		t.Fatalf("len(items) = %d, want 0", len(firstResp.GetItems()))
+	}
+
+	if err := db.Create(&searchTestUser{
+		ID:        1001,
+		Mobile:    "+861001",
+		Nickname:  "Nobody",
+		Avatar:    "a1",
+		Bio:       "late insert",
+		IsDeleted: 0,
+	}).Error; err != nil {
+		t.Fatalf("insert late user: %v", err)
+	}
+
+	secondResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Nobody",
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("second SearchUsers returned error: %v", err)
+	}
+	if len(secondResp.GetItems()) != 0 {
+		t.Fatalf("expected empty result cache to hide late insert during TTL, got %v", collectSearchUserIDs(secondResp))
+	}
+}
+
+func TestSearchUsersQueryCacheServesConfiguredCursorWindow(t *testing.T) {
+	db := newSearchTestDB(t)
+	if err := db.Create(&[]searchTestUser{
+		{ID: 1000, Mobile: "+861000", Nickname: "Alice 1000", Avatar: "a1", Bio: "growth", IsDeleted: 0},
+		{ID: 800, Mobile: "+86800", Nickname: "Alice 800", Avatar: "a2", Bio: "growth", IsDeleted: 0},
+		{ID: 600, Mobile: "+86600", Nickname: "Alice 600", Avatar: "a3", Bio: "growth", IsDeleted: 0},
+		{ID: 400, Mobile: "+86400", Nickname: "Alice 400", Avatar: "a4", Bio: "growth", IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+
+	svcCtx := newSearchCacheTestSvc(t, db)
+	svcCtx.Config.SearchQueryCacheMaxPages = 2
+	logic := NewSearchUsersLogic(context.Background(), svcCtx)
+
+	firstResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Alice",
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("first SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(firstResp), []int64{1000, 800})
+
+	if err := db.Create(&searchTestUser{
+		ID:        700,
+		Mobile:    "+86700",
+		Nickname:  "Alice Late",
+		Avatar:    "late",
+		Bio:       "late insert",
+		IsDeleted: 0,
+	}).Error; err != nil {
+		t.Fatalf("insert late user: %v", err)
+	}
+
+	secondResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Alice",
+		PageSize: 2,
+		Cursor:   firstResp.GetNextCursor(),
+	})
+	if err != nil {
+		t.Fatalf("second SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(secondResp), []int64{600, 400})
+}
+
+func TestSearchUsersQueryCacheBypassesBeyondConfiguredCursorWindow(t *testing.T) {
+	db := newSearchTestDB(t)
+	if err := db.Create(&[]searchTestUser{
+		{ID: 1000, Mobile: "+861000", Nickname: "Alice 1000", Avatar: "a1", Bio: "growth", IsDeleted: 0},
+		{ID: 800, Mobile: "+86800", Nickname: "Alice 800", Avatar: "a2", Bio: "growth", IsDeleted: 0},
+		{ID: 600, Mobile: "+86600", Nickname: "Alice 600", Avatar: "a3", Bio: "growth", IsDeleted: 0},
+		{ID: 400, Mobile: "+86400", Nickname: "Alice 400", Avatar: "a4", Bio: "growth", IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+
+	svcCtx := newSearchCacheTestSvc(t, db)
+	svcCtx.Config.SearchQueryCacheMaxPages = 1
+	logic := NewSearchUsersLogic(context.Background(), svcCtx)
+
+	firstResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Alice",
+		PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("first SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(firstResp), []int64{1000, 800})
+
+	if err := db.Create(&searchTestUser{
+		ID:        700,
+		Mobile:    "+86700",
+		Nickname:  "Alice Late",
+		Avatar:    "late",
+		Bio:       "late insert",
+		IsDeleted: 0,
+	}).Error; err != nil {
+		t.Fatalf("insert late user: %v", err)
+	}
+
+	secondResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Alice",
+		PageSize: 2,
+		Cursor:   firstResp.GetNextCursor(),
+	})
+	if err != nil {
+		t.Fatalf("second SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(secondResp), []int64{700, 600})
+}
+
+func TestSearchContentsQueryCacheUsesCachedCandidateWindow(t *testing.T) {
+	db := newSearchTestDB(t)
+	now := time.Unix(1_700_000_000, 0)
+	desc := "share growth"
+	if err := db.Create(&searchTestUser{ID: 3001, Nickname: "writer", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if err := db.Create(&searchTestContent{
+		ID:          4001,
+		UserID:      3001,
+		ContentType: 10,
+		Status:      30,
+		Visibility:  10,
+		PublishedAt: &now,
+		IsDeleted:   0,
+	}).Error; err != nil {
+		t.Fatalf("seed content: %v", err)
+	}
+	if err := db.Create(&searchTestArticle{
+		ContentID:   4001,
+		Title:       "Growth Diary",
+		Description: &desc,
+		Cover:       "cover",
+		IsDeleted:   0,
+	}).Error; err != nil {
+		t.Fatalf("seed article: %v", err)
+	}
+
+	svcCtx := newSearchCacheTestSvc(t, db)
+	logic := NewSearchContentsLogic(context.Background(), svcCtx)
+	firstResp, err := logic.SearchContents(&searchpb.SearchContentsReq{
+		Query:    "Growth",
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("first SearchContents returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchContentIDs(firstResp), []int64{4001})
+
+	if err := db.Create(&searchTestContent{
+		ID:          5000,
+		UserID:      3001,
+		ContentType: 10,
+		Status:      30,
+		Visibility:  10,
+		PublishedAt: &now,
+		IsDeleted:   0,
+	}).Error; err != nil {
+		t.Fatalf("insert late content: %v", err)
+	}
+	if err := db.Create(&searchTestArticle{
+		ContentID:   5000,
+		Title:       "Growth News",
+		Description: &desc,
+		Cover:       "new",
+		IsDeleted:   0,
+	}).Error; err != nil {
+		t.Fatalf("insert late article: %v", err)
+	}
+
+	secondResp, err := logic.SearchContents(&searchpb.SearchContentsReq{
+		Query:    "Growth",
+		PageSize: 10,
+	})
+	if err != nil {
+		t.Fatalf("second SearchContents returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchContentIDs(secondResp), []int64{4001})
+
+	normalized := svcCtx.NormalizeQuery("Growth")
+	queryCache, err := svcCtx.Redis.GetCtx(context.Background(), searchQueryCacheKey(searchEntityContents, searchModeLatest, normalized.Hash, 0))
+	if err != nil {
+		t.Fatalf("get content query cache: %v", err)
+	}
+	if queryCache == "" {
+		t.Fatal("expected content query snapshot cache to be written")
+	}
+	docCache, err := svcCtx.Redis.GetCtx(context.Background(), searchContentDocCacheKey(4001))
+	if err != nil {
+		t.Fatalf("get content doc cache: %v", err)
+	}
+	if docCache == "" {
+		t.Fatal("expected content doc summary cache to be written")
+	}
+}
+
+func TestSearchUsersSnapshotModeReusesQueryCacheForFirstWindow(t *testing.T) {
+	db := newSearchTestDB(t)
+	if err := db.Create(&[]searchTestUser{
+		{ID: 1001, Mobile: "+861001", Nickname: "Alice 01", Avatar: "a1", Bio: "growth", IsDeleted: 0},
+		{ID: 1002, Mobile: "+861002", Nickname: "Alice 02", Avatar: "a2", Bio: "growth", IsDeleted: 0},
+		{ID: 1003, Mobile: "+861003", Nickname: "Alice 03", Avatar: "a3", Bio: "growth", IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+
+	svcCtx := newSearchSnapshotTestSvc(t, db, 3)
+	svcCtx.Config.SearchCacheEnabled = true
+	svcCtx.Config.SearchQueryCacheTTLSeconds = 60
+	svcCtx.Config.SearchDocCacheTTLSeconds = 600
+	svcCtx.Config.SearchQueryCacheMaxPages = 3
+
+	logic := NewSearchUsersLogic(context.Background(), svcCtx)
+	firstResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Alice",
+		PageSize: 2,
+		Mode:     "relevance",
+	})
+	if err != nil {
+		t.Fatalf("first relevance SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(firstResp), []int64{1003, 1002})
+
+	if err := db.Create(&searchTestUser{
+		ID:        2000,
+		Mobile:    "+862000",
+		Nickname:  "Alice New",
+		Avatar:    "new",
+		Bio:       "late insert",
+		IsDeleted: 0,
+	}).Error; err != nil {
+		t.Fatalf("insert late user: %v", err)
+	}
+
+	secondResp, err := logic.SearchUsers(&searchpb.SearchUsersReq{
+		Query:    "Alice",
+		PageSize: 2,
+		Mode:     "relevance",
+	})
+	if err != nil {
+		t.Fatalf("second relevance SearchUsers returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchUserIDs(secondResp), []int64{1003, 1002})
 }
 
 func TestSearchUsersSnapshotPaginationStableAcrossInserts(t *testing.T) {

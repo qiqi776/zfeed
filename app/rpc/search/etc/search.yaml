@@ -52,6 +52,9 @@ SearchHybridRankEnabled: ${SEARCH_HYBRID_RANK_ENABLED}
 SearchBackend: "${SEARCH_BACKEND}"
 SearchSnapshotTTLSeconds: ${SEARCH_SNAPSHOT_TTL_SECONDS}
 SearchSnapshotMaxItems: ${SEARCH_SNAPSHOT_MAX_ITEMS}
+SearchQueryCacheTTLSeconds: ${SEARCH_QUERY_CACHE_TTL_SECONDS}
+SearchDocCacheTTLSeconds: ${SEARCH_DOC_CACHE_TTL_SECONDS}
+SearchQueryCacheMaxPages: ${SEARCH_QUERY_CACHE_MAX_PAGES}
 
 MySQL:
   DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"

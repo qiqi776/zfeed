@@ -5,6 +5,7 @@ import (
 	"time"
 
 	followservice "zfeed/app/rpc/interaction/client/followservice"
+	searchbackend "zfeed/app/rpc/search/internal/backend"
 	"zfeed/app/rpc/search/internal/querynorm"
 	"zfeed/app/rpc/search/internal/repositories"
 	"zfeed/app/rpc/search/internal/svc"
@@ -60,8 +61,38 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 		return l.searchUsersWithSnapshot(in, normalized, mode, pageSize, start)
 	}
 
-	backend := l.svcCtx.SearchBackend(l.ctx)
-	result, err := backend.SearchUsers(l.ctx, normalized.SearchText, in.GetCursor(), pageSize+1)
+	searchBackend := l.svcCtx.SearchBackend(l.ctx)
+	var (
+		result             searchbackend.SearchUsersResult
+		requestCacheStatus = cacheStatus(l.svcCtx)
+		usedCursorCache    bool
+	)
+	if in.GetCursor() > 0 {
+		if cachedResult, ok := l.cachedUsersAfterCursor(normalized, mode, in.GetCursor(), pageSize); ok {
+			result = cachedResult
+			requestCacheStatus = searchCacheHit
+			usedCursorCache = true
+		}
+	}
+	if !usedCursorCache {
+		limit := pageSize + 1
+		cachePage := -1
+		if in.GetCursor() == 0 {
+			cachePage = 0
+			if searchQueryCacheEnabled(l.svcCtx) {
+				limit = latestQueryCacheLimit(l.svcCtx)
+			}
+		}
+		result, requestCacheStatus, err = l.queryUsersWithCache(
+			normalized,
+			mode,
+			cachePage,
+			limit,
+			func() (searchbackend.SearchUsersResult, error) {
+				return searchBackend.SearchUsers(l.ctx, normalized.SearchText, in.GetCursor(), limit)
+			},
+		)
+	}
 	if err != nil {
 		observeSearch(l.Logger, searchObservation{
 			entity:            searchEntityUsers,
@@ -72,7 +103,7 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 			err:               err,
 			start:             start,
 			meta:              result.Meta,
-			cacheStatus:       cacheStatus(l.svcCtx),
+			cacheStatus:       requestCacheStatus,
 			configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 			effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 			svcCtx:            l.svcCtx,
@@ -99,7 +130,7 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 			err:               err,
 			start:             start,
 			meta:              result.Meta,
-			cacheStatus:       cacheStatus(l.svcCtx),
+			cacheStatus:       requestCacheStatus,
 			configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 			effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 			svcCtx:            l.svcCtx,
@@ -122,7 +153,7 @@ func (l *SearchUsersLogic) SearchUsers(in *search.SearchUsersReq) (*search.Searc
 		mode:              mode,
 		start:             start,
 		meta:              result.Meta,
-		cacheStatus:       cacheStatus(l.svcCtx),
+		cacheStatus:       requestCacheStatus,
 		configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 		effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 		svcCtx:            l.svcCtx,
@@ -167,6 +198,7 @@ func (l *SearchUsersLogic) searchUsersWithSnapshot(
 		snapshotID     string
 		offset         int
 		meta           repositories.SearchMeta
+		cacheState     = cacheStatus(l.svcCtx)
 		snapshotStatus = "create"
 	)
 
@@ -185,7 +217,7 @@ func (l *SearchUsersLogic) searchUsersWithSnapshot(
 				err:               err,
 				start:             start,
 				meta:              repositories.SearchMeta{QueryPath: "snapshot"},
-				cacheStatus:       cacheStatus(l.svcCtx),
+				cacheStatus:       cacheState,
 				configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 				effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 				svcCtx:            l.svcCtx,
@@ -198,8 +230,18 @@ func (l *SearchUsersLogic) searchUsersWithSnapshot(
 		meta = repositories.SearchMeta{QueryPath: "snapshot"}
 		snapshotStatus = "hit"
 	} else {
-		backend := l.svcCtx.SearchBackend(l.ctx)
-		result, err := backend.SearchUsers(l.ctx, normalized.SearchText, 0, snapshotMaxItems(l.svcCtx, pageSize))
+		searchBackend := l.svcCtx.SearchBackend(l.ctx)
+		limit := snapshotMaxItems(l.svcCtx, pageSize)
+		result, requestCacheStatus, err := l.queryUsersWithCache(
+			normalized,
+			mode,
+			0,
+			limit,
+			func() (searchbackend.SearchUsersResult, error) {
+				return searchBackend.SearchUsers(l.ctx, normalized.SearchText, 0, limit)
+			},
+		)
+		cacheState = requestCacheStatus
 		if err != nil {
 			observeSearch(l.Logger, searchObservation{
 				entity:            searchEntityUsers,
@@ -210,7 +252,7 @@ func (l *SearchUsersLogic) searchUsersWithSnapshot(
 				err:               err,
 				start:             start,
 				meta:              result.Meta,
-				cacheStatus:       cacheStatus(l.svcCtx),
+				cacheStatus:       cacheState,
 				configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 				effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 				svcCtx:            l.svcCtx,
@@ -233,7 +275,7 @@ func (l *SearchUsersLogic) searchUsersWithSnapshot(
 					err:               err,
 					start:             start,
 					meta:              result.Meta,
-					cacheStatus:       cacheStatus(l.svcCtx),
+					cacheStatus:       cacheState,
 					configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 					effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 					svcCtx:            l.svcCtx,
@@ -260,7 +302,7 @@ func (l *SearchUsersLogic) searchUsersWithSnapshot(
 			err:               err,
 			start:             start,
 			meta:              meta,
-			cacheStatus:       cacheStatus(l.svcCtx),
+			cacheStatus:       cacheState,
 			configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 			effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 			svcCtx:            l.svcCtx,
@@ -294,7 +336,7 @@ func (l *SearchUsersLogic) searchUsersWithSnapshot(
 		snapshotStatus:    snapshotStatus,
 		start:             start,
 		meta:              meta,
-		cacheStatus:       cacheStatus(l.svcCtx),
+		cacheStatus:       cacheState,
 		configuredBackend: l.svcCtx.ConfiguredSearchBackend(),
 		effectiveBackend:  l.svcCtx.EffectiveSearchBackend(),
 		svcCtx:            l.svcCtx,
