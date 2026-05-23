@@ -141,6 +141,56 @@ func TestRepositoryBuildUserDocument(t *testing.T) {
 	}
 }
 
+func TestRepositoryListContentDocumentsAfterFiltersAndOrders(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Unix(1_700_000_000, 0)
+	desc := "searchable article"
+	if err := db.Create(&testUser{ID: 3001, Nickname: "writer", Avatar: "avatar", Status: 10}).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	contents := []testContent{
+		{ID: 4001, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, PublishedAt: &now},
+		{ID: 4002, UserID: 3001, ContentType: 10, Status: 10, Visibility: 10, PublishedAt: &now},
+		{ID: 4003, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, PublishedAt: &now},
+	}
+	if err := db.Create(&contents).Error; err != nil {
+		t.Fatalf("seed contents: %v", err)
+	}
+	for _, id := range []int64{4001, 4002, 4003} {
+		if err := db.Create(&testArticle{ContentID: id, Title: "Growth", Description: &desc}).Error; err != nil {
+			t.Fatalf("seed article: %v", err)
+		}
+	}
+
+	docs, err := New(db).ListContentDocumentsAfter(context.Background(), 4001, 0, 10)
+	if err != nil {
+		t.Fatalf("ListContentDocumentsAfter returned error: %v", err)
+	}
+	if len(docs) != 1 || docs[0].ContentID != 4003 {
+		t.Fatalf("docs = %+v, want only 4003", docs)
+	}
+}
+
+func TestRepositoryListUserDocumentsAfterFiltersAndOrders(t *testing.T) {
+	db := newTestDB(t)
+	users := []testUser{
+		{ID: 3001, Nickname: "old", Status: 10},
+		{ID: 3002, Nickname: "deleted", Status: 10, IsDeleted: 1},
+		{ID: 3003, Nickname: "active", Status: 10},
+	}
+	if err := db.Create(&users).Error; err != nil {
+		t.Fatalf("seed users: %v", err)
+	}
+
+	docs, err := New(db).ListUserDocumentsAfter(context.Background(), 3001, 0, 10)
+	if err != nil {
+		t.Fatalf("ListUserDocumentsAfter returned error: %v", err)
+	}
+	if len(docs) != 1 || docs[0].UserID != 3003 {
+		t.Fatalf("docs = %+v, want only 3003", docs)
+	}
+}
+
 func newTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
