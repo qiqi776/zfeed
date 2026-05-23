@@ -3,9 +3,9 @@ package server
 import (
 	"context"
 
-	"zfeed/app/rpc/search/internal/logic"
-	"zfeed/app/rpc/search/internal/svc"
 	"zfeed/app/rpc/search/search"
+	"zfeed/app/rpc/search/search-rpc/internal/logic"
+	"zfeed/app/rpc/search/search-rpc/internal/svc"
 )
 
 type SearchServiceServer struct {

@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"zfeed/app/rpc/search/internal/repositories"
+	"zfeed/app/rpc/search/search-rpc/internal/repositories"
 )
 
 type MySQLBackend struct {

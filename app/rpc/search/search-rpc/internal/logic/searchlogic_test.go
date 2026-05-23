@@ -14,9 +14,9 @@ import (
 
 	followservice "zfeed/app/rpc/interaction/client/followservice"
 	interactionpb "zfeed/app/rpc/interaction/interaction"
-	"zfeed/app/rpc/search/internal/config"
-	"zfeed/app/rpc/search/internal/svc"
 	searchpb "zfeed/app/rpc/search/search"
+	"zfeed/app/rpc/search/search-rpc/internal/config"
+	"zfeed/app/rpc/search/search-rpc/internal/svc"
 )
 
 type searchTestUser struct {

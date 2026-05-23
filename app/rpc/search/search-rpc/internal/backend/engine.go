@@ -13,7 +13,7 @@ import (
 
 	"github.com/zeromicro/go-zero/core/logc"
 
-	"zfeed/app/rpc/search/internal/repositories"
+	"zfeed/app/rpc/search/search-rpc/internal/repositories"
 )
 
 const defaultEngineTimeoutMs = 3000

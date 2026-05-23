@@ -10,10 +10,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"zfeed/app/rpc/search/internal/config"
-	"zfeed/app/rpc/search/internal/server"
-	"zfeed/app/rpc/search/internal/svc"
 	"zfeed/app/rpc/search/search"
+	"zfeed/app/rpc/search/search-rpc/internal/config"
+	"zfeed/app/rpc/search/search-rpc/internal/server"
+	"zfeed/app/rpc/search/search-rpc/internal/svc"
 	"zfeed/pkg/envx"
 	"zfeed/pkg/grpcx"
 )

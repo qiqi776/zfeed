@@ -6,9 +6,9 @@ import (
 	"gorm.io/gorm"
 	followservice "zfeed/app/rpc/interaction/client/followservice"
 
-	"zfeed/app/rpc/search/internal/backend"
-	"zfeed/app/rpc/search/internal/config"
-	"zfeed/app/rpc/search/internal/querynorm"
+	"zfeed/app/rpc/search/search-rpc/internal/backend"
+	"zfeed/app/rpc/search/search-rpc/internal/config"
+	"zfeed/app/rpc/search/search-rpc/internal/querynorm"
 	"zfeed/orm"
 	"zfeed/pkg/grpcx"
 

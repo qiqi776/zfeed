@@ -7,9 +7,9 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/metric"
 
-	"zfeed/app/rpc/search/internal/querynorm"
-	"zfeed/app/rpc/search/internal/repositories"
-	"zfeed/app/rpc/search/internal/svc"
+	"zfeed/app/rpc/search/search-rpc/internal/querynorm"
+	"zfeed/app/rpc/search/search-rpc/internal/repositories"
+	"zfeed/app/rpc/search/search-rpc/internal/svc"
 )
 
 const (

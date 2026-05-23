@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	"zfeed/app/rpc/search/internal/svc"
+	"zfeed/app/rpc/search/search-rpc/internal/svc"
 	"zfeed/pkg/errorx"
 )
 
