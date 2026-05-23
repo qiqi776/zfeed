@@ -34,11 +34,19 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	interactionClient := zrpc.MustNewClient(c.InteractionRpcClientConf, grpcx.ClientInterceptorOption())
 
 	return &ServiceContext{
-		Config:          c,
-		Redis:           redisClient,
-		MysqlDb:         db,
-		FollowRpc:       followservice.NewFollowService(interactionClient),
-		BackendFactory:  backend.NewFactory(db, c.SearchBackend),
+		Config:    c,
+		Redis:     redisClient,
+		MysqlDb:   db,
+		FollowRpc: followservice.NewFollowService(interactionClient),
+		BackendFactory: backend.NewFactoryWithEngineConfig(db, c.SearchBackend, backend.EngineConfig{
+			Endpoint:       c.SearchEngine.Endpoint,
+			ContentIndex:   c.SearchEngine.ContentIndex,
+			UserIndex:      c.SearchEngine.UserIndex,
+			Username:       c.SearchEngine.Username,
+			Password:       c.SearchEngine.Password,
+			TimeoutMs:      c.SearchEngine.TimeoutMs,
+			CompareEnabled: c.SearchEngineCompareEnabled,
+		}, c.SearchEngineTrafficPercent),
 		QueryNormalizer: querynorm.NewDefaultNormalizer(),
 	}
 }

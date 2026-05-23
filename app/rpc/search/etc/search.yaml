@@ -50,6 +50,15 @@ SearchCacheEnabled: ${SEARCH_CACHE_ENABLED}
 SearchSnapshotEnabled: ${SEARCH_SNAPSHOT_ENABLED}
 SearchHybridRankEnabled: ${SEARCH_HYBRID_RANK_ENABLED}
 SearchBackend: "${SEARCH_BACKEND}"
+SearchEngineTrafficPercent: ${SEARCH_ENGINE_TRAFFIC_PERCENT}
+SearchEngineCompareEnabled: ${SEARCH_INDEX_COMPARE_ENABLED}
+SearchEngine:
+  Endpoint: "${SEARCH_INDEX_ENGINE_ENDPOINT}"
+  ContentIndex: "${SEARCH_INDEX_CONTENT_INDEX}"
+  UserIndex: "${SEARCH_INDEX_USER_INDEX}"
+  Username: "${SEARCH_INDEX_ENGINE_USERNAME}"
+  Password: "${SEARCH_INDEX_ENGINE_PASSWORD}"
+  TimeoutMs: ${SEARCH_INDEX_ENGINE_TIMEOUT_MS}
 SearchSnapshotTTLSeconds: ${SEARCH_SNAPSHOT_TTL_SECONDS}
 SearchSnapshotMaxItems: ${SEARCH_SNAPSHOT_MAX_ITEMS}
 SearchQueryCacheTTLSeconds: ${SEARCH_QUERY_CACHE_TTL_SECONDS}

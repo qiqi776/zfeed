@@ -18,6 +18,14 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	t.Setenv("SEARCH_SNAPSHOT_ENABLED", "false")
 	t.Setenv("SEARCH_HYBRID_RANK_ENABLED", "true")
 	t.Setenv("SEARCH_BACKEND", "mysql")
+	t.Setenv("SEARCH_ENGINE_TRAFFIC_PERCENT", "10")
+	t.Setenv("SEARCH_INDEX_COMPARE_ENABLED", "true")
+	t.Setenv("SEARCH_INDEX_ENGINE_ENDPOINT", "http://127.0.0.1:19200")
+	t.Setenv("SEARCH_INDEX_CONTENT_INDEX", "contents")
+	t.Setenv("SEARCH_INDEX_USER_INDEX", "users")
+	t.Setenv("SEARCH_INDEX_ENGINE_USERNAME", "elastic")
+	t.Setenv("SEARCH_INDEX_ENGINE_PASSWORD", "secret")
+	t.Setenv("SEARCH_INDEX_ENGINE_TIMEOUT_MS", "2000")
 	t.Setenv("SEARCH_SNAPSHOT_TTL_SECONDS", "60")
 	t.Setenv("SEARCH_SNAPSHOT_MAX_ITEMS", "100")
 	t.Setenv("SEARCH_QUERY_CACHE_TTL_SECONDS", "60")
@@ -50,6 +58,18 @@ func TestSearchConfigLoadsWithEnv(t *testing.T) {
 	}
 	if !cfg.SearchCacheEnabled || cfg.SearchSnapshotEnabled || !cfg.SearchHybridRankEnabled || cfg.SearchBackend != "mysql" {
 		t.Fatalf("unexpected search feature config: %+v", cfg)
+	}
+	if cfg.SearchEngineTrafficPercent != 10 {
+		t.Fatalf("unexpected search engine traffic percent: %+v", cfg)
+	}
+	if !cfg.SearchEngineCompareEnabled ||
+		cfg.SearchEngine.Endpoint != "http://127.0.0.1:19200" ||
+		cfg.SearchEngine.ContentIndex != "contents" ||
+		cfg.SearchEngine.UserIndex != "users" ||
+		cfg.SearchEngine.Username != "elastic" ||
+		cfg.SearchEngine.Password != "secret" ||
+		cfg.SearchEngine.TimeoutMs != 2000 {
+		t.Fatalf("unexpected search engine config: %+v", cfg.SearchEngine)
 	}
 	if cfg.SearchSnapshotTTLSeconds != 60 || cfg.SearchSnapshotMaxItems != 100 {
 		t.Fatalf("unexpected search snapshot config: %+v", cfg)
