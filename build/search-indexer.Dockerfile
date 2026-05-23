@@ -13,14 +13,12 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=0
-RUN go build -o /out/search-rpc ./app/rpc/search/search-rpc
+RUN go build -o /out/search-indexer ./app/rpc/search/search-indexer
 
 FROM alpine:3.20
 WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
-COPY --from=build /out/search-rpc /app/bin/search-rpc
-COPY app/rpc/search/search-rpc/etc /app/app/rpc/search/search-rpc/etc
-
-EXPOSE 5006 9295
+COPY --from=build /out/search-indexer /app/bin/search-indexer
+COPY app/rpc/search/search-indexer/etc /app/app/rpc/search/search-indexer/etc

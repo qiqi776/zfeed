@@ -38,6 +38,7 @@ count-rpc|5004|5004|计数服务 gRPC
 count-rpc Prometheus|${COUNT_PROM_PORT}|9292|计数服务指标
 search-rpc|5006|5006|搜索服务 gRPC
 search-rpc Prometheus|${SEARCH_PROM_PORT}|9295|搜索服务指标
+OpenSearch|${SEARCH_INDEX_ENGINE_HOST_PORT}|9200|搜索索引引擎
 Prometheus|${PROMETHEUS_HOST_PORT}|9090|指标查询
 MySQL|${MYSQL_PORT}|3306|主存储
 Redis|${REDIS_HOST_PORT}|${REDIS_PORT}|缓存与会话
@@ -156,7 +157,7 @@ readonly ENABLE_LOG_PIPELINE_VALUE="${ENABLE_LOG_PIPELINE:-0}"
 readonly ENABLE_TRACE_PIPELINE_VALUE="${ENABLE_TRACE_PIPELINE:-0}"
 readonly ENABLE_GRAFANA_VALUE="${ENABLE_GRAFANA:-0}"
 
-app_services=(front-api user-rpc content-rpc interaction-rpc count-rpc search-rpc)
+app_services=(front-api user-rpc content-rpc interaction-rpc count-rpc search-rpc search-indexer)
 app_images=(
   "${FRONT_API_IMAGE}"
   "${USER_RPC_IMAGE}"
@@ -164,6 +165,7 @@ app_images=(
   "${INTERACTION_RPC_IMAGE}"
   "${COUNT_RPC_IMAGE}"
   "${SEARCH_RPC_IMAGE}"
+  "${SEARCH_INDEXER_IMAGE}"
 )
 services=(
   etcd
@@ -171,6 +173,8 @@ services=(
   mysql
   kafka
   canal
+  opensearch
+  search-index-bootstrap
   xxl-job-admin
   prometheus
   "${app_services[@]}"

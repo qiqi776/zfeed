@@ -140,12 +140,45 @@ services:
     volumes:
       - ./canal/conf/canal.properties:/home/admin/canal-server/conf/canal.properties
       - ./canal/conf/count:/home/admin/canal-server/conf/count
+      - ./canal/conf/search:/home/admin/canal-server/conf/search
       - ./canal/reset-and-start.sh:/usr/local/bin/canal-reset-and-start.sh:ro
     depends_on:
       mysql:
         condition: service_healthy
       kafka:
         condition: service_started
+    networks:
+      - zfeed-net
+
+  opensearch:
+    image: ${SEARCH_INDEX_ENGINE_IMAGE}
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - bootstrap.memory_lock=false
+    ports:
+      - "${SEARCH_INDEX_ENGINE_HOST_PORT}:9200"
+    volumes:
+      - search-index-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    networks:
+      - zfeed-net
+
+  search-index-bootstrap:
+    image: curlimages/curl:8.10.1
+    command: ["/bootstrap/search-bootstrap.sh"]
+    env_file:
+      - ./.env
+    volumes:
+      - ./search/bootstrap.sh:/bootstrap/search-bootstrap.sh:ro
+    depends_on:
+      opensearch:
+        condition: service_healthy
     networks:
       - zfeed-net
 
@@ -312,7 +345,7 @@ services:
     build:
       context: ..
       dockerfile: build/search-rpc.Dockerfile
-    command: ["/app/bin/search-rpc", "-f", "/app/app/rpc/search/etc/search.yaml"]
+    command: ["/app/bin/search-rpc", "-f", "/app/app/rpc/search/search-rpc/etc/search.yaml"]
     working_dir: /app
     environment:
       - ENV_FILE=/app/.env
@@ -330,6 +363,33 @@ services:
         condition: service_healthy
       mysql:
         condition: service_healthy
+    networks:
+      - zfeed-net
+
+  search-indexer:
+    image: ${SEARCH_INDEXER_IMAGE}
+    build:
+      context: ..
+      dockerfile: build/search-indexer.Dockerfile
+    command: ["/app/bin/search-indexer", "-f", "/app/app/rpc/search/search-indexer/etc/search-indexer.yaml"]
+    working_dir: /app
+    environment:
+      - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
+    volumes:
+      - ./.env:/app/.env:ro
+      - ../logs:/var/log/zfeed
+    env_file:
+      - ./.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      canal:
+        condition: service_started
+      search-index-bootstrap:
+        condition: service_completed_successfully
     networks:
       - zfeed-net
 
@@ -412,3 +472,4 @@ volumes:
   kafka-data:
   prometheus-data:
   filebeat-data:
+  search-index-data:
