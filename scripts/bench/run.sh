@@ -288,7 +288,7 @@ fct_run_go_bench() {
 		-benchmem \
 		-count="${BENCH_COUNT}" \
 		./app/rpc/content/internal/logic/feed \
-		./app/rpc/search/internal/querynorm \
+		./app/rpc/search/search-rpc/internal/querynorm \
 		./app/rpc/count/internal/logic \
 		./pkg/hotrank 2>&1 | tee "${result_dir}/go-bench.txt"
 }
