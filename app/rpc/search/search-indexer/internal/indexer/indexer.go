@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"zfeed/app/rpc/search/search-indexer/internal/indexconfig"
 	"zfeed/app/rpc/search/internal/common/indexdoc"
+	"zfeed/app/rpc/search/search-indexer/internal/indexconfig"
 )
 
 type Indexer interface {
@@ -14,6 +14,10 @@ type Indexer interface {
 	DeleteContent(ctx context.Context, contentID int64) error
 	IndexUser(ctx context.Context, doc indexdoc.UserDocument) error
 	DeleteUser(ctx context.Context, userID int64) error
+	BulkIndexContent(ctx context.Context, docs []indexdoc.ContentDocument) error
+	BulkDeleteContent(ctx context.Context, contentIDs []int64) error
+	BulkIndexUser(ctx context.Context, docs []indexdoc.UserDocument) error
+	BulkDeleteUser(ctx context.Context, userIDs []int64) error
 }
 
 func New(conf indexconfig.IndexEngineConf) (Indexer, error) {
@@ -36,7 +40,11 @@ func normalizeEngineType(value string) string {
 
 type Noop struct{}
 
-func (Noop) IndexContent(context.Context, indexdoc.ContentDocument) error { return nil }
-func (Noop) DeleteContent(context.Context, int64) error                   { return nil }
-func (Noop) IndexUser(context.Context, indexdoc.UserDocument) error       { return nil }
-func (Noop) DeleteUser(context.Context, int64) error                      { return nil }
+func (Noop) IndexContent(context.Context, indexdoc.ContentDocument) error       { return nil }
+func (Noop) DeleteContent(context.Context, int64) error                         { return nil }
+func (Noop) IndexUser(context.Context, indexdoc.UserDocument) error             { return nil }
+func (Noop) DeleteUser(context.Context, int64) error                            { return nil }
+func (Noop) BulkIndexContent(context.Context, []indexdoc.ContentDocument) error { return nil }
+func (Noop) BulkDeleteContent(context.Context, []int64) error                   { return nil }
+func (Noop) BulkIndexUser(context.Context, []indexdoc.UserDocument) error       { return nil }
+func (Noop) BulkDeleteUser(context.Context, []int64) error                      { return nil }

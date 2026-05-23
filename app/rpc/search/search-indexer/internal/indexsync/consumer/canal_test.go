@@ -120,3 +120,27 @@ func (i *fakeIndexer) DeleteUser(_ context.Context, userID int64) error {
 	i.deletedUsers = append(i.deletedUsers, userID)
 	return nil
 }
+
+func (i *fakeIndexer) BulkIndexContent(_ context.Context, docs []indexdoc.ContentDocument) error {
+	for _, doc := range docs {
+		i.indexedContents = append(i.indexedContents, doc.ContentID)
+	}
+	return nil
+}
+
+func (i *fakeIndexer) BulkDeleteContent(_ context.Context, contentIDs []int64) error {
+	i.deletedContents = append(i.deletedContents, contentIDs...)
+	return nil
+}
+
+func (i *fakeIndexer) BulkIndexUser(_ context.Context, docs []indexdoc.UserDocument) error {
+	for _, doc := range docs {
+		i.indexedUsers = append(i.indexedUsers, doc.UserID)
+	}
+	return nil
+}
+
+func (i *fakeIndexer) BulkDeleteUser(_ context.Context, userIDs []int64) error {
+	i.deletedUsers = append(i.deletedUsers, userIDs...)
+	return nil
+}
