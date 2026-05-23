@@ -144,3 +144,18 @@ func (i *fakeIndexer) BulkDeleteUser(_ context.Context, userIDs []int64) error {
 	i.deletedUsers = append(i.deletedUsers, userIDs...)
 	return nil
 }
+
+func (i *fakeIndexer) Count(context.Context, string) (int64, error)      { return 0, nil }
+func (i *fakeIndexer) SwitchAlias(context.Context, string, string) error { return nil }
+func (i *fakeIndexer) GetContentDocuments(context.Context, string, []int64) (map[int64]indexdoc.ContentDocument, error) {
+	return map[int64]indexdoc.ContentDocument{}, nil
+}
+func (i *fakeIndexer) GetUserDocuments(context.Context, string, []int64) (map[int64]indexdoc.UserDocument, error) {
+	return map[int64]indexdoc.UserDocument{}, nil
+}
+func (i *fakeIndexer) SearchContentIDs(context.Context, string, string, string, int) ([]int64, error) {
+	return []int64{}, nil
+}
+func (i *fakeIndexer) SearchUserIDs(context.Context, string, string, int) ([]int64, error) {
+	return []int64{}, nil
+}

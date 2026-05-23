@@ -3,6 +3,7 @@ package indexrepo
 import (
 	"context"
 	"errors"
+	"sort"
 	"time"
 
 	"gorm.io/gorm"
@@ -175,6 +176,127 @@ func (r *Repository) ListUserDocumentsAfter(ctx context.Context, cursorID int64,
 	return docs, nil
 }
 
+func (r *Repository) CountContentDocuments(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	var count int64
+	err := r.contentDocumentQuery(ctx).Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) CountUserDocuments(ctx context.Context) (int64, error) {
+	if r == nil || r.db == nil {
+		return 0, nil
+	}
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table(tableUser).
+		Where("status = ? AND is_deleted = 0", userStatusActive).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *Repository) SampleContentDocuments(ctx context.Context, limit int) ([]indexdoc.ContentDocument, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows := make([]contentIndexRow, 0, limit)
+	err := r.contentDocumentQuery(ctx).
+		Order("c.id ASC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return contentDocumentsFromRows(rows), nil
+}
+
+func (r *Repository) SampleUserDocuments(ctx context.Context, limit int) ([]indexdoc.UserDocument, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return r.ListUserDocumentsAfter(ctx, 0, 0, limit)
+}
+
+func (r *Repository) SearchContentIDs(ctx context.Context, query string, mode string, limit int) ([]int64, error) {
+	if r == nil || r.db == nil {
+		return []int64{}, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	pattern := "%" + query + "%"
+	rows := make([]struct {
+		ContentID int64   `gorm:"column:content_id"`
+		TextScore float64 `gorm:"column:text_score"`
+		HotScore  float64 `gorm:"column:hot_score"`
+	}, 0, limit)
+	err := r.contentDocumentQuery(ctx).
+		Select(`
+			c.id AS content_id,
+			COALESCE(c.hot_score, 0) AS hot_score,
+			CASE
+				WHEN COALESCE(a.title, v.title, '') = ? THEN 30
+				WHEN COALESCE(a.title, v.title, '') LIKE ? THEN 20
+				WHEN COALESCE(a.title, v.title, '') LIKE ? THEN 10
+				WHEN COALESCE(a.description, v.description, '') LIKE ? THEN 5
+				ELSE 1
+			END AS text_score
+		`, query, query+"%", pattern, pattern).
+		Where("(a.title LIKE ? OR v.title LIKE ? OR a.description LIKE ? OR v.description LIKE ?)", pattern, pattern, pattern, pattern).
+		Order(contentSearchOrder(mode)).
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	if mode == "hybrid" {
+		sort.SliceStable(rows, func(i, j int) bool {
+			left := rows[i].TextScore + rows[i].HotScore
+			right := rows[j].TextScore + rows[j].HotScore
+			if left != right {
+				return left > right
+			}
+			return rows[i].ContentID > rows[j].ContentID
+		})
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ContentID)
+	}
+	return ids, nil
+}
+
+func (r *Repository) SearchUserIDs(ctx context.Context, query string, limit int) ([]int64, error) {
+	if r == nil || r.db == nil {
+		return []int64{}, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	pattern := "%" + query + "%"
+	rows := make([]struct {
+		UserID int64 `gorm:"column:user_id"`
+	}, 0, limit)
+	err := r.db.WithContext(ctx).
+		Table(tableUser).
+		Select("id AS user_id").
+		Where("status = ? AND is_deleted = 0", userStatusActive).
+		Where("(nickname LIKE ? OR bio LIKE ? OR mobile LIKE ?)", pattern, pattern, pattern).
+		Order("id DESC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.UserID)
+	}
+	return ids, nil
+}
+
 func (r *Repository) ListContentIDsByAuthor(ctx context.Context, authorID int64, limit int) ([]int64, error) {
 	if r == nil || r.db == nil || authorID <= 0 {
 		return []int64{}, nil
@@ -253,6 +375,15 @@ func contentDocumentsFromRows(rows []contentIndexRow) []indexdoc.ContentDocument
 		})
 	}
 	return docs
+}
+
+func contentSearchOrder(mode string) string {
+	switch mode {
+	case "relevance", "hybrid":
+		return "text_score DESC, c.id DESC"
+	default:
+		return "c.published_at DESC, c.id DESC"
+	}
 }
 
 type contentIndexRow struct {

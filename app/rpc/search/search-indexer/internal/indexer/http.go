@@ -127,6 +127,138 @@ func (h *HTTPIndexer) BulkDeleteUser(ctx context.Context, userIDs []int64) error
 	return h.bulk(ctx, operations)
 }
 
+func (h *HTTPIndexer) Count(ctx context.Context, index string) (int64, error) {
+	var out struct {
+		Count int64 `json:"count"`
+	}
+	if err := h.postJSON(ctx, index, "_count", map[string]any{"query": map[string]any{"match_all": map[string]any{}}}, &out); err != nil {
+		return 0, err
+	}
+	return out.Count, nil
+}
+
+func (h *HTTPIndexer) SwitchAlias(ctx context.Context, alias string, targetIndex string) error {
+	body := map[string]any{
+		"actions": []map[string]any{
+			{"remove": map[string]any{"index": "*", "alias": alias, "must_exist": false}},
+			{"add": map[string]any{"index": targetIndex, "alias": alias}},
+		},
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := h.newRootRequest(ctx, http.MethodPost, "_aliases", bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return h.do(req, http.StatusOK)
+}
+
+func (h *HTTPIndexer) GetContentDocuments(ctx context.Context, index string, ids []int64) (map[int64]indexdoc.ContentDocument, error) {
+	out := make(map[int64]indexdoc.ContentDocument, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var resp mgetContentResponse
+	if err := h.mget(ctx, index, int64IDs(ids), &resp); err != nil {
+		return nil, err
+	}
+	for _, doc := range resp.Docs {
+		if doc.Found {
+			out[doc.Source.ContentID] = doc.Source
+		}
+	}
+	return out, nil
+}
+
+func (h *HTTPIndexer) GetUserDocuments(ctx context.Context, index string, ids []int64) (map[int64]indexdoc.UserDocument, error) {
+	out := make(map[int64]indexdoc.UserDocument, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var resp mgetUserResponse
+	if err := h.mget(ctx, index, int64IDs(ids), &resp); err != nil {
+		return nil, err
+	}
+	for _, doc := range resp.Docs {
+		if doc.Found {
+			out[doc.Source.UserID] = doc.Source
+		}
+	}
+	return out, nil
+}
+
+func (h *HTTPIndexer) SearchContentIDs(ctx context.Context, index string, query string, mode string, limit int) ([]int64, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	body := map[string]any{
+		"size": limit,
+		"_source": []string{
+			"content_id",
+		},
+		"query": map[string]any{
+			"bool": map[string]any{
+				"must": map[string]any{"multi_match": map[string]any{
+					"query":  query,
+					"fields": []string{"title^3", "description", "author_name"},
+				}},
+				"filter": []map[string]any{
+					{"term": map[string]any{"status": 30}},
+					{"term": map[string]any{"visibility": 10}},
+				},
+			},
+		},
+		"sort": contentSort(mode),
+	}
+	var resp searchContentIDResponse
+	if err := h.postJSON(ctx, index, "_search", body, &resp); err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(resp.Hits.Hits))
+	for _, hit := range resp.Hits.Hits {
+		if hit.Source.ContentID > 0 {
+			ids = append(ids, hit.Source.ContentID)
+		}
+	}
+	return ids, nil
+}
+
+func (h *HTTPIndexer) SearchUserIDs(ctx context.Context, index string, query string, limit int) ([]int64, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	body := map[string]any{
+		"size": limit,
+		"_source": []string{
+			"user_id",
+		},
+		"query": map[string]any{
+			"bool": map[string]any{
+				"must": map[string]any{"multi_match": map[string]any{
+					"query":  query,
+					"fields": []string{"nickname^3", "bio", "mobile_search_field"},
+				}},
+				"filter": []map[string]any{{"term": map[string]any{"status": 10}}},
+			},
+		},
+		"sort": []map[string]any{{"_score": "desc"}, {"user_id": "desc"}},
+	}
+	var resp searchUserIDResponse
+	if err := h.postJSON(ctx, index, "_search", body, &resp); err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(resp.Hits.Hits))
+	for _, hit := range resp.Hits.Hits {
+		if hit.Source.UserID > 0 {
+			ids = append(ids, hit.Source.UserID)
+		}
+	}
+	return ids, nil
+}
+
 func (h *HTTPIndexer) put(ctx context.Context, index string, id string, doc any) error {
 	body, err := json.Marshal(doc)
 	if err != nil {
@@ -209,6 +341,14 @@ func (h *HTTPIndexer) newRequest(ctx context.Context, method string, index strin
 	return req, nil
 }
 
+func (h *HTTPIndexer) newIndexRequest(ctx context.Context, method string, index string, path string, body io.Reader) (*http.Request, error) {
+	if h.endpoint == "" {
+		return nil, fmt.Errorf("search index engine endpoint is empty")
+	}
+	u := h.endpoint + "/" + url.PathEscape(index) + "/" + strings.TrimLeft(path, "/")
+	return h.newRawRequest(ctx, method, u, body)
+}
+
 func (h *HTTPIndexer) newRootRequest(ctx context.Context, method string, path string, body io.Reader) (*http.Request, error) {
 	if h.endpoint == "" {
 		return nil, fmt.Errorf("search index engine endpoint is empty")
@@ -228,6 +368,19 @@ func (h *HTTPIndexer) newRawRequest(ctx context.Context, method string, rawURL s
 	return req, nil
 }
 
+func (h *HTTPIndexer) postJSON(ctx context.Context, index string, path string, body any, out any) error {
+	data, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := h.newIndexRequest(ctx, http.MethodPost, index, path, bytes.NewReader(data))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return h.doJSON(req, out)
+}
+
 func (h *HTTPIndexer) postRootJSON(ctx context.Context, path string, body io.Reader, out any) error {
 	req, err := h.newRootRequest(ctx, http.MethodPost, path, body)
 	if err != nil {
@@ -235,6 +388,11 @@ func (h *HTTPIndexer) postRootJSON(ctx context.Context, path string, body io.Rea
 	}
 	req.Header.Set("Content-Type", "application/x-ndjson")
 	return h.doJSON(req, out)
+}
+
+func (h *HTTPIndexer) mget(ctx context.Context, index string, ids []string, out any) error {
+	body := map[string]any{"ids": ids}
+	return h.postJSON(ctx, index, "_mget", body, out)
 }
 
 func (h *HTTPIndexer) doJSON(req *http.Request, out any) error {
@@ -295,4 +453,59 @@ type bulkItemState struct {
 	Error  struct {
 		Reason string `json:"reason"`
 	} `json:"error"`
+}
+
+type mgetContentResponse struct {
+	Docs []struct {
+		Found  bool                     `json:"found"`
+		Source indexdoc.ContentDocument `json:"_source"`
+	} `json:"docs"`
+}
+
+type mgetUserResponse struct {
+	Docs []struct {
+		Found  bool                  `json:"found"`
+		Source indexdoc.UserDocument `json:"_source"`
+	} `json:"docs"`
+}
+
+type searchContentIDResponse struct {
+	Hits struct {
+		Hits []struct {
+			Source struct {
+				ContentID int64 `json:"content_id"`
+			} `json:"_source"`
+		} `json:"hits"`
+	} `json:"hits"`
+}
+
+type searchUserIDResponse struct {
+	Hits struct {
+		Hits []struct {
+			Source struct {
+				UserID int64 `json:"user_id"`
+			} `json:"_source"`
+		} `json:"hits"`
+	} `json:"hits"`
+}
+
+func int64IDs(ids []int64) []string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			out = append(out, strconv.FormatInt(id, 10))
+		}
+	}
+	return out
+}
+
+func contentSort(mode string) []map[string]any {
+	switch mode {
+	case "latest":
+		return []map[string]any{{"published_at": "desc"}, {"content_id": "desc"}}
+	case "hybrid":
+		return []map[string]any{{"_score": "desc"}, {"hot_score": "desc"}, {"content_id": "desc"}}
+	default:
+		return []map[string]any{{"_score": "desc"}, {"content_id": "desc"}}
+	}
 }
