@@ -1,0 +1,48 @@
+Name: search-indexer
+
+Telemetry:
+  Name: search-indexer
+  Disabled: ${OTEL_DISABLED}
+  Endpoint: "${OTEL_ENDPOINT}"
+  Batcher: otlpgrpc
+  Sampler: 1.0
+
+Log:
+  ServiceName: "search-indexer"
+  Mode: "file"
+  Encoding: "json"
+  TimeFormat: "2006-01-02T15:04:05.000Z07:00"
+  Path: "${LOG_PATH}/search-indexer"
+  Level: "info"
+  MaxContentLength: 0
+  Compress: false
+  Stat: true
+  KeepDays: 1
+  StackCooldownMillis: 100
+  MaxBackups: 0
+  MaxSize: 0
+  Rotation: "daily"
+  FileTimeFormat: "2006-01-02T15:04:05.000Z07:00"
+
+MySQL:
+  DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
+
+KqConsumerConf:
+  Name: search-indexer-canal-consumer
+  Brokers:
+    - "${KAFKA_BROKERS}"
+  Group: zfeed-search-indexer-canal-consumer
+  Topic: zfeed-search-canal
+  Offset: last
+  Consumers: 2
+  Processors: 2
+
+IndexEngine:
+  Type: "${SEARCH_INDEX_ENGINE_TYPE}"
+  Endpoint: "${SEARCH_INDEX_ENGINE_ENDPOINT}"
+  ContentIndex: "${SEARCH_INDEX_CONTENT_INDEX}"
+  UserIndex: "${SEARCH_INDEX_USER_INDEX}"
+  Username: "${SEARCH_INDEX_ENGINE_USERNAME}"
+  Password: "${SEARCH_INDEX_ENGINE_PASSWORD}"
+  TimeoutMs: ${SEARCH_INDEX_ENGINE_TIMEOUT_MS}
+  CompareEnabled: ${SEARCH_INDEX_COMPARE_ENABLED}
