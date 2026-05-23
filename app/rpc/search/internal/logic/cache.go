@@ -70,6 +70,8 @@ type searchCachedContentDoc struct {
 	Title        string  `json:"title"`
 	CoverURL     string  `json:"cover_url"`
 	PublishedAt  int64   `json:"published_at"`
+	TextScore    float64 `json:"text_score,omitempty"`
+	HotScore     float64 `json:"hot_score,omitempty"`
 	RankPosition int     `json:"rank_position,omitempty"`
 	RankScore    float64 `json:"rank_score,omitempty"`
 }
@@ -569,7 +571,10 @@ func cachedContentDocFromRow(row repositories.SearchContentRow, rankPosition int
 		Title:        row.Title,
 		CoverURL:     row.CoverURL,
 		PublishedAt:  unixOrZero(row.PublishedAt),
+		TextScore:    row.TextScore,
+		HotScore:     row.HotScore,
 		RankPosition: rankPosition,
+		RankScore:    row.RankScore,
 	}
 }
 
@@ -592,6 +597,9 @@ func (d searchCachedContentDoc) toContentRow() repositories.SearchContentRow {
 		Title:        d.Title,
 		CoverURL:     d.CoverURL,
 		PublishedAt:  unixTimePtr(d.PublishedAt),
+		TextScore:    d.TextScore,
+		HotScore:     d.HotScore,
+		RankScore:    d.RankScore,
 	}
 }
 

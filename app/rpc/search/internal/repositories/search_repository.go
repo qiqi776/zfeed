@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,7 +20,7 @@ type SearchRepository interface {
 	SearchUsersWithMeta(query string, cursor int64, limit int) (SearchUsersResult, error)
 	BatchFollowing(viewerID int64, userIDs []int64) (map[int64]bool, error)
 	SearchContents(query string, cursor int64, limit int) ([]SearchContentRow, error)
-	SearchContentsWithMeta(query string, cursor int64, limit int) (SearchContentsResult, error)
+	SearchContentsWithMeta(query string, mode string, cursor int64, limit int) (SearchContentsResult, error)
 }
 
 type SearchMeta struct {
@@ -53,6 +54,9 @@ type SearchContentRow struct {
 	Title        string     `gorm:"column:title"`
 	CoverURL     string     `gorm:"column:cover_url"`
 	PublishedAt  *time.Time `gorm:"column:published_at"`
+	TextScore    float64    `gorm:"column:text_score"`
+	HotScore     float64    `gorm:"column:hot_score"`
+	RankScore    float64    `gorm:"column:rank_score"`
 }
 
 type followStateRow struct {
@@ -158,12 +162,13 @@ func (r *searchRepositoryImpl) BatchFollowing(viewerID int64, userIDs []int64) (
 }
 
 func (r *searchRepositoryImpl) SearchContents(query string, cursor int64, limit int) ([]SearchContentRow, error) {
-	result, err := r.SearchContentsWithMeta(query, cursor, limit)
+	result, err := r.SearchContentsWithMeta(query, "latest", cursor, limit)
 	return result.Rows, err
 }
 
 func (r *searchRepositoryImpl) SearchContentsWithMeta(
 	query string,
+	mode string,
 	cursor int64,
 	limit int,
 ) (SearchContentsResult, error) {
@@ -174,7 +179,7 @@ func (r *searchRepositoryImpl) SearchContentsWithMeta(
 
 	trimmed := strings.TrimSpace(query)
 	if isMySQL(r.db) {
-		ftRows, err := r.searchContentsFullText(trimmed, cursor, limit)
+		ftRows, err := r.searchContentsFullText(trimmed, mode, cursor, limit)
 		if err == nil && len(ftRows) > 0 {
 			return SearchContentsResult{
 				Rows: ftRows,
@@ -194,8 +199,23 @@ func (r *searchRepositoryImpl) SearchContentsWithMeta(
 			COALESCE(u.avatar, '') AS author_avatar,
 			COALESCE(a.title, v.title, '') AS title,
 			COALESCE(a.cover, v.cover_url, '') AS cover_url,
-			c.published_at AS published_at
-		`).
+			c.published_at AS published_at,
+			COALESCE(c.hot_score, 0) AS hot_score,
+			CASE
+				WHEN COALESCE(a.title, v.title, '') = ? THEN 30
+				WHEN COALESCE(a.title, v.title, '') LIKE ? THEN 20
+				WHEN COALESCE(a.title, v.title, '') LIKE ? THEN 10
+				WHEN COALESCE(a.description, v.description, '') LIKE ? THEN 5
+				ELSE 1
+			END AS text_score,
+			(CASE
+				WHEN COALESCE(a.title, v.title, '') = ? THEN 30
+				WHEN COALESCE(a.title, v.title, '') LIKE ? THEN 20
+				WHEN COALESCE(a.title, v.title, '') LIKE ? THEN 10
+				WHEN COALESCE(a.description, v.description, '') LIKE ? THEN 5
+				ELSE 1
+			END + COALESCE(c.hot_score, 0)) AS rank_score
+		`, trimmed, trimmed+"%", pattern, pattern, trimmed, trimmed+"%", pattern, pattern).
 		Joins("LEFT JOIN zfeed_article AS a ON a.content_id = c.id AND a.is_deleted = 0").
 		Joins("LEFT JOIN zfeed_video AS v ON v.content_id = c.id AND v.is_deleted = 0").
 		Joins("LEFT JOIN zfeed_user AS u ON u.id = c.user_id AND u.is_deleted = 0").
@@ -206,7 +226,10 @@ func (r *searchRepositoryImpl) SearchContentsWithMeta(
 		dbQuery = dbQuery.Where("c.id < ?", cursor)
 	}
 
-	err := dbQuery.Order("c.id DESC").Limit(limit).Find(&rows).Error
+	err := dbQuery.Order(contentSearchOrder(mode, true)).Limit(limit).Find(&rows).Error
+	if err == nil && mode == "hybrid" {
+		sortContentRowsByHybridScore(rows)
+	}
 	return SearchContentsResult{
 		Rows: rows,
 		Meta: SearchMeta{
@@ -216,7 +239,7 @@ func (r *searchRepositoryImpl) SearchContentsWithMeta(
 	}, err
 }
 
-func (r *searchRepositoryImpl) searchContentsFullText(query string, cursor int64, limit int) ([]SearchContentRow, error) {
+func (r *searchRepositoryImpl) searchContentsFullText(query string, mode string, cursor int64, limit int) ([]SearchContentRow, error) {
 	rows := make([]SearchContentRow, 0, limit)
 	fullTextQuery := buildBooleanFullTextQuery(query)
 	if fullTextQuery == "" {
@@ -233,8 +256,18 @@ func (r *searchRepositoryImpl) searchContentsFullText(query string, cursor int64
 			COALESCE(u.avatar, '') AS author_avatar,
 			COALESCE(a.title, v.title, '') AS title,
 			COALESCE(a.cover, v.cover_url, '') AS cover_url,
-			c.published_at AS published_at
-		`).
+			c.published_at AS published_at,
+			COALESCE(c.hot_score, 0) AS hot_score,
+			(
+				COALESCE(MATCH(a.title, a.description) AGAINST(? IN BOOLEAN MODE), 0) +
+				COALESCE(MATCH(v.title, v.description) AGAINST(? IN BOOLEAN MODE), 0)
+			) AS text_score,
+			(
+				COALESCE(MATCH(a.title, a.description) AGAINST(? IN BOOLEAN MODE), 0) +
+				COALESCE(MATCH(v.title, v.description) AGAINST(? IN BOOLEAN MODE), 0) +
+				COALESCE(c.hot_score, 0)
+			) AS rank_score
+		`, fullTextQuery, fullTextQuery, fullTextQuery, fullTextQuery).
 		Joins("LEFT JOIN zfeed_article AS a ON a.content_id = c.id AND a.is_deleted = 0").
 		Joins("LEFT JOIN zfeed_video AS v ON v.content_id = c.id AND v.is_deleted = 0").
 		Joins("LEFT JOIN zfeed_user AS u ON u.id = c.user_id AND u.is_deleted = 0").
@@ -249,8 +282,39 @@ func (r *searchRepositoryImpl) searchContentsFullText(query string, cursor int64
 		dbQuery = dbQuery.Where("c.id < ?", cursor)
 	}
 
-	err := dbQuery.Order("c.id DESC").Limit(limit).Find(&rows).Error
+	err := dbQuery.Order(contentSearchOrder(mode, false)).Limit(limit).Find(&rows).Error
+	if err == nil && mode == "hybrid" {
+		sortContentRowsByHybridScore(rows)
+	}
 	return rows, err
+}
+
+func contentSearchOrder(mode string, fallback bool) string {
+	switch mode {
+	case "relevance":
+		return "text_score DESC, c.id DESC"
+	case "hybrid":
+		return "text_score DESC, c.id DESC"
+	case "latest":
+		fallthrough
+	default:
+		if fallback {
+			return "c.published_at DESC, c.id DESC"
+		}
+		return "c.published_at DESC, c.id DESC"
+	}
+}
+
+func sortContentRowsByHybridScore(rows []SearchContentRow) {
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].RankScore != rows[j].RankScore {
+			return rows[i].RankScore > rows[j].RankScore
+		}
+		if rows[i].TextScore != rows[j].TextScore {
+			return rows[i].TextScore > rows[j].TextScore
+		}
+		return rows[i].ContentID > rows[j].ContentID
+	})
 }
 
 func isMySQL(db *gorm.DB) bool {

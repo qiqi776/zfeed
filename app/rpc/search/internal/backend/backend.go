@@ -17,7 +17,7 @@ const (
 type SearchBackend interface {
 	Name() string
 	SearchUsers(ctx context.Context, query string, cursor int64, limit int) (SearchUsersResult, error)
-	SearchContents(ctx context.Context, query string, cursor int64, limit int) (SearchContentsResult, error)
+	SearchContents(ctx context.Context, query string, mode string, cursor int64, limit int) (SearchContentsResult, error)
 }
 
 type SearchUsersResult struct {

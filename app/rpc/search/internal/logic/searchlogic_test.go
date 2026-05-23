@@ -38,6 +38,7 @@ type searchTestContent struct {
 	ContentType int32      `gorm:"column:content_type"`
 	Status      int32      `gorm:"column:status"`
 	Visibility  int32      `gorm:"column:visibility"`
+	HotScore    float64    `gorm:"column:hot_score"`
 	PublishedAt *time.Time `gorm:"column:published_at"`
 	IsDeleted   int32      `gorm:"column:is_deleted"`
 }
@@ -534,6 +535,146 @@ func TestSearchContentsQueryCacheUsesCachedCandidateWindow(t *testing.T) {
 	if docCache == "" {
 		t.Fatal("expected content doc summary cache to be written")
 	}
+}
+
+func TestSearchContentsLatestModeOrdersByPublishedAtAndID(t *testing.T) {
+	db := newSearchTestDB(t)
+	older := time.Unix(1_700_000_000, 0)
+	newer := older.Add(time.Hour)
+	desc := "growth story"
+	if err := db.Create(&searchTestUser{ID: 3001, Nickname: "writer", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if err := db.Create(&[]searchTestContent{
+		{ID: 4001, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 100, PublishedAt: &older, IsDeleted: 0},
+		{ID: 4002, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 1, PublishedAt: &newer, IsDeleted: 0},
+		{ID: 4003, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 50, PublishedAt: &newer, IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed contents: %v", err)
+	}
+	for _, item := range []struct {
+		id    int64
+		title string
+	}{
+		{id: 4001, title: "Growth Older"},
+		{id: 4002, title: "Growth Newer Low ID"},
+		{id: 4003, title: "Growth Newer High ID"},
+	} {
+		if err := db.Create(&searchTestArticle{
+			ContentID:   item.id,
+			Title:       item.title,
+			Description: &desc,
+			Cover:       "cover",
+			IsDeleted:   0,
+		}).Error; err != nil {
+			t.Fatalf("seed article: %v", err)
+		}
+	}
+
+	logic := NewSearchContentsLogic(context.Background(), newSearchCacheTestSvc(t, db))
+	resp, err := logic.SearchContents(&searchpb.SearchContentsReq{
+		Query:    "Growth",
+		PageSize: 10,
+		Mode:     "latest",
+	})
+	if err != nil {
+		t.Fatalf("SearchContents latest returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchContentIDs(resp), []int64{4003, 4002, 4001})
+}
+
+func TestSearchContentsRelevanceModeOrdersByTextScoreFallback(t *testing.T) {
+	db := newSearchTestDB(t)
+	now := time.Unix(1_700_000_000, 0)
+	query := "Growth"
+	if err := db.Create(&searchTestUser{ID: 3001, Nickname: "writer", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if err := db.Create(&[]searchTestContent{
+		{ID: 4001, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 0, PublishedAt: &now, IsDeleted: 0},
+		{ID: 4002, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 0, PublishedAt: &now, IsDeleted: 0},
+		{ID: 4003, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 0, PublishedAt: &now, IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed contents: %v", err)
+	}
+	descriptions := map[int64]string{
+		4001: "contains Growth in body",
+		4002: "other body",
+		4003: "other body",
+	}
+	titles := map[int64]string{
+		4001: "Daily Notes",
+		4002: "Growth Prefix",
+		4003: query,
+	}
+	for id, title := range titles {
+		desc := descriptions[id]
+		if err := db.Create(&searchTestArticle{
+			ContentID:   id,
+			Title:       title,
+			Description: &desc,
+			Cover:       "cover",
+			IsDeleted:   0,
+		}).Error; err != nil {
+			t.Fatalf("seed article: %v", err)
+		}
+	}
+
+	logic := NewSearchContentsLogic(context.Background(), newSearchSnapshotTestSvc(t, db, 10))
+	resp, err := logic.SearchContents(&searchpb.SearchContentsReq{
+		Query:    query,
+		PageSize: 10,
+		Mode:     "relevance",
+	})
+	if err != nil {
+		t.Fatalf("SearchContents relevance returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchContentIDs(resp), []int64{4003, 4002, 4001})
+}
+
+func TestSearchContentsHybridModeReranksCandidateWindowByTextAndHotScore(t *testing.T) {
+	db := newSearchTestDB(t)
+	now := time.Unix(1_700_000_000, 0)
+	desc := "growth topic"
+	if err := db.Create(&searchTestUser{ID: 3001, Nickname: "writer", Avatar: "avatar", IsDeleted: 0}).Error; err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	if err := db.Create(&[]searchTestContent{
+		{ID: 4001, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 1, PublishedAt: &now, IsDeleted: 0},
+		{ID: 4002, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 40, PublishedAt: &now, IsDeleted: 0},
+		{ID: 4003, UserID: 3001, ContentType: 10, Status: 30, Visibility: 10, HotScore: 5, PublishedAt: &now, IsDeleted: 0},
+	}).Error; err != nil {
+		t.Fatalf("seed contents: %v", err)
+	}
+	for _, item := range []struct {
+		id    int64
+		title string
+	}{
+		{id: 4001, title: "Growth Exactish"},
+		{id: 4002, title: "Growth Hot"},
+		{id: 4003, title: "Growth Normal"},
+	} {
+		if err := db.Create(&searchTestArticle{
+			ContentID:   item.id,
+			Title:       item.title,
+			Description: &desc,
+			Cover:       "cover",
+			IsDeleted:   0,
+		}).Error; err != nil {
+			t.Fatalf("seed article: %v", err)
+		}
+	}
+
+	logic := NewSearchContentsLogic(context.Background(), newSearchSnapshotTestSvc(t, db, 10))
+	resp, err := logic.SearchContents(&searchpb.SearchContentsReq{
+		Query:    "Growth",
+		PageSize: 10,
+		Mode:     "hybrid",
+	})
+	if err != nil {
+		t.Fatalf("SearchContents hybrid returned error: %v", err)
+	}
+	assertInt64SliceEqual(t, collectSearchContentIDs(resp), []int64{4002, 4003, 4001})
 }
 
 func TestSearchUsersSnapshotModeReusesQueryCacheForFirstWindow(t *testing.T) {

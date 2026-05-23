@@ -37,11 +37,12 @@ func (b *MySQLBackend) SearchUsers(
 func (b *MySQLBackend) SearchContents(
 	ctx context.Context,
 	query string,
+	mode string,
 	cursor int64,
 	limit int,
 ) (SearchContentsResult, error) {
 	repo := repositories.NewSearchRepository(ctx, b.db)
-	result, err := repo.SearchContentsWithMeta(query, cursor, limit)
+	result, err := repo.SearchContentsWithMeta(query, mode, cursor, limit)
 	return SearchContentsResult{
 		Rows: result.Rows,
 		Meta: result.Meta,

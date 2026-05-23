@@ -86,7 +86,7 @@ func (l *SearchContentsLogic) SearchContents(in *search.SearchContentsReq) (*sea
 			cachePage,
 			limit,
 			func() (searchbackend.SearchContentsResult, error) {
-				return searchBackend.SearchContents(l.ctx, normalized.SearchText, in.GetCursor(), limit)
+				return searchBackend.SearchContents(l.ctx, normalized.SearchText, mode, in.GetCursor(), limit)
 			},
 		)
 	}
@@ -228,7 +228,7 @@ func (l *SearchContentsLogic) searchContentsWithSnapshot(
 			0,
 			limit,
 			func() (searchbackend.SearchContentsResult, error) {
-				return searchBackend.SearchContents(l.ctx, normalized.SearchText, 0, limit)
+				return searchBackend.SearchContents(l.ctx, normalized.SearchText, mode, 0, limit)
 			},
 		)
 		cacheState = requestCacheStatus
