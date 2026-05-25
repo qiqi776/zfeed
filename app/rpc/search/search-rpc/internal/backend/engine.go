@@ -65,6 +65,7 @@ func (b *EngineBackend) Name() string {
 
 func (b *EngineBackend) SearchUsers(ctx context.Context, query string, cursor int64, limit int) (SearchUsersResult, error) {
 	if b == nil || b.endpoint == "" {
+		observeEngineFallback(compareEntityUsers, "endpoint_missing")
 		return b.fallbackUsers(ctx, query, cursor, limit)
 	}
 
@@ -94,6 +95,7 @@ func (b *EngineBackend) SearchUsers(ctx context.Context, query string, cursor in
 	var resp engineUserSearchResponse
 	if err := b.search(ctx, b.userIndex, body, &resp); err != nil {
 		logc.Errorf(ctx, "search engine users failed, err=%v", err)
+		observeEngineFallback(compareEntityUsers, "search_error")
 		return b.fallbackUsers(ctx, query, cursor, limit)
 	}
 	rows := make([]repositories.SearchUserRow, 0, len(resp.Hits.Hits))
@@ -110,6 +112,7 @@ func (b *EngineBackend) SearchUsers(ctx context.Context, query string, cursor in
 
 func (b *EngineBackend) SearchContents(ctx context.Context, query string, mode string, cursor int64, limit int) (SearchContentsResult, error) {
 	if b == nil || b.endpoint == "" {
+		observeEngineFallback(compareEntityContents, "endpoint_missing")
 		return b.fallbackContents(ctx, query, mode, cursor, limit)
 	}
 
@@ -139,6 +142,7 @@ func (b *EngineBackend) SearchContents(ctx context.Context, query string, mode s
 	var resp engineContentSearchResponse
 	if err := b.search(ctx, b.contentIndex, body, &resp); err != nil {
 		logc.Errorf(ctx, "search engine contents failed, err=%v", err)
+		observeEngineFallback(compareEntityContents, "search_error")
 		return b.fallbackContents(ctx, query, mode, cursor, limit)
 	}
 	rows := make([]repositories.SearchContentRow, 0, len(resp.Hits.Hits))
