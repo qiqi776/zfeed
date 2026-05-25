@@ -35,8 +35,9 @@ type canalMessage struct {
 }
 
 type CanalSearchConsumer struct {
-	repo    documentRepository
-	indexer indexer.Indexer
+	repo            documentRepository
+	indexer         indexer.Indexer
+	failureRecorder FailureRecorder
 	logx.Logger
 }
 
@@ -48,9 +49,10 @@ type documentRepository interface {
 
 func NewCanalSearchConsumer(ctx context.Context, svcCtx *indexsvc.ServiceContext) *CanalSearchConsumer {
 	return &CanalSearchConsumer{
-		repo:    svcCtx.Repository,
-		indexer: svcCtx.Indexer,
-		Logger:  logx.WithContext(ctx),
+		repo:            svcCtx.Repository,
+		indexer:         svcCtx.Indexer,
+		failureRecorder: NewJSONLFailureRecorder(DefaultFailureLogPath),
+		Logger:          logx.WithContext(ctx),
 	}
 }
 
@@ -63,23 +65,38 @@ func newCanalSearchConsumerForTest(ctx context.Context, repo documentRepository,
 }
 
 func (c *CanalSearchConsumer) Consume(ctx context.Context, _, val string) error {
+	start := time.Now()
 	var msg canalMessage
 	if err := json.Unmarshal([]byte(val), &msg); err != nil {
+		observeCanalConsume("", "", 0, start, consumeResultParseError)
 		logc.Errorf(ctx, "parse search canal message failed, err=%v", err)
 		return err
 	}
 
-	start := time.Now()
 	indexed := 0
 	for idx, row := range msg.Data {
 		if row == nil {
 			continue
 		}
 		if err := c.dispatchRow(ctx, msg, idx, row); err != nil {
+			observeCanalConsume(msg.Table, msg.Type, msg.Ts, start, consumeResultError)
+			if recordErr := c.recordFailure(ctx, msg, idx, row, start, err); recordErr != nil {
+				logc.Errorf(ctx, "record search index failed event failed, table=%s, type=%s, err=%v", msg.Table, msg.Type, recordErr)
+			}
+			c.Errorw("search index canal message failed",
+				logx.Field("table", msg.Table),
+				logx.Field("type", msg.Type),
+				logx.Field("content_id", failedContentID(msg.Table, row)),
+				logx.Field("user_id", failedUserID(msg.Table, row)),
+				logx.Field("elapsed_ms", time.Since(start).Milliseconds()),
+				logx.Field("event_ts", canalTimestampToTime(msg.Ts).UnixMilli()),
+				logx.Field("error", err.Error()),
+			)
 			return err
 		}
 		indexed++
 	}
+	observeCanalConsume(msg.Table, msg.Type, msg.Ts, start, consumeResultSuccess)
 	c.Infow("search index canal message consumed",
 		logx.Field("table", msg.Table),
 		logx.Field("type", msg.Type),
@@ -88,6 +105,13 @@ func (c *CanalSearchConsumer) Consume(ctx context.Context, _, val string) error 
 		logx.Field("event_ts", canalTimestampToTime(msg.Ts).UnixMilli()),
 	)
 	return nil
+}
+
+func (c *CanalSearchConsumer) recordFailure(ctx context.Context, msg canalMessage, idx int, row map[string]any, start time.Time, cause error) error {
+	if c == nil || c.failureRecorder == nil {
+		return nil
+	}
+	return c.failureRecorder.Record(ctx, buildFailedEvent(msg, idx, row, start, cause))
 }
 
 func (c *CanalSearchConsumer) dispatchRow(ctx context.Context, msg canalMessage, idx int, row map[string]any) error {

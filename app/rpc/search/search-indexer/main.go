@@ -50,6 +50,8 @@ func run(args []string) error {
 	topQueries := fs.String("top-queries", "", "comma separated queries for topN overlap verification")
 	topN := fs.Int("top-n", 20, "topN size for overlap verification")
 	minOverlap := fs.Float64("min-overlap", 0.7, "minimum topN overlap ratio")
+	failureFile := fs.String("file", consumer.DefaultFailureLogPath, "failed event JSONL file for replay-failed")
+	replayLimit := fs.Int("limit", 100, "maximum failed events to replay")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -101,6 +103,13 @@ func run(args []string) error {
 			return err
 		}
 		fmt.Printf("switch-alias ok=%t entity=%s content_alias=%s user_alias=%s elapsed=%s\n", result.OK(), result.Entity, *contentAlias, *userAlias, result.Elapsed)
+		return nil
+	case "replay-failed":
+		result, err := consumer.ReplayFailedEvents(context.Background(), *failureFile, *replayLimit, consumer.NewCanalSearchConsumer(context.Background(), ctx))
+		if err != nil {
+			return err
+		}
+		fmt.Printf("replay-failed scanned=%d replayed=%d failed=%d elapsed=%s\n", result.Scanned, result.Replayed, result.Failed, result.Elapsed)
 		return nil
 	default:
 		return fmt.Errorf("unknown command %q", command)

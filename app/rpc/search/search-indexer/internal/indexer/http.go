@@ -43,23 +43,33 @@ func NewHTTPIndexer(conf indexconfig.IndexEngineConf) *HTTPIndexer {
 	}
 }
 
-func (h *HTTPIndexer) IndexContent(ctx context.Context, doc indexdoc.ContentDocument) error {
+func (h *HTTPIndexer) IndexContent(ctx context.Context, doc indexdoc.ContentDocument) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityContent, indexOperationIndex, start, err) }()
 	return h.put(ctx, h.contentIndex, strconv.FormatInt(doc.ContentID, 10), doc)
 }
 
-func (h *HTTPIndexer) DeleteContent(ctx context.Context, contentID int64) error {
+func (h *HTTPIndexer) DeleteContent(ctx context.Context, contentID int64) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityContent, indexOperationDelete, start, err) }()
 	return h.delete(ctx, h.contentIndex, strconv.FormatInt(contentID, 10))
 }
 
-func (h *HTTPIndexer) IndexUser(ctx context.Context, doc indexdoc.UserDocument) error {
+func (h *HTTPIndexer) IndexUser(ctx context.Context, doc indexdoc.UserDocument) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityUser, indexOperationIndex, start, err) }()
 	return h.put(ctx, h.userIndex, strconv.FormatInt(doc.UserID, 10), doc)
 }
 
-func (h *HTTPIndexer) DeleteUser(ctx context.Context, userID int64) error {
+func (h *HTTPIndexer) DeleteUser(ctx context.Context, userID int64) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityUser, indexOperationDelete, start, err) }()
 	return h.delete(ctx, h.userIndex, strconv.FormatInt(userID, 10))
 }
 
-func (h *HTTPIndexer) BulkIndexContent(ctx context.Context, docs []indexdoc.ContentDocument) error {
+func (h *HTTPIndexer) BulkIndexContent(ctx context.Context, docs []indexdoc.ContentDocument) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityContent, indexOperationBulkIndex, start, err) }()
 	if len(docs) == 0 {
 		return nil
 	}
@@ -75,7 +85,9 @@ func (h *HTTPIndexer) BulkIndexContent(ctx context.Context, docs []indexdoc.Cont
 	return h.bulk(ctx, operations)
 }
 
-func (h *HTTPIndexer) BulkDeleteContent(ctx context.Context, contentIDs []int64) error {
+func (h *HTTPIndexer) BulkDeleteContent(ctx context.Context, contentIDs []int64) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityContent, indexOperationBulkDelete, start, err) }()
 	if len(contentIDs) == 0 {
 		return nil
 	}
@@ -93,7 +105,9 @@ func (h *HTTPIndexer) BulkDeleteContent(ctx context.Context, contentIDs []int64)
 	return h.bulk(ctx, operations)
 }
 
-func (h *HTTPIndexer) BulkIndexUser(ctx context.Context, docs []indexdoc.UserDocument) error {
+func (h *HTTPIndexer) BulkIndexUser(ctx context.Context, docs []indexdoc.UserDocument) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityUser, indexOperationBulkIndex, start, err) }()
 	if len(docs) == 0 {
 		return nil
 	}
@@ -109,7 +123,9 @@ func (h *HTTPIndexer) BulkIndexUser(ctx context.Context, docs []indexdoc.UserDoc
 	return h.bulk(ctx, operations)
 }
 
-func (h *HTTPIndexer) BulkDeleteUser(ctx context.Context, userIDs []int64) error {
+func (h *HTTPIndexer) BulkDeleteUser(ctx context.Context, userIDs []int64) (err error) {
+	start := time.Now()
+	defer func() { observeWrite(indexEntityUser, indexOperationBulkDelete, start, err) }()
 	if len(userIDs) == 0 {
 		return nil
 	}
