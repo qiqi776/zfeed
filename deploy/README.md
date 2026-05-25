@@ -85,3 +85,80 @@ docker compose --env-file deploy/.env -f deploy/docker-compose.yml run --rm sear
   -entity all -content-index zfeed_content_v2 -user-index zfeed_user_v2 \
   -content-alias zfeed_content -user-alias zfeed_user
 ```
+
+## 搜索引擎灰度演示
+
+搜索链路默认处于安全态：
+
+- `SEARCH_BACKEND=mysql`
+- `SEARCH_ENGINE_TRAFFIC_PERCENT=0`
+- `SEARCH_INDEX_ENGINE_TYPE=noop`
+
+演示目标是完成一次“重建索引 -> 校验 -> 影子比对 -> 小流量灰度 -> 回滚 MySQL”的闭环。客户端 API 不需要调整，仍只感知 `mode`、`page_token`、`snapshot_id`。
+
+1. 启动本地栈：
+
+```bash
+bash ./scripts/start.sh
+```
+
+2. 重建 OpenSearch 索引：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml run --rm search-indexer \
+  env SEARCH_INDEX_ENGINE_TYPE=opensearch \
+  /app/bin/search-indexer rebuild -f /app/app/rpc/search/search-indexer/etc/search-indexer.yaml \
+  -entity all -batch-size 200
+```
+
+3. 校验索引质量：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml run --rm search-indexer \
+  env SEARCH_INDEX_ENGINE_TYPE=opensearch \
+  /app/bin/search-indexer verify -f /app/app/rpc/search/search-indexer/etc/search-indexer.yaml \
+  -entity all -top-queries "增长,科技"
+```
+
+4. 开启影子比对，不承接真实结果：
+
+```bash
+SEARCH_BACKEND=engine
+SEARCH_ENGINE_TRAFFIC_PERCENT=0
+SEARCH_INDEX_COMPARE_ENABLED=true
+```
+
+此时主结果仍来自 MySQL，OpenSearch 只做 shadow 查询。重点观察 `zfeed_search_compare_overlap_ratio`、`zfeed_search_engine_fallback_total`、搜索耗时和空结果率。
+
+5. 小流量灰度：
+
+```bash
+SEARCH_BACKEND=engine
+SEARCH_ENGINE_TRAFFIC_PERCENT=1
+SEARCH_INDEX_COMPARE_ENABLED=true
+```
+
+观察稳定后再按 `1% -> 10% -> 50% -> 100%` 提升流量。每一档至少看错误率、p95/p99、fallback、empty result、topN overlap。
+
+6. 回滚 MySQL：
+
+```bash
+SEARCH_BACKEND=mysql
+SEARCH_ENGINE_TRAFFIC_PERCENT=0
+```
+
+7. 重放索引失败事件：
+
+```bash
+docker compose --env-file deploy/.env -f deploy/docker-compose.yml run --rm search-indexer \
+  env SEARCH_INDEX_ENGINE_TYPE=opensearch \
+  /app/bin/search-indexer replay-failed -f /app/app/rpc/search/search-indexer/etc/search-indexer.yaml \
+  -file /var/log/zfeed/search-indexer-failures.jsonl -limit 100
+```
+
+手动验收清单：
+
+- 同一关键词连续翻 5 页，结果不重复、不丢失。
+- OpenSearch 故障时在线搜索可 fallback 到 MySQL。
+- `verify` 失败时不执行 `switch-alias`。
+- 模拟 OpenSearch 500 后，`/var/log/zfeed/search-indexer-failures.jsonl` 有失败事件，`replay-failed` 可以重放。
