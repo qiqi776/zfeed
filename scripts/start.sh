@@ -209,7 +209,7 @@ elif [ "${#missing_services[@]}" -gt 0 ]; then
 fi
 
 echo "开始启动 zfeed Docker 栈..."
-docker compose --env-file .env -f docker-compose.yml up -d "${services[@]}"
+docker compose --env-file .env -f docker-compose.yml up -d --remove-orphans "${services[@]}"
 
 printf 'zfeed Docker 栈已进入启动流程。\n'
 printf '  网关入口： http://127.0.0.1:%s\n' "${GATEWAY_HOST_PORT:-18080}"

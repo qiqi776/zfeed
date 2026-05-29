@@ -154,7 +154,8 @@ services:
     image: ${SEARCH_INDEX_ENGINE_IMAGE}
     environment:
       - discovery.type=single-node
-      - plugins.security.disabled=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+      - DISABLE_SECURITY_PLUGIN=true
       - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
       - bootstrap.memory_lock=false
     ports:
@@ -199,6 +200,8 @@ services:
 
   otel-collector:
     image: ${OTEL_COLLECTOR_IMAGE}
+    profiles:
+      - trace-pipeline
     command: ["--config=/etc/otel-collector.yaml"]
     ports:
       - "${OTEL_COLLECTOR_GRPC_HOST_PORT}:4317"
@@ -212,6 +215,8 @@ services:
 
   jaeger:
     image: ${JAEGER_IMAGE}
+    profiles:
+      - trace-pipeline
     ports:
       - "${JAEGER_HOST_PORT}:16686"
       - "14268:14268"
@@ -412,6 +417,8 @@ services:
 
   grafana:
     image: ${GRAFANA_IMAGE}
+    profiles:
+      - grafana
     ports:
       - "${GRAFANA_HOST_PORT}:3000"
     environment:
@@ -440,6 +447,8 @@ services:
 
   logstash:
     image: ${LOGSTASH_IMAGE}
+    profiles:
+      - log-pipeline
     environment:
       - LS_JAVA_OPTS=-Xms256m -Xmx256m
     volumes:
@@ -450,6 +459,8 @@ services:
 
   filebeat:
     image: ${FILEBEAT_IMAGE}
+    profiles:
+      - log-pipeline
     user: root
     command: ["filebeat", "-e", "--strict.perms=false"]
     volumes:
