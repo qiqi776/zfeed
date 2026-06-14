@@ -5,7 +5,7 @@
 - **Status**: Draft
 - **Author**: Codex
 - **Created**: 2026-05-31
-- **Last Updated**: 2026-06-14
+- **Last Updated**: 2026-06-15
 
 ## Overview
 
@@ -1227,6 +1227,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 重排环节已补 `zfeed_recommend_rerank_adjust_total{rule,variant}` 观测，按 author_window 和 type_window 记录多样性重排调整次数。
 - 推荐增强链路已补 `zfeed_recommend_error_total{stage,variant}` 观测，按 candidate_cache、recall、feature_load、seen_load、snapshot_save、snapshot_read、build_items 和 seen_write 定位阶段错误。
 - 个性化 snapshot 翻页已读取 `feed:rec:user:snapmeta:{snapshot_id}` 的 variant 和 config_hash，旧 snapshot 翻页继续按生成时的实验版本记录请求与曝光，不受新 runtime 配置覆盖。
+- click/dwell 客户端埋点上报成功后，会同步调用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`；画像更新失败只记录 `zfeed_recommend_error_total{stage="profile_update",variant}` 和日志，不影响埋点上报响应。
 
 已验证：
 
@@ -1260,11 +1261,13 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/front/internal/logic/feed ./app/rpc/content/internal/logic/feed ./app/rpc/content/internal/recommend/track -count=1`
 - `go test ./app/rpc/content/internal/logic/content ./app/rpc/content/internal/cron/rec_new_cleanup -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run 'TestEmitRecommendTrack|TestRecommendMetric' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test.*Profile|Test.*Tags' -count=1`
 
 剩余缺口：
 
-- 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者和主链路写入，click/dwell 上报入口已落地，点击/互动/停留事件实际写入和日聚合表还未落地。
-- 画像更新已有 `ApplyProfileEvent`，但 interaction outbox、Canal 消费或定时 worker 尚未接入。
+- 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell 上报入口和 click/dwell 对画像的同步更新；互动事件和日聚合表还未落地。
+- 画像更新已有 `ApplyProfileEvent`，click/dwell 客户端埋点入口已接入；interaction outbox、Canal 消费或定时 worker 尚未接入，like/favorite/comment 等真实互动事件尚未进入画像更新链路。
 
 ## Change Log
 
@@ -1289,3 +1292,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-14 | 1.0.0   | Add recommendation rerank adjustment metric and diversity rerank tests | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation enhancement error stage metric and tests | Codex |
 | 2026-06-14 | 1.0.0   | Add personalized snapshot meta variant lookup and config hash isolation tests | Codex |
+| 2026-06-15 | 1.0.0   | Update user profile from successful click/dwell recommend track events | Codex |

@@ -2,9 +2,16 @@ package feedlogic
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
+	miniredis "github.com/alicebob/miniredis/v2"
+	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
+
 	contentpb "zfeed/app/rpc/content/content"
+	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
+	contentconfig "zfeed/app/rpc/content/internal/config"
+	"zfeed/app/rpc/content/internal/recommend"
 	"zfeed/app/rpc/content/internal/recommend/track"
 	"zfeed/app/rpc/content/internal/svc"
 )
@@ -111,5 +118,56 @@ func TestEmitRecommendTrackRejectsInvalidEvent(t *testing.T) {
 		ContentId: 2001,
 	}); err == nil {
 		t.Fatal("EmitRecommendTrack returned nil error, want invalid event error")
+	}
+}
+
+func TestEmitRecommendTrackUpdatesUserProfileAfterSuccessfulEmit(t *testing.T) {
+	store := miniredis.RunT(t)
+	redisClient := gzredis.MustNewRedis(gzredis.RedisConf{
+		Host: store.Addr(),
+		Type: "node",
+	})
+	cfg := contentconfig.RecommendConfig{}
+	contentID := int64(2001)
+	if err := recommend.WriteContentTags(
+		context.Background(),
+		redisClient,
+		cfg,
+		contentID,
+		map[string]float64{"go": 1, "redis": 0.5},
+		1,
+	); err != nil {
+		t.Fatalf("WriteContentTags returned error: %v", err)
+	}
+
+	logic := NewRecommendTrackLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: cfg,
+		},
+		Redis:                  redisClient,
+		RecommendTrackProducer: &fakeRecommendTrackProducer{},
+	})
+
+	if _, err := logic.EmitRecommendTrack(&contentpb.EmitRecommendTrackReq{
+		UserId:     1001,
+		EventType:  track.EventTypeClick,
+		ContentId:  contentID,
+		SnapshotId: "rec:0001:b:hash:1",
+		VariantId:  "b",
+		Source:     "recommend",
+		Position:   3,
+		OccurredAt: 123456,
+	}); err != nil {
+		t.Fatalf("EmitRecommendTrack returned error: %v", err)
+	}
+
+	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+	gotRaw := store.HGet(profileKey, "go")
+	got, err := strconv.ParseFloat(gotRaw, 64)
+	if err != nil {
+		t.Fatalf("parse profile tag: %v", err)
+	}
+	if got != 0.5 {
+		t.Fatalf("profile go weight = %v, want 0.5", got)
 	}
 }

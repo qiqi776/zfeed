@@ -42,6 +42,7 @@ const (
 	recommendErrorStageSnapshotRead   = "snapshot_read"
 	recommendErrorStageBuildItems     = "build_items"
 	recommendErrorStageSeenWrite      = "seen_write"
+	recommendErrorStageProfileUpdate  = "profile_update"
 
 	recommendRecallSourceHot        = "hot"
 	recommendRecallSourceNewContent = "new_content"
@@ -385,7 +386,8 @@ func normalizeRecommendErrorStageLabel(value string) string {
 		recommendErrorStageSnapshotSave,
 		recommendErrorStageSnapshotRead,
 		recommendErrorStageBuildItems,
-		recommendErrorStageSeenWrite:
+		recommendErrorStageSeenWrite,
+		recommendErrorStageProfileUpdate:
 		return canonicalRecommendMetricLabel(value)
 	default:
 		return recommendMetricUnknownLabel

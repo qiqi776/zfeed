@@ -9,6 +9,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 
 	contentpb "zfeed/app/rpc/content/content"
+	"zfeed/app/rpc/content/internal/recommend"
 	"zfeed/app/rpc/content/internal/recommend/track"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/errorx"
@@ -45,8 +46,51 @@ func (l *RecommendTrackLogic) EmitRecommendTrack(
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("上报推荐埋点失败"))
 	}
 
+	l.applyProfileEvent(event)
+
 	recordRecommendTrackEmitMetric(event.EventType, recommendResultSuccess)
 	return &contentpb.EmitRecommendTrackRes{}, nil
+}
+
+func (l *RecommendTrackLogic) applyProfileEvent(event track.Event) {
+	if l.svcCtx == nil || l.svcCtx.Redis == nil || event.UserID <= 0 {
+		return
+	}
+
+	eventType, ok := profileEventType(event.EventType)
+	if !ok {
+		return
+	}
+
+	err := recommend.ApplyProfileEvent(l.ctx, l.svcCtx.Redis, l.svcCtx.Config.Recommend, recommend.ProfileEvent{
+		EventID:   event.EventID,
+		EventType: eventType,
+		UserID:    event.UserID,
+		ContentID: event.ContentID,
+	})
+	if err == nil {
+		return
+	}
+
+	recordRecommendErrorMetric(recommendErrorStageProfileUpdate, event.VariantID)
+	l.Errorf(
+		"apply recommend profile event failed, event_type=%s, user_id=%d, content_id=%d, err=%v",
+		event.EventType,
+		event.UserID,
+		event.ContentID,
+		err,
+	)
+}
+
+func profileEventType(eventType string) (string, bool) {
+	switch eventType {
+	case track.EventTypeClick:
+		return recommend.ActionClick, true
+	case track.EventTypeDwell:
+		return recommend.ActionDwell, true
+	default:
+		return "", false
+	}
 }
 
 func (l *RecommendTrackLogic) buildTrackEvent(in *contentpb.EmitRecommendTrackReq) (track.Event, error) {

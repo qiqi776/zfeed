@@ -53,6 +53,7 @@ func TestRecommendMetricLabelNormalizersClampUnknownValues(t *testing.T) {
 		{name: "rerank rule allowed", fn: normalizeRecommendRerankRuleLabel, in: " Author-Window ", want: "author_window"},
 		{name: "rerank rule unknown", fn: normalizeRecommendRerankRuleLabel, in: "user_123", want: recommendMetricUnknownLabel},
 		{name: "error stage allowed", fn: normalizeRecommendErrorStageLabel, in: " Candidate-Cache ", want: "candidate_cache"},
+		{name: "error stage profile update allowed", fn: normalizeRecommendErrorStageLabel, in: " Profile-Update ", want: "profile_update"},
 		{name: "error stage unknown", fn: normalizeRecommendErrorStageLabel, in: "snapshot-id-123", want: recommendMetricUnknownLabel},
 		{name: "profile result allowed", fn: normalizeRecommendProfileResultLabel, in: " Skipped ", want: "skipped"},
 		{name: "profile result unknown", fn: normalizeRecommendProfileResultLabel, in: "user_123", want: recommendMetricUnknownLabel},
