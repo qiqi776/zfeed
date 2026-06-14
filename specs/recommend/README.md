@@ -1225,6 +1225,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 兴趣召回画像读取已补 `zfeed_recommend_profile_total{result}` 观测，区分 disabled、skipped、miss、hit 和 error。
 - 重排环节已补 `zfeed_recommend_rerank_adjust_total{rule,variant}` 观测，按 author_window 和 type_window 记录多样性重排调整次数。
 - 推荐增强链路已补 `zfeed_recommend_error_total{stage,variant}` 观测，按 candidate_cache、recall、feature_load、seen_load、snapshot_save、snapshot_read、build_items 和 seen_write 定位阶段错误。
+- 个性化 snapshot 翻页已读取 `feed:rec:user:snapmeta:{snapshot_id}` 的 variant 和 config_hash，旧 snapshot 翻页继续按生成时的实验版本记录请求与曝光，不受新 runtime 配置覆盖。
 
 已验证：
 
@@ -1250,6 +1251,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecommendMetric|TestRecommendInterestRecallRecordsProfileMetrics' -count=1`
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecommendMetric|TestRecommendEnhancementRecordsRecallErrorMetric' -count=1`
+- `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -run 'TestLoadPersonalizedSnapshotMetaReadsStoredVariantAndConfigHash|TestRecommendPersonalizedSnapshotUsesSnapshotMetaVariant|TestRecommendEnhancementUsesPersonalizedSnapshotForNextPage' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
@@ -1259,7 +1261,6 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者和主链路写入，点击/互动/停留事件写入和日聚合表还未落地。
 - 画像更新已有 `ApplyProfileEvent`，但 interaction outbox、Canal 消费或定时 worker 尚未接入。
-- 旧 snapshot 按 `config_hash` 翻页隔离还未实现。
 
 ## Change Log
 
@@ -1282,3 +1283,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-14 | 1.0.0   | Add recommendation profile metric and interest recall tests | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation rerank adjustment metric and diversity rerank tests | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation enhancement error stage metric and tests | Codex |
+| 2026-06-14 | 1.0.0   | Add personalized snapshot meta variant lookup and config hash isolation tests | Codex |

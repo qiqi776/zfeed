@@ -1498,6 +1498,54 @@ func TestRecommendEnhancementUsesPersonalizedSnapshotForNextPage(t *testing.T) {
 	}
 }
 
+func TestRecommendPersonalizedSnapshotUsesSnapshotMetaVariant(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 6102, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-6102", coverURL: "cover-6102"},
+		{contentID: 6101, authorID: 2002, contentType: contentpb.ContentType_VIDEO, title: "hot-6101", coverURL: "cover-6101"},
+	})
+
+	store.ZAdd(redisconsts.HotFeedKey, 9002, "6102")
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "6101")
+
+	snapshotID := "rec:0001:b:hash123:1"
+	store.ZAdd(redisconsts.BuildRecommendUserSnapshotKey(snapshotID), 1000, "6102")
+	store.HSet(redisconsts.BuildRecommendUserSnapshotMetaKey(snapshotID), "variant_id", "b")
+	store.HSet(redisconsts.BuildRecommendUserSnapshotMetaKey(snapshotID), "config_hash", "hash123")
+
+	oldRequest := recordRecommendRequestMetric
+	defer func() {
+		recordRecommendRequestMetric = oldRequest
+	}()
+	variantRequests := []string{}
+	recordRecommendRequestMetric = func(mode, variant, result string) {
+		if mode == recommendModeSnapshot && result == recommendResultSuccess {
+			variantRequests = append(variantRequests, variant)
+		}
+	}
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		SnapshotId: &snapshotID,
+		PageSize:   1,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	if len(resp.GetItems()) != 1 || resp.GetItems()[0].GetContentId() != 6102 {
+		t.Fatalf("items = %+v, want snapshot content 6102", recommendContentIDs(resp.GetItems()))
+	}
+	if len(variantRequests) != 1 || variantRequests[0] != "b" {
+		t.Fatalf("variant requests = %v, want [b]", variantRequests)
+	}
+}
+
 func recommendContentIDs(items []*contentpb.ContentItem) []int64 {
 	ids := make([]int64, 0, len(items))
 	for _, item := range items {

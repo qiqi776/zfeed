@@ -100,6 +100,29 @@ func SavePersonalizedSnapshotWithMeta(
 	return snapshotID, nil
 }
 
+func LoadPersonalizedSnapshotMeta(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	snapshotID string,
+) (SnapshotMeta, bool, error) {
+	if rds == nil || !IsPersonalizedSnapshot(snapshotID) {
+		return SnapshotMeta{}, false, nil
+	}
+
+	raw, err := rds.HgetallCtx(ctx, redisconsts.BuildRecommendUserSnapshotMetaKey(snapshotID))
+	if err != nil {
+		return SnapshotMeta{}, false, err
+	}
+	if len(raw) == 0 {
+		return SnapshotMeta{}, false, nil
+	}
+
+	return normalizeSnapshotMeta(SnapshotMeta{
+		VariantID:  raw["variant_id"],
+		ConfigHash: raw["config_hash"],
+	}), true, nil
+}
+
 func normalizeSnapshotMeta(meta SnapshotMeta) SnapshotMeta {
 	meta.VariantID = strings.TrimSpace(meta.VariantID)
 	if meta.VariantID == "" {

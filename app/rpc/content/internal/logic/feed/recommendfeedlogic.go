@@ -34,6 +34,11 @@ type hotFeedResult struct {
 	resolvedSnapshotID string
 }
 
+type personalizedSnapshotResult struct {
+	resp *contentpb.RecommendFeedRes
+	meta recommend.SnapshotMeta
+}
+
 type recommendRuntime struct {
 	cfg        contentconfig.RecommendConfig
 	variantID  string
@@ -80,21 +85,28 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 
 	if snapshotID := strings.TrimSpace(in.GetSnapshotId()); recommend.IsPersonalizedSnapshot(snapshotID) {
 		snapshotLookupStarted := time.Now()
-		resp, ok, err := l.recommendFromPersonalizedSnapshot(in, pageSize, snapshotID)
+		snapshotResult, ok, err := l.recommendFromPersonalizedSnapshot(in, pageSize, snapshotID)
+		variantID := recommendVariantControl
+		if ok {
+			variantID = strings.TrimSpace(snapshotResult.meta.VariantID)
+			if variantID == "" {
+				variantID = recommendVariantControl
+			}
+		}
 		recordRecommendStageDurationMetric(
 			recommendStageSnapshotLookup,
-			recommendVariantControl,
+			variantID,
 			time.Since(snapshotLookupStarted),
 		)
 		if err == nil && ok {
 			recordRecommendSnapshotMetric(recommendSnapshotKindPersonalized, recommendSnapshotResultHit)
 			result := recommendResultSuccess
-			if resp == nil || len(resp.GetItems()) == 0 {
+			if snapshotResult.resp == nil || len(snapshotResult.resp.GetItems()) == 0 {
 				result = recommendResultEmpty
 			}
-			recordRecommendRequestMetric(recommendModeSnapshot, recommendVariantControl, result)
-			l.emitExposureTrackEvents(in.GetUserId(), resp, recommendVariantControl)
-			return resp, nil
+			recordRecommendRequestMetric(recommendModeSnapshot, variantID, result)
+			l.emitExposureTrackEvents(in.GetUserId(), snapshotResult.resp, variantID)
+			return snapshotResult.resp, nil
 		}
 		if err != nil {
 			recordRecommendSnapshotMetric(recommendSnapshotKindPersonalized, recommendSnapshotResultError)
@@ -232,22 +244,32 @@ func (l *RecommendFeedLogic) recommendFromPersonalizedSnapshot(
 	in *contentpb.RecommendFeedReq,
 	pageSize int,
 	snapshotID string,
-) (*contentpb.RecommendFeedRes, bool, error) {
+) (personalizedSnapshotResult, bool, error) {
 	snapshotKey := redisconsts.BuildRecommendUserSnapshotKey(snapshotID)
 	exists, err := l.svcCtx.Redis.ExistsCtx(l.ctx, snapshotKey)
 	if err != nil {
-		return nil, false, err
+		return personalizedSnapshotResult{}, false, err
 	}
 	if !exists {
-		return nil, false, nil
+		return personalizedSnapshotResult{}, false, nil
 	}
 
+	meta, _, err := recommend.LoadPersonalizedSnapshotMeta(l.ctx, l.svcCtx.Redis, snapshotID)
+	if err != nil {
+		return personalizedSnapshotResult{}, true, err
+	}
 	result, err := l.queryHotIDsByCursor(snapshotKey, snapshotID, strings.TrimSpace(in.GetCursor()), pageSize)
 	if err != nil {
-		return nil, true, err
+		return personalizedSnapshotResult{}, true, err
 	}
 	resp, err := l.buildFeedResponse(in, result)
-	return resp, true, err
+	if err != nil {
+		return personalizedSnapshotResult{}, true, err
+	}
+	return personalizedSnapshotResult{
+		resp: resp,
+		meta: meta,
+	}, true, nil
 }
 
 func (l *RecommendFeedLogic) buildFeedResponse(
