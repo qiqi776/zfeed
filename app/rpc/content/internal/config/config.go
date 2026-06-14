@@ -60,6 +60,7 @@ type RecommendConfig struct {
 	CandidateLimit   int
 	FallbackToHot    bool
 	ColdStartMetaTTL int
+	SeenTTL          int
 }
 
 type RecommendHotConfig struct {

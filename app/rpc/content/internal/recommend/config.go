@@ -25,6 +25,7 @@ const (
 	defaultDeltaQuality     = 0.05
 	defaultSeenPenalty      = 0.30
 	defaultColdMetaTTL      = 7 * 24 * 3600
+	defaultSeenTTL          = 7 * 24 * 3600
 	defaultAuthorWindow     = 5
 	defaultMaxSameAuthor    = 1
 	defaultTypeWindow       = 6
@@ -46,6 +47,9 @@ func NormalizeConfig(cfg contentconfig.RecommendConfig) contentconfig.RecommendC
 	}
 	if cfg.ColdStartMetaTTL <= 0 {
 		cfg.ColdStartMetaTTL = defaultColdMetaTTL
+	}
+	if cfg.SeenTTL <= 0 {
+		cfg.SeenTTL = defaultSeenTTL
 	}
 	if !cfg.Hot.Enabled && cfg.Hot.Weight == 0 && cfg.Hot.Limit == 0 {
 		cfg.Hot.Enabled = true

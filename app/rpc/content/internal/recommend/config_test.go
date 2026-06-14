@@ -24,6 +24,9 @@ func TestNormalizeConfigFillsRecommendDefaults(t *testing.T) {
 	if got.CandidateTTL != 300 {
 		t.Fatalf("CandidateTTL = %d, want 300", got.CandidateTTL)
 	}
+	if got.SeenTTL != 7*24*3600 {
+		t.Fatalf("SeenTTL = %d, want 7d", got.SeenTTL)
+	}
 	if !got.Hot.Enabled || got.Hot.Weight != 0.55 || got.Hot.Limit != 300 {
 		t.Fatalf("Hot defaults = %+v, want enabled weight=0.55 limit=300", got.Hot)
 	}

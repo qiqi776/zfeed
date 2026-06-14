@@ -372,6 +372,9 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		return nil, err
 	}
 	ranked := recommend.ApplyFeatures(merged, features)
+	if err := l.applySeenCounts(in.GetUserId(), ranked); err != nil {
+		return nil, err
+	}
 	fineRankStarted := time.Now()
 	ranked = recommend.FineRank(ranked, cfg.Rank)
 	recordRecommendStageDurationMetric(
@@ -442,7 +445,14 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 	if err != nil {
 		return nil, err
 	}
-	return l.buildFeedResponse(in, result)
+	resp, err := l.buildFeedResponse(in, result)
+	if err != nil {
+		return nil, err
+	}
+	if err := l.recordSeenResponse(in.GetUserId(), cfg, resp); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (l *RecommendFeedLogic) recallRecommendCandidates(
@@ -536,6 +546,44 @@ func (l *RecommendFeedLogic) loadCandidateFeatures(ids []int64) (map[int64]recom
 		features[row.ID] = feature
 	}
 	return features, nil
+}
+
+func (l *RecommendFeedLogic) applySeenCounts(userID int64, candidates []recommend.Candidate) error {
+	if userID <= 0 || len(candidates) == 0 {
+		return nil
+	}
+	seenCounts, err := recommend.LoadSeenCounts(l.ctx, l.svcCtx.Redis, userID, recommend.IDs(candidates))
+	if err != nil {
+		return err
+	}
+	if len(seenCounts) == 0 {
+		return nil
+	}
+	for i := range candidates {
+		if candidates[i].ContentID <= 0 {
+			continue
+		}
+		candidates[i].SeenCount = seenCounts[candidates[i].ContentID]
+	}
+	return nil
+}
+
+func (l *RecommendFeedLogic) recordSeenResponse(
+	userID int64,
+	cfg contentconfig.RecommendConfig,
+	resp *contentpb.RecommendFeedRes,
+) error {
+	if userID <= 0 || resp == nil || len(resp.GetItems()) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(resp.GetItems()))
+	for _, item := range resp.GetItems() {
+		if item == nil || item.GetContentId() <= 0 {
+			continue
+		}
+		ids = append(ids, item.GetContentId())
+	}
+	return recommend.RecordSeenContents(l.ctx, l.svcCtx.Redis, cfg, userID, ids, time.Now())
 }
 
 func (l *RecommendFeedLogic) resolveSnapshotKey(reqSnapshotID *string) (string, string) {

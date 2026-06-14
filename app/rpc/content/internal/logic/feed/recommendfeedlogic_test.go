@@ -608,6 +608,66 @@ func TestRecommendEnhancementUsesCandidateCache(t *testing.T) {
 	}
 }
 
+func TestRecommendEnhancementAppliesAndRecordsSeen(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8952, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8952", coverURL: "cover-8952"},
+		{contentID: 9951, authorID: 3001, contentType: contentpb.ContentType_VIDEO, title: "new-9951", coverURL: "cover-9951"},
+	})
+
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "8952")
+	store.ZAdd(redisconsts.RecommendNewContentKey, 9999, "9951")
+	userID := int64(1001)
+	seenKey := redisconsts.BuildRecommendSeenKey(userID)
+	store.ZAdd(seenKey, float64(time.Now().Unix()), "9951")
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: contentconfig.RecommendConfig{
+				Enabled: true,
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: true,
+					Weight:  1,
+					Limit:   10,
+				},
+				NewContent: contentconfig.RecommendNewContentConfig{
+					Enabled: true,
+					Weight:  2,
+					Limit:   10,
+				},
+				Rank: contentconfig.RecommendRankConfig{
+					AlphaHot:    1,
+					GammaFresh:  1,
+					SeenPenalty: 10,
+				},
+				Diversity: contentconfig.RecommendDiversityConfig{
+					Enabled: false,
+				},
+			},
+		},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		UserId:   &userID,
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	ids := recommendContentIDs(resp.GetItems())
+	if len(ids) != 1 || ids[0] != 8952 {
+		t.Fatalf("ids = %v, want previously unseen hot content [8952]", ids)
+	}
+	if _, err := store.ZScore(seenKey, "8952"); err != nil {
+		t.Fatalf("returned content was not recorded in seen set: %v", err)
+	}
+}
+
 func TestRecommendWithTimeoutUsesConfiguredBudget(t *testing.T) {
 	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{})
 

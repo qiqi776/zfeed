@@ -1217,6 +1217,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 个性化 snapshot 翻页已记录 lookup stage、hit/miss/error snapshot 事件、snapshot 请求结果和 snapshot_miss/snapshot_error 兜底原因。
 - 热榜兜底已细分记录 disabled、cold_start、hot_error 和 build_error 原因，便于定位配置关闭、冷启动空结果、Redis 异常和详情补全失败。
 - 推荐候选缓存已落地 `feed:rec:candidate:{bucket}:{variant}:{config_hash}`，增强链路会优先命中缓存并回写合并后的候选池。
+- `rec:seen:{user_id}` 已接入排序降权和曝光回写，已曝光内容不会直接消失，但会按 `SeenPenalty` 被降权。
 
 已验证：
 
@@ -1232,6 +1233,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendHotFallbackRecordsReasonMetrics -count=1`
 - `go test ./app/rpc/content/internal/recommend -run 'Test(BuildCandidateCacheKeyUsesBucketVariantAndConfigHash|CandidateCacheSaveAndLoad|LoadCandidateCacheMiss)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementUsesCandidateCache -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test(RecordSeenContentsWritesRecentExposureSet|LoadSeenCountsReturnsOnlyRequestedIDs)' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementAppliesAndRecordsSeen -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
@@ -1242,7 +1245,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 行为埋点 `zfeed-rec-track`、曝光/点击/互动/停留事件写入和日聚合表还未落地。
 - 画像更新已有 `ApplyProfileEvent`，但 interaction outbox、Canal 消费或定时 worker 尚未接入。
 - 推荐 Prometheus 指标还需继续覆盖更多推荐增强链路失败路径，以及 rerank/profile/track 相关指标。
-- `rec:seen:{user_id}` 和旧 snapshot 按 `config_hash` 翻页隔离还未实现。
+- 旧 snapshot 按 `config_hash` 翻页隔离还未实现。
 
 ## Change Log
 
@@ -1258,3 +1261,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-14 | 1.0.0   | Add personalized snapshot lookup metrics progress | Codex |
 | 2026-06-14 | 1.0.0   | Add hot fallback reason metrics progress | Codex |
 | 2026-06-14 | 1.0.0   | Add candidate cache progress | Codex |
+| 2026-06-14 | 1.0.0   | Add seen penalty progress | Codex |
