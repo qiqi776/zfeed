@@ -632,6 +632,186 @@ func TestRecommendExperimentVariantWritesSnapshotMetaAndMetrics(t *testing.T) {
 	}
 }
 
+func TestRecommendPersonalizedSnapshotRecordsHitMetric(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8601, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "rec-8601", coverURL: "cover-8601"},
+	})
+
+	snapshotID := "rec:0001:control:hash8601:1"
+	store.ZAdd(redisconsts.BuildRecommendUserSnapshotKey(snapshotID), 1000, "8601")
+
+	oldRequest := recordRecommendRequestMetric
+	oldStage := recordRecommendStageDurationMetric
+	oldSnapshot := recordRecommendSnapshotMetric
+	defer func() {
+		recordRecommendRequestMetric = oldRequest
+		recordRecommendStageDurationMetric = oldStage
+		recordRecommendSnapshotMetric = oldSnapshot
+	}()
+
+	requests := []struct {
+		mode   string
+		result string
+	}{}
+	stages := map[string]int{}
+	snapshots := map[string]int{}
+	recordRecommendRequestMetric = func(mode, variant, result string) {
+		requests = append(requests, struct {
+			mode   string
+			result string
+		}{mode: mode, result: result})
+	}
+	recordRecommendStageDurationMetric = func(stage, variant string, elapsed time.Duration) {
+		if elapsed < 0 {
+			t.Fatalf("stage elapsed = %s, want non-negative", elapsed)
+		}
+		stages[stage]++
+	}
+	recordRecommendSnapshotMetric = func(kind, result string) {
+		snapshots[kind+":"+result]++
+	}
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		PageSize:   1,
+		SnapshotId: &snapshotID,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	if got := recommendContentIDs(resp.GetItems()); len(got) != 1 || got[0] != 8601 {
+		t.Fatalf("ids = %v, want [8601]", got)
+	}
+	if snapshots[recommendSnapshotKindPersonalized+":"+recommendSnapshotResultHit] != 1 {
+		t.Fatalf("snapshot metrics = %#v, want personalized hit", snapshots)
+	}
+	if stages[recommendStageSnapshotLookup] != 1 {
+		t.Fatalf("stage metrics = %#v, want snapshot lookup recorded", stages)
+	}
+	if len(requests) != 1 ||
+		requests[0].mode != recommendModeSnapshot ||
+		requests[0].result != recommendResultSuccess {
+		t.Fatalf("request metrics = %+v, want one snapshot success", requests)
+	}
+}
+
+func TestRecommendPersonalizedSnapshotRecordsMissAndErrorMetrics(t *testing.T) {
+	tests := []struct {
+		name         string
+		prepare      func(*miniredis.Miniredis, string)
+		wantSnapshot string
+		wantFallback string
+	}{
+		{
+			name: "missing snapshot falls back to hot path",
+			prepare: func(store *miniredis.Miniredis, snapshotID string) {
+				store.ZAdd(redisconsts.HotFeedKey, 1000, "8701")
+			},
+			wantSnapshot: recommendSnapshotResultMiss,
+			wantFallback: recommendFallbackReasonSnapshotMiss,
+		},
+		{
+			name: "redis error falls back to hot path",
+			prepare: func(store *miniredis.Miniredis, snapshotID string) {
+				store.Set(redisconsts.BuildRecommendUserSnapshotKey(snapshotID), "not-a-zset")
+				store.ZAdd(redisconsts.HotFeedKey, 1000, "8701")
+			},
+			wantSnapshot: recommendSnapshotResultError,
+			wantFallback: recommendFallbackReasonSnapshotError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, redisClient := newFollowFeedRedis(t)
+			db := newFollowFeedTestDB(t)
+
+			seedFollowFeedRows(t, db, []followFeedSeed{
+				{contentID: 8701, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8701", coverURL: "cover-8701"},
+			})
+
+			snapshotID := "rec:0001:control:hash8701:1"
+			tt.prepare(store, snapshotID)
+
+			oldRequest := recordRecommendRequestMetric
+			oldStage := recordRecommendStageDurationMetric
+			oldFallback := recordRecommendFallbackMetric
+			oldSnapshot := recordRecommendSnapshotMetric
+			defer func() {
+				recordRecommendRequestMetric = oldRequest
+				recordRecommendStageDurationMetric = oldStage
+				recordRecommendFallbackMetric = oldFallback
+				recordRecommendSnapshotMetric = oldSnapshot
+			}()
+
+			requests := []struct {
+				mode   string
+				result string
+			}{}
+			stages := map[string]int{}
+			fallbacks := map[string]int{}
+			snapshots := map[string]int{}
+			recordRecommendRequestMetric = func(mode, variant, result string) {
+				requests = append(requests, struct {
+					mode   string
+					result string
+				}{mode: mode, result: result})
+			}
+			recordRecommendStageDurationMetric = func(stage, variant string, elapsed time.Duration) {
+				if elapsed < 0 {
+					t.Fatalf("stage elapsed = %s, want non-negative", elapsed)
+				}
+				stages[stage]++
+			}
+			recordRecommendFallbackMetric = func(reason string) {
+				fallbacks[reason]++
+			}
+			recordRecommendSnapshotMetric = func(kind, result string) {
+				snapshots[kind+":"+result]++
+			}
+
+			logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+				MysqlDb: db,
+				Redis:   redisClient,
+			})
+
+			resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+				PageSize:   1,
+				SnapshotId: &snapshotID,
+			})
+			if err != nil {
+				t.Fatalf("RecommendFeed returned error: %v", err)
+			}
+			if got := recommendContentIDs(resp.GetItems()); len(got) != 1 || got[0] != 8701 {
+				t.Fatalf("ids = %v, want hot fallback [8701]", got)
+			}
+			if snapshots[recommendSnapshotKindPersonalized+":"+tt.wantSnapshot] != 1 {
+				t.Fatalf("snapshot metrics = %#v, want personalized %s", snapshots, tt.wantSnapshot)
+			}
+			if fallbacks[tt.wantFallback] != 1 {
+				t.Fatalf("fallback metrics = %#v, want %s", fallbacks, tt.wantFallback)
+			}
+			if stages[recommendStageSnapshotLookup] != 1 {
+				t.Fatalf("stage metrics = %#v, want snapshot lookup recorded", stages)
+			}
+			if len(requests) != 1 {
+				t.Fatalf("request metrics = %+v, want one final request metric", requests)
+			}
+			lastRequest := requests[len(requests)-1]
+			if lastRequest.mode != recommendModeHot || lastRequest.result != recommendResultSuccess {
+				t.Fatalf("request metrics = %+v, want hot fallback success last", requests)
+			}
+		})
+	}
+}
+
 func TestRecommendEnhancementUsesPersonalizedSnapshotForNextPage(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)

@@ -77,12 +77,29 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 	}()
 
 	if snapshotID := strings.TrimSpace(in.GetSnapshotId()); recommend.IsPersonalizedSnapshot(snapshotID) {
+		snapshotLookupStarted := time.Now()
 		resp, ok, err := l.recommendFromPersonalizedSnapshot(in, pageSize, snapshotID)
+		recordRecommendStageDurationMetric(
+			recommendStageSnapshotLookup,
+			recommendVariantControl,
+			time.Since(snapshotLookupStarted),
+		)
 		if err == nil && ok {
+			recordRecommendSnapshotMetric(recommendSnapshotKindPersonalized, recommendSnapshotResultHit)
+			result := recommendResultSuccess
+			if resp == nil || len(resp.GetItems()) == 0 {
+				result = recommendResultEmpty
+			}
+			recordRecommendRequestMetric(recommendModeSnapshot, recommendVariantControl, result)
 			return resp, nil
 		}
 		if err != nil {
+			recordRecommendSnapshotMetric(recommendSnapshotKindPersonalized, recommendSnapshotResultError)
+			recordRecommendFallbackMetric(recommendFallbackReasonSnapshotError)
 			l.Errorf("query personalized recommend snapshot failed, snapshot_id=%s, err=%v", snapshotID, err)
+		} else {
+			recordRecommendSnapshotMetric(recommendSnapshotKindPersonalized, recommendSnapshotResultMiss)
+			recordRecommendFallbackMetric(recommendFallbackReasonSnapshotMiss)
 		}
 	}
 
