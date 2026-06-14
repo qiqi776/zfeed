@@ -4,12 +4,15 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
 
 	contentpb "zfeed/app/rpc/content/content"
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	luautils "zfeed/app/rpc/content/internal/common/utils/lua"
+	contentconfig "zfeed/app/rpc/content/internal/config"
+	"zfeed/app/rpc/content/internal/recommend"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/errorx"
 )
@@ -58,10 +61,137 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 		pageSize = 50
 	}
 
+	totalStarted := time.Now()
+	defer func() {
+		recordRecommendStageDurationMetric(
+			recommendStageTotal,
+			recommendVariantControl,
+			time.Since(totalStarted),
+		)
+	}()
+
+	if snapshotID := strings.TrimSpace(in.GetSnapshotId()); recommend.IsPersonalizedSnapshot(snapshotID) {
+		resp, ok, err := l.recommendFromPersonalizedSnapshot(in, pageSize, snapshotID)
+		if err == nil && ok {
+			return resp, nil
+		}
+		if err != nil {
+			l.Errorf("query personalized recommend snapshot failed, snapshot_id=%s, err=%v", snapshotID, err)
+		}
+	}
+
+	cfg, cfgErr := l.loadRecommendConfig()
+	if cfgErr != nil {
+		l.Errorf("load recommend runtime config failed, user_id=%d, err=%v", in.GetUserId(), cfgErr)
+	}
+	if cfgErr == nil {
+		scoped, cancel := l.withRecommendTimeout(cfg)
+		defer cancel()
+
+		if scoped.shouldUseRecommendEnhancement(in, cfg) {
+			resp, err := scoped.recommendWithNewContent(in, pageSize, cfg)
+			if err == nil && len(resp.GetItems()) > 0 {
+				recordRecommendRequestMetric(
+					recommendModePersonalized,
+					recommendVariantControl,
+					recommendResultSuccess,
+				)
+				return resp, nil
+			}
+			if err != nil {
+				recordRecommendFallbackMetric(recommendFallbackReasonEnhancementError)
+				l.Errorf("recommend enhancement failed, user_id=%d, err=%v", in.GetUserId(), err)
+			}
+		}
+	}
+
+	resp, err := l.recommendHotFallback(in, pageSize)
+	if err != nil {
+		recordRecommendRequestMetric(recommendModeHot, recommendVariantControl, recommendResultError)
+		return nil, err
+	}
+	if len(resp.GetItems()) == 0 {
+		recordRecommendRequestMetric(recommendModeHot, recommendVariantControl, recommendResultEmpty)
+		return resp, nil
+	}
+	recordRecommendRequestMetric(recommendModeHot, recommendVariantControl, recommendResultSuccess)
+	return resp, nil
+}
+
+func (l *RecommendFeedLogic) loadRecommendConfig() (contentconfig.RecommendConfig, error) {
+	if l == nil || l.svcCtx == nil {
+		return recommend.NormalizeConfig(contentconfig.RecommendConfig{}), nil
+	}
+	return recommend.LoadRuntimeConfig(l.ctx, l.svcCtx.Redis, l.svcCtx.Config.Recommend)
+}
+
+func (l *RecommendFeedLogic) withRecommendTimeout(
+	cfg contentconfig.RecommendConfig,
+) (*RecommendFeedLogic, context.CancelFunc) {
+	if l == nil {
+		return l, func() {}
+	}
+
+	timeout := recommendTimeoutBudget(cfg)
+	if timeout <= 0 {
+		return l, func() {}
+	}
+
+	baseCtx := l.ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(baseCtx, timeout)
+
+	scoped := *l
+	scoped.ctx = ctx
+	scoped.Logger = logx.WithContext(ctx)
+	scoped.itemBuilder = NewFeedItemBuilder(ctx, l.svcCtx)
+	return &scoped, cancel
+}
+
+func recommendTimeoutBudget(cfg contentconfig.RecommendConfig) time.Duration {
+	cfg = recommend.NormalizeConfig(cfg)
+	return time.Duration(cfg.TimeoutMs) * time.Millisecond
+}
+
+func (l *RecommendFeedLogic) recommendHotFallback(in *contentpb.RecommendFeedReq, pageSize int) (*contentpb.RecommendFeedRes, error) {
 	preferredKey, preferredSnapshotID := l.resolveSnapshotKey(in.SnapshotId)
 	result, err := l.queryHotIDsByCursor(preferredKey, preferredSnapshotID, strings.TrimSpace(in.GetCursor()), pageSize)
 	if err != nil {
 		return nil, err
+	}
+	return l.buildFeedResponse(in, result)
+}
+
+func (l *RecommendFeedLogic) recommendFromPersonalizedSnapshot(
+	in *contentpb.RecommendFeedReq,
+	pageSize int,
+	snapshotID string,
+) (*contentpb.RecommendFeedRes, bool, error) {
+	snapshotKey := redisconsts.BuildRecommendUserSnapshotKey(snapshotID)
+	exists, err := l.svcCtx.Redis.ExistsCtx(l.ctx, snapshotKey)
+	if err != nil {
+		return nil, false, err
+	}
+	if !exists {
+		return nil, false, nil
+	}
+
+	result, err := l.queryHotIDsByCursor(snapshotKey, snapshotID, strings.TrimSpace(in.GetCursor()), pageSize)
+	if err != nil {
+		return nil, true, err
+	}
+	resp, err := l.buildFeedResponse(in, result)
+	return resp, true, err
+}
+
+func (l *RecommendFeedLogic) buildFeedResponse(
+	in *contentpb.RecommendFeedReq,
+	result *hotFeedResult,
+) (*contentpb.RecommendFeedRes, error) {
+	if result == nil {
+		result = &hotFeedResult{}
 	}
 	if len(result.ids) == 0 {
 		return &contentpb.RecommendFeedRes{
@@ -96,6 +226,222 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 		HasMore:    result.hasMore,
 		SnapshotId: result.resolvedSnapshotID,
 	}, nil
+}
+
+func (l *RecommendFeedLogic) shouldUseRecommendEnhancement(
+	in *contentpb.RecommendFeedReq,
+	cfg contentconfig.RecommendConfig,
+) bool {
+	if l == nil || l.svcCtx == nil || l.svcCtx.Redis == nil || l.svcCtx.MysqlDb == nil || in == nil {
+		return false
+	}
+
+	hasNewRecall := cfg.NewContent.Enabled
+	hasInterestRecall := cfg.Interest.Enabled && in.GetUserId() > 0
+	if !cfg.Enabled || (!hasNewRecall && !hasInterestRecall) {
+		return false
+	}
+
+	cursor := strings.TrimSpace(in.GetCursor())
+	if cursor != "" && cursor != "0" {
+		return false
+	}
+	if in.SnapshotId != nil && strings.TrimSpace(in.GetSnapshotId()) != "" {
+		return false
+	}
+	return true
+}
+
+func (l *RecommendFeedLogic) recommendWithNewContent(
+	in *contentpb.RecommendFeedReq,
+	pageSize int,
+	cfg contentconfig.RecommendConfig,
+) (*contentpb.RecommendFeedRes, error) {
+	var hotSnapshotID string
+	inputs := make([]recommend.MergeInput, 0, 3)
+	recallStarted := time.Now()
+	if cfg.Hot.Enabled {
+		hotLimit := cfg.Hot.Limit
+		if hotLimit > cfg.CandidateLimit {
+			hotLimit = cfg.CandidateLimit
+		}
+		if hotLimit < pageSize {
+			hotLimit = pageSize
+		}
+
+		hotResult, err := l.queryHotIDsByCursor("", "", "", hotLimit)
+		if err != nil {
+			return nil, err
+		}
+		hotSnapshotID = hotResult.resolvedSnapshotID
+		recordRecommendRecallItemsMetric(
+			recommendRecallSourceHot,
+			recommendVariantControl,
+			len(hotResult.ids),
+		)
+		inputs = append(inputs, recommend.MergeInput{
+			Source: recommend.SourceHot,
+			Weight: cfg.Hot.Weight,
+			IDs:    hotResult.ids,
+		})
+	}
+	if cfg.NewContent.Enabled {
+		newIDs, err := recommend.RecallNewContent(l.ctx, l.svcCtx.Redis, cfg.NewContent.Limit)
+		if err != nil {
+			return nil, err
+		}
+		recordRecommendRecallItemsMetric(
+			recommendRecallSourceNewContent,
+			recommendVariantControl,
+			len(newIDs),
+		)
+		inputs = append(inputs, recommend.MergeInput{
+			Source: recommend.SourceNewContent,
+			Weight: cfg.NewContent.Weight,
+			IDs:    newIDs,
+		})
+	}
+	if cfg.Interest.Enabled && in.GetUserId() > 0 {
+		interestIDs, err := recommend.RecallInterest(l.ctx, l.svcCtx.Redis, in.GetUserId(), cfg.Interest)
+		if err != nil {
+			return nil, err
+		}
+		recordRecommendRecallItemsMetric(
+			recommendRecallSourceInterest,
+			recommendVariantControl,
+			len(interestIDs),
+		)
+		inputs = append(inputs, recommend.MergeInput{
+			Source: recommend.SourceInterest,
+			Weight: cfg.Interest.Weight,
+			IDs:    interestIDs,
+		})
+	}
+	recordRecommendStageDurationMetric(
+		recommendStageRecall,
+		recommendVariantControl,
+		time.Since(recallStarted),
+	)
+
+	coarseRankStarted := time.Now()
+	merged := recommend.Merge(inputs, cfg.CandidateLimit)
+	merged = recommend.CoarseRank(merged, cfg.Rank)
+	recordRecommendStageDurationMetric(
+		recommendStageCoarseRank,
+		recommendVariantControl,
+		time.Since(coarseRankStarted),
+	)
+	if len(merged) == 0 {
+		return &contentpb.RecommendFeedRes{
+			Items:      []*contentpb.ContentItem{},
+			NextCursor: 0,
+			HasMore:    false,
+			SnapshotId: hotSnapshotID,
+		}, nil
+	}
+
+	featureLoadStarted := time.Now()
+	features, err := l.loadCandidateFeatures(recommend.IDs(merged))
+	recordRecommendStageDurationMetric(
+		recommendStageFeatureLoad,
+		recommendVariantControl,
+		time.Since(featureLoadStarted),
+	)
+	if err != nil {
+		return nil, err
+	}
+	ranked := recommend.ApplyFeatures(merged, features)
+	fineRankStarted := time.Now()
+	ranked = recommend.FineRank(ranked, cfg.Rank)
+	recordRecommendStageDurationMetric(
+		recommendStageFineRank,
+		recommendVariantControl,
+		time.Since(fineRankStarted),
+	)
+	rerankStarted := time.Now()
+	ranked = recommend.DiversityRerank(ranked, cfg.Diversity)
+	recordRecommendStageDurationMetric(
+		recommendStageRerank,
+		recommendVariantControl,
+		time.Since(rerankStarted),
+	)
+	if len(ranked) == 0 {
+		return &contentpb.RecommendFeedRes{
+			Items:      []*contentpb.ContentItem{},
+			NextCursor: 0,
+			HasMore:    false,
+			SnapshotId: hotSnapshotID,
+		}, nil
+	}
+
+	snapshotSaveStarted := time.Now()
+	snapshotID, err := recommend.SavePersonalizedSnapshot(
+		l.ctx,
+		l.svcCtx.Redis,
+		cfg,
+		in.GetUserId(),
+		ranked,
+		time.Now(),
+	)
+	recordRecommendStageDurationMetric(
+		recommendStageSnapshotSave,
+		recommendVariantControl,
+		time.Since(snapshotSaveStarted),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if snapshotID == "" {
+		recordRecommendSnapshotMetric(
+			recommendSnapshotKindPersonalized,
+			recommendSnapshotResultSkipped,
+		)
+		return &contentpb.RecommendFeedRes{
+			Items:      []*contentpb.ContentItem{},
+			NextCursor: 0,
+			HasMore:    false,
+			SnapshotId: hotSnapshotID,
+		}, nil
+	}
+	recordRecommendSnapshotMetric(
+		recommendSnapshotKindPersonalized,
+		recommendSnapshotResultSaved,
+	)
+
+	result, err := l.queryHotIDsByCursor(
+		redisconsts.BuildRecommendUserSnapshotKey(snapshotID),
+		snapshotID,
+		strings.TrimSpace(in.GetCursor()),
+		pageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return l.buildFeedResponse(in, result)
+}
+
+func (l *RecommendFeedLogic) loadCandidateFeatures(ids []int64) (map[int64]recommend.Candidate, error) {
+	contents, err := l.itemBuilder.LoadContentsByIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	features := make(map[int64]recommend.Candidate, len(contents))
+	for _, row := range contents {
+		if row == nil || row.ID <= 0 {
+			continue
+		}
+		feature := recommend.Candidate{
+			ContentID:   row.ID,
+			AuthorID:    row.UserID,
+			ContentType: row.ContentType,
+		}
+		if row.PublishedAt != nil {
+			feature.PublishedAt = row.PublishedAt.Unix()
+		}
+		features[row.ID] = feature
+	}
+	return features, nil
 }
 
 func (l *RecommendFeedLogic) resolveSnapshotKey(reqSnapshotID *string) (string, string) {

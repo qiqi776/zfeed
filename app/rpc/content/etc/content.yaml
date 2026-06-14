@@ -85,3 +85,34 @@ XxlJob:
     - "${XXL_JOB_ADMIN_ADDR}"
   RegistryInterval: 30s
   HTTPTimeout: 10s
+
+Recommend:
+  Enabled: false
+  TimeoutMs: 120
+  SnapshotTTL: 600
+  CandidateTTL: 300
+  CandidateLimit: 500
+  FallbackToHot: true
+  ColdStartMetaTTL: 604800
+  NewContent:
+    Enabled: true
+    Weight: 0.2
+    Limit: 100
+  Interest:
+    Enabled: false
+    Weight: 0.25
+    Limit: 200
+    TopTags: 8
+    MinTags: 3
+    ProfileTTL: 2592000
+    ContentTagTTL: 2592000
+    TagIndexTTL: 604800
+  Rank:
+    CoarseLimit: 200
+    SeenPenalty: 0.3
+  Diversity:
+    Enabled: true
+    AuthorWindow: 5
+    MaxSameAuthor: 1
+    TypeWindow: 6
+    MaxSameType: 4

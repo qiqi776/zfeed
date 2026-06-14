@@ -16,6 +16,7 @@ type Config struct {
 	RedisConfig              redis.RedisConf
 	MySQL                    MySQLConf
 	XxlJob                   XxlJobConfig
+	Recommend                RecommendConfig
 }
 
 type OssConfig struct {
@@ -43,4 +44,59 @@ type XxlJobConfig struct {
 	AdminAddresses   []string
 	RegistryInterval time.Duration
 	HTTPTimeout      time.Duration
+}
+
+type RecommendConfig struct {
+	Enabled          bool
+	TimeoutMs        int
+	SnapshotTTL      int
+	CandidateTTL     int
+	Hot              RecommendHotConfig
+	NewContent       RecommendNewContentConfig
+	Interest         RecommendInterestConfig
+	Rank             RecommendRankConfig
+	Diversity        RecommendDiversityConfig
+	CandidateLimit   int
+	FallbackToHot    bool
+	ColdStartMetaTTL int
+}
+
+type RecommendHotConfig struct {
+	Enabled bool
+	Weight  float64
+	Limit   int
+}
+
+type RecommendNewContentConfig struct {
+	Enabled bool
+	Weight  float64
+	Limit   int
+}
+
+type RecommendInterestConfig struct {
+	Enabled       bool
+	Weight        float64
+	Limit         int
+	TopTags       int
+	MinTags       int
+	ProfileTTL    int
+	ContentTagTTL int
+	TagIndexTTL   int
+}
+
+type RecommendRankConfig struct {
+	CoarseLimit   int
+	AlphaHot      float64
+	BetaInterest  float64
+	GammaFresh    float64
+	DeltaQuality  float64
+	SeenPenalty   float64
+}
+
+type RecommendDiversityConfig struct {
+	Enabled       bool
+	AuthorWindow  int
+	MaxSameAuthor int
+	TypeWindow    int
+	MaxSameType   int
 }

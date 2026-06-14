@@ -12,6 +12,16 @@ const (
 	HotFeedColdLockPrefix    = "feed:hot:global:lock:cold"
 	HotFeedCleanupLockPrefix = "feed:hot:global:lock:cleanup"
 
+	RecommendNewContentKey        = "feed:rec:new:global"
+	RecommendNewContentMetaPrefix = "feed:rec:new:meta"
+	RecommendUserProfilePrefix    = "rec:user:profile"
+	RecommendContentTagsPrefix    = "rec:content:tags"
+	RecommendTagIndexPrefix       = "rec:tag:index"
+	RecommendSeenPrefix           = "rec:seen"
+	RecommendUserSnapshotPrefix   = "feed:rec:user:snap"
+	RecommendUserSnapshotMeta     = "feed:rec:user:snapmeta"
+	RecommendNewCleanupLockPrefix = "feed:rec:new:lock:cleanup"
+
 	UserPublishPrefix      = "feed:user:publish"
 	UserPublishLockPrefix  = "feed:user:publish:lock"
 	UserFavoritePrefix     = "feed:user:favorite"
@@ -43,6 +53,38 @@ func BuildHotFeedColdLockKey(date string) string {
 
 func BuildHotFeedBucketCleanupLockKey(date string) string {
 	return fmt.Sprintf("%s:%s", HotFeedCleanupLockPrefix, date)
+}
+
+func BuildRecommendNewContentMetaKey(contentID int64) string {
+	return fmt.Sprintf("%s:%d", RecommendNewContentMetaPrefix, contentID)
+}
+
+func BuildRecommendUserProfileKey(userID int64) string {
+	return fmt.Sprintf("%s:%d", RecommendUserProfilePrefix, userID)
+}
+
+func BuildRecommendContentTagsKey(contentID int64) string {
+	return fmt.Sprintf("%s:%d", RecommendContentTagsPrefix, contentID)
+}
+
+func BuildRecommendTagIndexKey(tag string) string {
+	return fmt.Sprintf("%s:%s", RecommendTagIndexPrefix, tag)
+}
+
+func BuildRecommendSeenKey(userID int64) string {
+	return fmt.Sprintf("%s:%d", RecommendSeenPrefix, userID)
+}
+
+func BuildRecommendUserSnapshotKey(snapshotID string) string {
+	return fmt.Sprintf("%s:%s", RecommendUserSnapshotPrefix, snapshotID)
+}
+
+func BuildRecommendUserSnapshotMetaKey(snapshotID string) string {
+	return fmt.Sprintf("%s:%s", RecommendUserSnapshotMeta, snapshotID)
+}
+
+func BuildRecommendNewCleanupLockKey(bucket string) string {
+	return fmt.Sprintf("%s:%s", RecommendNewCleanupLockPrefix, bucket)
 }
 
 func BuildUserPublishRebuildLockKey(userID int64) string {

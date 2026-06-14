@@ -1,0 +1,275 @@
+package feedlogic
+
+import (
+	"strings"
+	"time"
+
+	"github.com/zeromicro/go-zero/core/metric"
+)
+
+const (
+	recommendMetricUnknownLabel = "unknown"
+
+	recommendVariantControl = "control"
+
+	recommendModeHot          = "hot"
+	recommendModePersonalized = "personalized"
+	recommendModeSnapshot     = "snapshot"
+	recommendModeColdStart    = "cold_start"
+
+	recommendResultSuccess  = "success"
+	recommendResultError    = "error"
+	recommendResultEmpty    = "empty"
+	recommendResultFallback = "fallback"
+
+	recommendStageTotal          = "total"
+	recommendStageSnapshotLookup = "snapshot_lookup"
+	recommendStageRecall         = "recall"
+	recommendStageFeatureLoad    = "feature_load"
+	recommendStageCoarseRank     = "coarse_rank"
+	recommendStageFineRank       = "fine_rank"
+	recommendStageRerank         = "rerank"
+	recommendStageBuildItems     = "build_items"
+	recommendStageSnapshotSave   = "snapshot_save"
+
+	recommendRecallSourceHot        = "hot"
+	recommendRecallSourceNewContent = "new_content"
+	recommendRecallSourceInterest   = "interest"
+
+	recommendFallbackReasonDisabled         = "disabled"
+	recommendFallbackReasonSnapshotMiss     = "snapshot_miss"
+	recommendFallbackReasonSnapshotError    = "snapshot_error"
+	recommendFallbackReasonEmptyRecall      = "empty_recall"
+	recommendFallbackReasonEnhancementError = "enhancement_error"
+	recommendFallbackReasonHotError         = "hot_error"
+	recommendFallbackReasonBuildError       = "build_error"
+	recommendFallbackReasonColdStart        = "cold_start"
+
+	recommendSnapshotKindHot          = "hot"
+	recommendSnapshotKindPersonalized = "personalized"
+
+	recommendSnapshotResultHit     = "hit"
+	recommendSnapshotResultMiss    = "miss"
+	recommendSnapshotResultError   = "error"
+	recommendSnapshotResultSaved   = "saved"
+	recommendSnapshotResultSkipped = "skipped"
+)
+
+var (
+	recommendRequestMetricLabels       = []string{"mode", "variant", "result"}
+	recommendStageDurationMetricLabels = []string{"stage", "variant"}
+	recommendRecallItemsMetricLabels   = []string{"source", "variant"}
+	recommendFallbackMetricLabels      = []string{"reason"}
+	recommendSnapshotMetricLabels      = []string{"kind", "result"}
+
+	metricRecommendRequestsTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_requests",
+		Name:      "total",
+		Help:      "Recommendation request count.",
+		Labels:    recommendRequestMetricLabels,
+	})
+
+	metricRecommendStageDuration = metric.NewHistogramVec(&metric.HistogramVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_stage_duration",
+		Name:      "seconds",
+		Help:      "Recommendation stage duration in seconds.",
+		Labels:    recommendStageDurationMetricLabels,
+		Buckets:   []float64{0.001, 0.003, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5},
+	})
+
+	metricRecommendRecallItemsTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_recall_items",
+		Name:      "total",
+		Help:      "Recommendation recalled item count.",
+		Labels:    recommendRecallItemsMetricLabels,
+	})
+
+	metricRecommendFallbackTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_fallback",
+		Name:      "total",
+		Help:      "Recommendation fallback count.",
+		Labels:    recommendFallbackMetricLabels,
+	})
+
+	metricRecommendSnapshotTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_snapshot",
+		Name:      "total",
+		Help:      "Recommendation snapshot event count.",
+		Labels:    recommendSnapshotMetricLabels,
+	})
+
+	recordRecommendRequestMetric       = recordRecommendRequest
+	recordRecommendStageDurationMetric = recordRecommendStageDuration
+	recordRecommendRecallItemsMetric   = recordRecommendRecallItems
+	recordRecommendFallbackMetric      = recordRecommendFallback
+	recordRecommendSnapshotMetric      = recordRecommendSnapshot
+)
+
+func recordRecommendRequest(mode, variant, result string) {
+	if metricRecommendRequestsTotal == nil {
+		return
+	}
+	metricRecommendRequestsTotal.Inc(
+		normalizeRecommendModeLabel(mode),
+		normalizeRecommendVariantLabel(variant),
+		normalizeRecommendResultLabel(result),
+	)
+}
+
+func recordRecommendStageDuration(stage, variant string, elapsed time.Duration) {
+	if metricRecommendStageDuration == nil {
+		return
+	}
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	metricRecommendStageDuration.ObserveFloat(
+		elapsed.Seconds(),
+		normalizeRecommendStageLabel(stage),
+		normalizeRecommendVariantLabel(variant),
+	)
+}
+
+func recordRecommendRecallItems(source, variant string, count int) {
+	if metricRecommendRecallItemsTotal == nil {
+		return
+	}
+	if count < 0 {
+		count = 0
+	}
+	metricRecommendRecallItemsTotal.Add(
+		float64(count),
+		normalizeRecommendRecallSourceLabel(source),
+		normalizeRecommendVariantLabel(variant),
+	)
+}
+
+func recordRecommendFallback(reason string) {
+	if metricRecommendFallbackTotal == nil {
+		return
+	}
+	metricRecommendFallbackTotal.Inc(normalizeRecommendFallbackReasonLabel(reason))
+}
+
+func recordRecommendSnapshot(kind, result string) {
+	if metricRecommendSnapshotTotal == nil {
+		return
+	}
+	metricRecommendSnapshotTotal.Inc(
+		normalizeRecommendSnapshotKindLabel(kind),
+		normalizeRecommendSnapshotResultLabel(result),
+	)
+}
+
+func normalizeRecommendModeLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendModeHot,
+		recommendModePersonalized,
+		recommendModeSnapshot,
+		recommendModeColdStart:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendVariantLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case "a", "b", recommendVariantControl:
+		return canonicalRecommendMetricLabel(value)
+	case "", "default":
+		return recommendVariantControl
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendResultLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendResultSuccess,
+		recommendResultError,
+		recommendResultEmpty,
+		recommendResultFallback:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendStageLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendStageTotal,
+		recommendStageSnapshotLookup,
+		recommendStageRecall,
+		recommendStageFeatureLoad,
+		recommendStageCoarseRank,
+		recommendStageFineRank,
+		recommendStageRerank,
+		recommendStageBuildItems,
+		recommendStageSnapshotSave:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendRecallSourceLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendRecallSourceHot,
+		recommendRecallSourceNewContent,
+		recommendRecallSourceInterest:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendFallbackReasonLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendFallbackReasonDisabled,
+		recommendFallbackReasonSnapshotMiss,
+		recommendFallbackReasonSnapshotError,
+		recommendFallbackReasonEmptyRecall,
+		recommendFallbackReasonEnhancementError,
+		recommendFallbackReasonHotError,
+		recommendFallbackReasonBuildError,
+		recommendFallbackReasonColdStart:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendSnapshotKindLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendSnapshotKindHot,
+		recommendSnapshotKindPersonalized:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendSnapshotResultLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendSnapshotResultHit,
+		recommendSnapshotResultMiss,
+		recommendSnapshotResultError,
+		recommendSnapshotResultSaved,
+		recommendSnapshotResultSkipped:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func canonicalRecommendMetricLabel(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	value = strings.ReplaceAll(value, "-", "_")
+	return value
+}

@@ -115,6 +115,7 @@ func (l *DeleteContentLogic) cleanupIndexes(authorID, contentID int64, contentTy
 	l.cleanFollowInboxes(authorID, member, contentID, contentType)
 	l.cleanFavoriteFeeds(member, contentID, contentType)
 	l.cleanHotIndexes(contentID, member, contentType)
+	l.cleanRecommendIndexes(contentID, member, contentType)
 }
 
 func (l *DeleteContentLogic) cleanFollowInboxes(authorID int64, member string, contentID int64, contentType int32) {
@@ -188,5 +189,28 @@ func (l *DeleteContentLogic) cleanHotIndexes(contentID int64, member string, con
 func (l *DeleteContentLogic) zrem(key, member, desc string, contentID int64, contentType int32) {
 	if _, err := l.svcCtx.Redis.ZremCtx(l.ctx, key, member); err != nil {
 		l.Errorf("remove content from %s failed, key=%s, content_id=%d, content_type=%d, err=%v", desc, key, contentID, contentType, err)
+	}
+}
+
+func (l *DeleteContentLogic) cleanRecommendIndexes(contentID int64, member string, contentType int32) {
+	l.zrem(redisconsts.RecommendNewContentKey, member, "new content recall", contentID, contentType)
+	if _, err := l.svcCtx.Redis.DelCtx(l.ctx, redisconsts.BuildRecommendNewContentMetaKey(contentID)); err != nil {
+		l.Errorf("remove new content recall meta failed, content_id=%d, content_type=%d, err=%v", contentID, contentType, err)
+	}
+
+	contentTagsKey := redisconsts.BuildRecommendContentTagsKey(contentID)
+	tags, err := l.svcCtx.Redis.HgetallCtx(l.ctx, contentTagsKey)
+	if err != nil {
+		l.Errorf("query recommend content tags failed, content_id=%d, content_type=%d, err=%v", contentID, contentType, err)
+	} else {
+		for tag := range tags {
+			if tag == "" {
+				continue
+			}
+			l.zrem(redisconsts.BuildRecommendTagIndexKey(tag), member, "recommend tag index", contentID, contentType)
+		}
+	}
+	if _, err := l.svcCtx.Redis.DelCtx(l.ctx, contentTagsKey); err != nil {
+		l.Errorf("remove recommend content tags failed, content_id=%d, content_type=%d, err=%v", contentID, contentType, err)
 	}
 }

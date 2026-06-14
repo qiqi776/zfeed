@@ -13,6 +13,7 @@ import (
 
 	contentpb "zfeed/app/rpc/content/content"
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
+	contentconfig "zfeed/app/rpc/content/internal/config"
 	"zfeed/app/rpc/content/internal/model"
 	"zfeed/app/rpc/content/internal/svc"
 )
@@ -112,6 +113,20 @@ func TestArticle(t *testing.T) {
 	if score != float64(resp.GetContentId()) {
 		t.Fatalf("zscore = %v, want %d", score, resp.GetContentId())
 	}
+
+	newScore, err := store.ZScore(redisconsts.RecommendNewContentKey, member)
+	if err != nil {
+		t.Fatalf("new content recall zscore: %v", err)
+	}
+	if newScore <= 0 {
+		t.Fatalf("new content score = %v, want > 0", newScore)
+	}
+
+	metaKey := redisconsts.BuildRecommendNewContentMetaKey(resp.GetContentId())
+	authorID := store.HGet(metaKey, "author_id")
+	if authorID != "101" {
+		t.Fatalf("author_id meta = %q, want 101", authorID)
+	}
 }
 
 func TestVideo(t *testing.T) {
@@ -165,6 +180,42 @@ func TestVideo(t *testing.T) {
 	}
 	if score != float64(resp.GetContentId()) {
 		t.Fatalf("zscore = %v, want %d", score, resp.GetContentId())
+	}
+
+	if !store.Exists(redisconsts.RecommendNewContentKey) {
+		t.Fatalf("new content recall key %q does not exist", redisconsts.RecommendNewContentKey)
+	}
+}
+
+func TestPrivateContentNotWrittenToNewContentRecall(t *testing.T) {
+	db := newTestDB(t, &model.ZfeedContent{}, &model.ZfeedArticle{})
+	store, client := newTestRedis(t)
+	defer store.Close()
+
+	logic := NewPublishArticleLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: contentconfig.RecommendConfig{
+				ColdStartMetaTTL: 3600,
+			},
+		},
+		MysqlDb: db,
+		Redis:   client,
+	})
+
+	resp, err := logic.PublishArticle(&contentpb.ArticlePublishReq{
+		UserId:     606,
+		Title:      "private-article",
+		Cover:      "https://example.com/private.png",
+		Content:    "body",
+		Visibility: contentpb.Visibility_PRIVATE,
+	})
+	if err != nil {
+		t.Fatalf("PublishArticle returned error: %v", err)
+	}
+
+	member := strconv.FormatInt(resp.GetContentId(), 10)
+	if _, err := store.ZScore(redisconsts.RecommendNewContentKey, member); err == nil {
+		t.Fatalf("private content %s should not be in new content recall", member)
 	}
 }
 

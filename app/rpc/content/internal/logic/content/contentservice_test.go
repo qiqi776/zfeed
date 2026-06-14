@@ -367,6 +367,23 @@ func TestDelete(t *testing.T) {
 	store.ZAdd(favorite52Key, 301, contentID)
 	store.ZAdd(redisconsts.HotFeedKey, 301, contentID)
 	store.ZAdd(redisconsts.HotFeedKey, 999, "999")
+	store.ZAdd(redisconsts.RecommendNewContentKey, 301, contentID)
+	store.ZAdd(redisconsts.RecommendNewContentKey, 999, "999")
+	if err := redisClient.HsetCtx(context.Background(), redisconsts.BuildRecommendNewContentMetaKey(301), "author_id", "7"); err != nil {
+		t.Fatalf("seed new content meta: %v", err)
+	}
+	contentTagsKey := redisconsts.BuildRecommendContentTagsKey(301)
+	if err := redisClient.HsetCtx(context.Background(), contentTagsKey, "go", "0.8"); err != nil {
+		t.Fatalf("seed content tag go: %v", err)
+	}
+	if err := redisClient.HsetCtx(context.Background(), contentTagsKey, "type:article", "1"); err != nil {
+		t.Fatalf("seed content tag type:article: %v", err)
+	}
+	tagGoKey := redisconsts.BuildRecommendTagIndexKey("go")
+	tagArticleKey := redisconsts.BuildRecommendTagIndexKey("type:article")
+	store.ZAdd(tagGoKey, 301, contentID)
+	store.ZAdd(tagGoKey, 999, "999")
+	store.ZAdd(tagArticleKey, 301, contentID)
 	snapshotID := "snap-delete"
 	store.Set(redisconsts.HotFeedLatestKey, snapshotID)
 	snapshotKey := redisconsts.BuildHotFeedSnapshotKey(snapshotID)
@@ -409,7 +426,16 @@ func TestDelete(t *testing.T) {
 	assertZSetMissing(t, store, favorite51Key, contentID)
 	assertZSetMissing(t, store, favorite52Key, contentID)
 	assertZSetMissing(t, store, redisconsts.HotFeedKey, contentID)
+	assertZSetMissing(t, store, redisconsts.RecommendNewContentKey, contentID)
 	assertZSetMissing(t, store, snapshotKey, contentID)
+	if store.Exists(redisconsts.BuildRecommendNewContentMetaKey(301)) {
+		t.Fatalf("new content meta still exists after delete")
+	}
+	if store.Exists(contentTagsKey) {
+		t.Fatalf("content tags still exist after delete")
+	}
+	assertZSetMissing(t, store, tagGoKey, contentID)
+	assertZSetMissing(t, store, tagArticleKey, contentID)
 
 	incMap, err := redisClient.HgetallCtx(context.Background(), incKey)
 	if err != nil {

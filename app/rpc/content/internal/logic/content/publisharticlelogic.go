@@ -13,6 +13,7 @@ import (
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	luautils "zfeed/app/rpc/content/internal/common/utils/lua"
 	"zfeed/app/rpc/content/internal/do"
+	"zfeed/app/rpc/content/internal/recommend"
 	"zfeed/app/rpc/content/internal/repositories"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/errorx"
@@ -83,6 +84,22 @@ func (l *PublishArticleLogic) PublishArticle(in *contentpb.ArticlePublishReq) (*
 	}
 
 	l.tryUpdateUserPublishZSet(in.GetUserId(), contentID)
+	description := ""
+	if in.Description != nil {
+		description = strings.TrimSpace(*in.Description)
+	}
+	l.tryWriteNewContentRecall(
+		in.GetUserId(),
+		contentID,
+		int32(contentpb.ContentType_ARTICLE),
+		int32(in.GetVisibility()),
+		now,
+		recommend.BasicContentTags(
+			int32(contentpb.ContentType_ARTICLE),
+			strings.TrimSpace(in.GetTitle()),
+			description,
+		),
+	)
 	tryFanoutFollowInbox(l.ctx, l.svcCtx, in.GetUserId(), contentID)
 
 	return &contentpb.ArticlePublishRes{
@@ -103,5 +120,32 @@ func (l *PublishArticleLogic) tryUpdateUserPublishZSet(userID, contentID int64) 
 	)
 	if err != nil {
 		l.Errorf("update user publish zset failed, user_id=%d, content_id=%d, err=%v", userID, contentID, err)
+	}
+}
+
+func (l *PublishArticleLogic) tryWriteNewContentRecall(
+	userID int64,
+	contentID int64,
+	contentType int32,
+	visibility int32,
+	publishedAt time.Time,
+	tags map[string]float64,
+) {
+	if l.svcCtx == nil || l.svcCtx.Redis == nil {
+		return
+	}
+
+	err := recommend.WriteNewContent(l.ctx, l.svcCtx.Redis, l.svcCtx.Config.Recommend, recommend.PublishedContent{
+		ContentID:   contentID,
+		AuthorID:    userID,
+		ContentType: contentType,
+		PublishedAt: publishedAt,
+		Public:      visibility == int32(contentpb.Visibility_PUBLIC),
+	})
+	if err != nil {
+		l.Errorf("write new content recall failed, user_id=%d, content_id=%d, err=%v", userID, contentID, err)
+	}
+	if err := recommend.WriteContentTags(l.ctx, l.svcCtx.Redis, l.svcCtx.Config.Recommend, contentID, tags, float64(publishedAt.Unix())); err != nil {
+		l.Errorf("write content tags failed, user_id=%d, content_id=%d, err=%v", userID, contentID, err)
 	}
 }
