@@ -332,16 +332,19 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		cfg.CandidateLimit,
 	)
 	if err != nil {
+		recordRecommendErrorMetric(recommendErrorStageCandidateCache, runtime.variantID)
 		return nil, err
 	}
 	if !cached {
 		var inputs []recommend.MergeInput
 		inputs, hotSnapshotID, err = l.recallRecommendCandidates(in, pageSize, cfg, runtime.variantID)
 		if err != nil {
+			recordRecommendErrorMetric(recommendErrorStageRecall, runtime.variantID)
 			return nil, err
 		}
 		merged = recommend.Merge(inputs, cfg.CandidateLimit)
 		if err := recommend.SaveCandidateCache(l.ctx, l.svcCtx.Redis, cfg, cacheKey, merged); err != nil {
+			recordRecommendErrorMetric(recommendErrorStageCandidateCache, runtime.variantID)
 			return nil, err
 		}
 	}
@@ -375,10 +378,12 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		time.Since(featureLoadStarted),
 	)
 	if err != nil {
+		recordRecommendErrorMetric(recommendErrorStageFeatureLoad, runtime.variantID)
 		return nil, err
 	}
 	ranked := recommend.ApplyFeatures(merged, features)
 	if err := l.applySeenCounts(in.GetUserId(), ranked); err != nil {
+		recordRecommendErrorMetric(recommendErrorStageSeenLoad, runtime.variantID)
 		return nil, err
 	}
 	fineRankStarted := time.Now()
@@ -425,6 +430,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		time.Since(snapshotSaveStarted),
 	)
 	if err != nil {
+		recordRecommendErrorMetric(recommendErrorStageSnapshotSave, runtime.variantID)
 		return nil, err
 	}
 	if snapshotID == "" {
@@ -451,13 +457,16 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		pageSize,
 	)
 	if err != nil {
+		recordRecommendErrorMetric(recommendErrorStageSnapshotRead, runtime.variantID)
 		return nil, err
 	}
 	resp, err := l.buildFeedResponse(in, result)
 	if err != nil {
+		recordRecommendErrorMetric(recommendErrorStageBuildItems, runtime.variantID)
 		return nil, err
 	}
 	if err := l.recordSeenResponse(in.GetUserId(), cfg, resp); err != nil {
+		recordRecommendErrorMetric(recommendErrorStageSeenWrite, runtime.variantID)
 		return nil, err
 	}
 	return resp, nil

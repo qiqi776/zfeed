@@ -34,6 +34,15 @@ const (
 	recommendRerankRuleAuthorWindow = "author_window"
 	recommendRerankRuleTypeWindow   = "type_window"
 
+	recommendErrorStageCandidateCache = "candidate_cache"
+	recommendErrorStageRecall         = "recall"
+	recommendErrorStageFeatureLoad    = "feature_load"
+	recommendErrorStageSeenLoad       = "seen_load"
+	recommendErrorStageSnapshotSave   = "snapshot_save"
+	recommendErrorStageSnapshotRead   = "snapshot_read"
+	recommendErrorStageBuildItems     = "build_items"
+	recommendErrorStageSeenWrite      = "seen_write"
+
 	recommendRecallSourceHot        = "hot"
 	recommendRecallSourceNewContent = "new_content"
 	recommendRecallSourceInterest   = "interest"
@@ -70,6 +79,7 @@ var (
 	recommendFallbackMetricLabels      = []string{"reason"}
 	recommendSnapshotMetricLabels      = []string{"kind", "result"}
 	recommendRerankAdjustMetricLabels  = []string{"rule", "variant"}
+	recommendErrorMetricLabels         = []string{"stage", "variant"}
 	recommendProfileMetricLabels       = []string{"result"}
 	recommendTrackMetricLabels         = []string{"event_type", "result"}
 
@@ -122,6 +132,14 @@ var (
 		Labels:    recommendRerankAdjustMetricLabels,
 	})
 
+	metricRecommendErrorTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_error",
+		Name:      "total",
+		Help:      "Recommendation enhancement error count by stage.",
+		Labels:    recommendErrorMetricLabels,
+	})
+
 	metricRecommendProfileTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 		Namespace: "zfeed",
 		Subsystem: "recommend_profile",
@@ -144,6 +162,7 @@ var (
 	recordRecommendFallbackMetric      = recordRecommendFallback
 	recordRecommendSnapshotMetric      = recordRecommendSnapshot
 	recordRecommendRerankAdjustMetric  = recordRecommendRerankAdjust
+	recordRecommendErrorMetric         = recordRecommendError
 	recordRecommendProfileMetric       = recordRecommendProfile
 	recordRecommendTrackEmitMetric     = recordRecommendTrackEmit
 )
@@ -214,6 +233,16 @@ func recordRecommendRerankAdjust(rule, variant string, count int) {
 	metricRecommendRerankAdjustTotal.Add(
 		float64(count),
 		normalizeRecommendRerankRuleLabel(rule),
+		normalizeRecommendVariantLabel(variant),
+	)
+}
+
+func recordRecommendError(stage, variant string) {
+	if metricRecommendErrorTotal == nil {
+		return
+	}
+	metricRecommendErrorTotal.Inc(
+		normalizeRecommendErrorStageLabel(stage),
 		normalizeRecommendVariantLabel(variant),
 	)
 }
@@ -341,6 +370,22 @@ func normalizeRecommendRerankRuleLabel(value string) string {
 	switch canonicalRecommendMetricLabel(value) {
 	case recommendRerankRuleAuthorWindow,
 		recommendRerankRuleTypeWindow:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendErrorStageLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendErrorStageCandidateCache,
+		recommendErrorStageRecall,
+		recommendErrorStageFeatureLoad,
+		recommendErrorStageSeenLoad,
+		recommendErrorStageSnapshotSave,
+		recommendErrorStageSnapshotRead,
+		recommendErrorStageBuildItems,
+		recommendErrorStageSeenWrite:
 		return canonicalRecommendMetricLabel(value)
 	default:
 		return recommendMetricUnknownLabel

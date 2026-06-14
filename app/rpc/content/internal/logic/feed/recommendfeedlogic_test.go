@@ -842,6 +842,58 @@ func TestRecordRerankAdjustmentsPreservesRuleVariantAndCount(t *testing.T) {
 	}
 }
 
+func TestRecommendEnhancementRecordsRecallErrorMetric(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	store.Set(redisconsts.RecommendNewContentKey, "not-a-zset")
+
+	oldError := recordRecommendErrorMetric
+	defer func() {
+		recordRecommendErrorMetric = oldError
+	}()
+	records := []struct {
+		stage   string
+		variant string
+	}{}
+	recordRecommendErrorMetric = func(stage, variant string) {
+		records = append(records, struct {
+			stage   string
+			variant string
+		}{stage: stage, variant: variant})
+	}
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: contentconfig.RecommendConfig{
+				Enabled: true,
+				NewContent: contentconfig.RecommendNewContentConfig{
+					Enabled: true,
+					Weight:  1,
+					Limit:   10,
+				},
+			},
+		},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	_, err := logic.recommendWithNewContent(
+		&contentpb.RecommendFeedReq{Cursor: "", PageSize: 1},
+		1,
+		buildRecommendRuntime(logic.svcCtx.Config.Recommend, 0),
+	)
+	if err == nil {
+		t.Fatal("recommendWithNewContent returned nil error, want recall error")
+	}
+	if len(records) != 1 {
+		t.Fatalf("error records = %+v, want one recall error", records)
+	}
+	if records[0].stage != recommendStageRecall || records[0].variant != recommendVariantControl {
+		t.Fatalf("error record = %+v, want recall/control", records[0])
+	}
+}
+
 func TestRecommendEnhancementEmitsExposureTrackEvents(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
