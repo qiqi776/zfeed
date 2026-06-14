@@ -627,8 +627,11 @@ func (l *RecommendFeedLogic) emitExposureTrackEvents(
 			OccurredAt: now.Unix(),
 		}
 		if err := l.svcCtx.RecommendTrackProducer.Emit(l.ctx, event); err != nil {
+			recordRecommendTrackEmitMetric(track.EventTypeExposure, recommendResultError)
 			l.Errorf("emit recommend exposure track event failed, event_id=%s, err=%v", event.EventID, err)
+			continue
 		}
+		recordRecommendTrackEmitMetric(track.EventTypeExposure, recommendResultSuccess)
 	}
 }
 

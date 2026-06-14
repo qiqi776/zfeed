@@ -2,6 +2,7 @@ package feedlogic
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,11 +24,12 @@ import (
 
 type fakeRecommendTrackProducer struct {
 	events []track.Event
+	err    error
 }
 
 func (p *fakeRecommendTrackProducer) Emit(ctx context.Context, event track.Event) error {
 	p.events = append(p.events, event)
-	return nil
+	return p.err
 }
 
 func TestParseHit(t *testing.T) {
@@ -742,6 +744,70 @@ func TestRecommendEnhancementEmitsExposureTrackEvents(t *testing.T) {
 	}
 	if event.Position != 1 || event.OccurredAt <= 0 || event.EventID == "" {
 		t.Fatalf("event metadata = %+v, want position/event_id/occurred_at", event)
+	}
+}
+
+func TestRecommendExposureTrackEventsRecordEmitMetrics(t *testing.T) {
+	tests := []struct {
+		name       string
+		emitErr    error
+		wantResult string
+	}{
+		{
+			name:       "success",
+			wantResult: recommendResultSuccess,
+		},
+		{
+			name:       "error",
+			emitErr:    errors.New("kafka down"),
+			wantResult: recommendResultError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldTrack := recordRecommendTrackEmitMetric
+			defer func() {
+				recordRecommendTrackEmitMetric = oldTrack
+			}()
+
+			records := []struct {
+				eventType string
+				result    string
+			}{}
+			recordRecommendTrackEmitMetric = func(eventType, result string) {
+				records = append(records, struct {
+					eventType string
+					result    string
+				}{eventType: eventType, result: result})
+			}
+
+			producer := &fakeRecommendTrackProducer{err: tt.emitErr}
+			logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+				RecommendTrackProducer: producer,
+			})
+
+			logic.emitExposureTrackEvents(
+				1001,
+				&contentpb.RecommendFeedRes{
+					SnapshotId: "rec:0001:control:hash:1",
+					Items: []*contentpb.ContentItem{
+						{ContentId: 9001},
+						{ContentId: 9002},
+					},
+				},
+				recommendVariantControl,
+			)
+
+			if len(records) != 2 {
+				t.Fatalf("track metric records = %+v, want 2", records)
+			}
+			for _, record := range records {
+				if record.eventType != track.EventTypeExposure || record.result != tt.wantResult {
+					t.Fatalf("track metric record = %+v, want exposure/%s", record, tt.wantResult)
+				}
+			}
+		})
 	}
 }
 

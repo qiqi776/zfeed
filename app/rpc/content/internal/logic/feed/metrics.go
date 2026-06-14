@@ -61,6 +61,7 @@ var (
 	recommendRecallItemsMetricLabels   = []string{"source", "variant"}
 	recommendFallbackMetricLabels      = []string{"reason"}
 	recommendSnapshotMetricLabels      = []string{"kind", "result"}
+	recommendTrackMetricLabels         = []string{"event_type", "result"}
 
 	metricRecommendRequestsTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 		Namespace: "zfeed",
@@ -103,11 +104,20 @@ var (
 		Labels:    recommendSnapshotMetricLabels,
 	})
 
+	metricRecommendTrackEmitTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_track_emit",
+		Name:      "total",
+		Help:      "Recommendation track emission count.",
+		Labels:    recommendTrackMetricLabels,
+	})
+
 	recordRecommendRequestMetric       = recordRecommendRequest
 	recordRecommendStageDurationMetric = recordRecommendStageDuration
 	recordRecommendRecallItemsMetric   = recordRecommendRecallItems
 	recordRecommendFallbackMetric      = recordRecommendFallback
 	recordRecommendSnapshotMetric      = recordRecommendSnapshot
+	recordRecommendTrackEmitMetric     = recordRecommendTrackEmit
 )
 
 func recordRecommendRequest(mode, variant, result string) {
@@ -163,6 +173,16 @@ func recordRecommendSnapshot(kind, result string) {
 	metricRecommendSnapshotTotal.Inc(
 		normalizeRecommendSnapshotKindLabel(kind),
 		normalizeRecommendSnapshotResultLabel(result),
+	)
+}
+
+func recordRecommendTrackEmit(eventType, result string) {
+	if metricRecommendTrackEmitTotal == nil {
+		return
+	}
+	metricRecommendTrackEmitTotal.Inc(
+		normalizeRecommendTrackEventTypeLabel(eventType),
+		normalizeRecommendTrackEmitResultLabel(result),
 	)
 }
 
@@ -262,6 +282,31 @@ func normalizeRecommendSnapshotResultLabel(value string) string {
 		recommendSnapshotResultError,
 		recommendSnapshotResultSaved,
 		recommendSnapshotResultSkipped:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendTrackEventTypeLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case "click",
+		"dwell",
+		"exposure",
+		"favorite",
+		"follow",
+		"like",
+		"comment":
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendTrackEmitResultLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendResultSuccess,
+		recommendResultError:
 		return canonicalRecommendMetricLabel(value)
 	default:
 		return recommendMetricUnknownLabel

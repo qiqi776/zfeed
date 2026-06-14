@@ -9,6 +9,7 @@ func TestRecommendMetricLabelsExcludeHighCardinalityIDs(t *testing.T) {
 		"zfeed_recommend_recall_items_total":     recommendRecallItemsMetricLabels,
 		"zfeed_recommend_fallback_total":         recommendFallbackMetricLabels,
 		"zfeed_recommend_snapshot_total":         recommendSnapshotMetricLabels,
+		"zfeed_recommend_track_emit_total":       recommendTrackMetricLabels,
 	}
 
 	for metricName, labels := range metricLabels {
@@ -46,6 +47,10 @@ func TestRecommendMetricLabelNormalizersClampUnknownValues(t *testing.T) {
 		{name: "snapshot kind unknown", fn: normalizeRecommendSnapshotKindLabel, in: "snap-123", want: recommendMetricUnknownLabel},
 		{name: "snapshot result allowed", fn: normalizeRecommendSnapshotResultLabel, in: " hit ", want: "hit"},
 		{name: "snapshot result unknown", fn: normalizeRecommendSnapshotResultLabel, in: "snap-123", want: recommendMetricUnknownLabel},
+		{name: "track event type allowed", fn: normalizeRecommendTrackEventTypeLabel, in: " Exposure ", want: "exposure"},
+		{name: "track event type unknown", fn: normalizeRecommendTrackEventTypeLabel, in: "user_123", want: recommendMetricUnknownLabel},
+		{name: "track emit result allowed", fn: normalizeRecommendTrackEmitResultLabel, in: " Success ", want: "success"},
+		{name: "track emit result unknown", fn: normalizeRecommendTrackEmitResultLabel, in: "snapshot-id-123", want: recommendMetricUnknownLabel},
 	}
 
 	for _, tt := range tests {
@@ -63,4 +68,5 @@ func TestRecommendMetricRecordHelpersAcceptUnknownValues(t *testing.T) {
 	recordRecommendRecallItems("content-123", "exp-user-123456", -1)
 	recordRecommendFallback("user_123")
 	recordRecommendSnapshot("snap-123", "snap-123")
+	recordRecommendTrackEmit("user_123", "snap-123")
 }
