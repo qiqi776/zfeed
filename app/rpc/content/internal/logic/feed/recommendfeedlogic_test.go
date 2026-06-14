@@ -537,6 +537,77 @@ func TestRecommendRuntimeFlagDisablesHotRecallInEnhancedPath(t *testing.T) {
 	}
 }
 
+func TestRecommendEnhancementUsesCandidateCache(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8901, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8901", coverURL: "cover-8901"},
+		{contentID: 9901, authorID: 3001, contentType: contentpb.ContentType_VIDEO, title: "new-9901", coverURL: "cover-9901"},
+	})
+
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "8901")
+	store.ZAdd(redisconsts.RecommendNewContentKey, 9999, "9901")
+
+	cfg := contentconfig.RecommendConfig{
+		Enabled:      true,
+		CandidateTTL: 120,
+		Hot: contentconfig.RecommendHotConfig{
+			Enabled: true,
+			Weight:  1,
+			Limit:   10,
+		},
+		NewContent: contentconfig.RecommendNewContentConfig{
+			Enabled: true,
+			Weight:  2,
+			Limit:   10,
+		},
+		Diversity: contentconfig.RecommendDiversityConfig{
+			Enabled: false,
+		},
+	}
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config:  contentconfig.Config{Recommend: cfg},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	firstPage, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("first RecommendFeed returned error: %v", err)
+	}
+	if len(firstPage.GetItems()) == 0 {
+		t.Fatal("first page is empty")
+	}
+
+	runtime := buildRecommendRuntime(cfg, 0)
+	cacheKey := recommend.BuildCandidateCacheKey(0, runtime.variantID, runtime.configHash)
+	if !store.Exists(cacheKey) {
+		t.Fatalf("candidate cache key %q does not exist", cacheKey)
+	}
+
+	store.Del(redisconsts.HotFeedKey)
+	store.Del(redisconsts.RecommendNewContentKey)
+
+	secondPage, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("second RecommendFeed returned error: %v", err)
+	}
+	secondIDs := recommendContentIDs(secondPage.GetItems())
+	if len(secondIDs) != 1 || secondIDs[0] != 9901 {
+		t.Fatalf("second ids = %v, want cached top candidate [9901]", secondIDs)
+	}
+	if !strings.HasPrefix(secondPage.GetSnapshotId(), "rec:") {
+		t.Fatalf("second snapshot_id = %q, want personalized snapshot", secondPage.GetSnapshotId())
+	}
+}
+
 func TestRecommendWithTimeoutUsesConfiguredBudget(t *testing.T) {
 	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{})
 

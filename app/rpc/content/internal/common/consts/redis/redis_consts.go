@@ -18,6 +18,7 @@ const (
 	RecommendContentTagsPrefix    = "rec:content:tags"
 	RecommendTagIndexPrefix       = "rec:tag:index"
 	RecommendSeenPrefix           = "rec:seen"
+	RecommendCandidatePrefix      = "feed:rec:candidate"
 	RecommendUserSnapshotPrefix   = "feed:rec:user:snap"
 	RecommendUserSnapshotMeta     = "feed:rec:user:snapmeta"
 	RecommendNewCleanupLockPrefix = "feed:rec:new:lock:cleanup"

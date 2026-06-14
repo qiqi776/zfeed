@@ -317,64 +317,27 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 ) (*contentpb.RecommendFeedRes, error) {
 	cfg := runtime.cfg
 	var hotSnapshotID string
-	inputs := make([]recommend.MergeInput, 0, 3)
 	recallStarted := time.Now()
-	if cfg.Hot.Enabled {
-		hotLimit := cfg.Hot.Limit
-		if hotLimit > cfg.CandidateLimit {
-			hotLimit = cfg.CandidateLimit
-		}
-		if hotLimit < pageSize {
-			hotLimit = pageSize
-		}
-
-		hotResult, err := l.queryHotIDsByCursor("", "", "", hotLimit)
-		if err != nil {
-			return nil, err
-		}
-		hotSnapshotID = hotResult.resolvedSnapshotID
-		recordRecommendRecallItemsMetric(
-			recommendRecallSourceHot,
-			runtime.variantID,
-			len(hotResult.ids),
-		)
-		inputs = append(inputs, recommend.MergeInput{
-			Source: recommend.SourceHot,
-			Weight: cfg.Hot.Weight,
-			IDs:    hotResult.ids,
-		})
+	cacheKey := recommend.BuildCandidateCacheKey(in.GetUserId(), runtime.variantID, runtime.configHash)
+	merged, cached, err := recommend.LoadCandidateCache(
+		l.ctx,
+		l.svcCtx.Redis,
+		cacheKey,
+		cfg.CandidateLimit,
+	)
+	if err != nil {
+		return nil, err
 	}
-	if cfg.NewContent.Enabled {
-		newIDs, err := recommend.RecallNewContent(l.ctx, l.svcCtx.Redis, cfg.NewContent.Limit)
+	if !cached {
+		var inputs []recommend.MergeInput
+		inputs, hotSnapshotID, err = l.recallRecommendCandidates(in, pageSize, cfg, runtime.variantID)
 		if err != nil {
 			return nil, err
 		}
-		recordRecommendRecallItemsMetric(
-			recommendRecallSourceNewContent,
-			runtime.variantID,
-			len(newIDs),
-		)
-		inputs = append(inputs, recommend.MergeInput{
-			Source: recommend.SourceNewContent,
-			Weight: cfg.NewContent.Weight,
-			IDs:    newIDs,
-		})
-	}
-	if cfg.Interest.Enabled && in.GetUserId() > 0 {
-		interestIDs, err := recommend.RecallInterest(l.ctx, l.svcCtx.Redis, in.GetUserId(), cfg.Interest)
-		if err != nil {
+		merged = recommend.Merge(inputs, cfg.CandidateLimit)
+		if err := recommend.SaveCandidateCache(l.ctx, l.svcCtx.Redis, cfg, cacheKey, merged); err != nil {
 			return nil, err
 		}
-		recordRecommendRecallItemsMetric(
-			recommendRecallSourceInterest,
-			runtime.variantID,
-			len(interestIDs),
-		)
-		inputs = append(inputs, recommend.MergeInput{
-			Source: recommend.SourceInterest,
-			Weight: cfg.Interest.Weight,
-			IDs:    interestIDs,
-		})
 	}
 	recordRecommendStageDurationMetric(
 		recommendStageRecall,
@@ -383,7 +346,6 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 	)
 
 	coarseRankStarted := time.Now()
-	merged := recommend.Merge(inputs, cfg.CandidateLimit)
 	merged = recommend.CoarseRank(merged, cfg.Rank)
 	recordRecommendStageDurationMetric(
 		recommendStageCoarseRank,
@@ -481,6 +443,75 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		return nil, err
 	}
 	return l.buildFeedResponse(in, result)
+}
+
+func (l *RecommendFeedLogic) recallRecommendCandidates(
+	in *contentpb.RecommendFeedReq,
+	pageSize int,
+	cfg contentconfig.RecommendConfig,
+	variantID string,
+) ([]recommend.MergeInput, string, error) {
+	inputs := make([]recommend.MergeInput, 0, 3)
+	var hotSnapshotID string
+
+	if cfg.Hot.Enabled {
+		hotLimit := cfg.Hot.Limit
+		if hotLimit > cfg.CandidateLimit {
+			hotLimit = cfg.CandidateLimit
+		}
+		if hotLimit < pageSize {
+			hotLimit = pageSize
+		}
+
+		hotResult, err := l.queryHotIDsByCursor("", "", "", hotLimit)
+		if err != nil {
+			return nil, "", err
+		}
+		hotSnapshotID = hotResult.resolvedSnapshotID
+		recordRecommendRecallItemsMetric(
+			recommendRecallSourceHot,
+			variantID,
+			len(hotResult.ids),
+		)
+		inputs = append(inputs, recommend.MergeInput{
+			Source: recommend.SourceHot,
+			Weight: cfg.Hot.Weight,
+			IDs:    hotResult.ids,
+		})
+	}
+	if cfg.NewContent.Enabled {
+		newIDs, err := recommend.RecallNewContent(l.ctx, l.svcCtx.Redis, cfg.NewContent.Limit)
+		if err != nil {
+			return nil, "", err
+		}
+		recordRecommendRecallItemsMetric(
+			recommendRecallSourceNewContent,
+			variantID,
+			len(newIDs),
+		)
+		inputs = append(inputs, recommend.MergeInput{
+			Source: recommend.SourceNewContent,
+			Weight: cfg.NewContent.Weight,
+			IDs:    newIDs,
+		})
+	}
+	if cfg.Interest.Enabled && in.GetUserId() > 0 {
+		interestIDs, err := recommend.RecallInterest(l.ctx, l.svcCtx.Redis, in.GetUserId(), cfg.Interest)
+		if err != nil {
+			return nil, "", err
+		}
+		recordRecommendRecallItemsMetric(
+			recommendRecallSourceInterest,
+			variantID,
+			len(interestIDs),
+		)
+		inputs = append(inputs, recommend.MergeInput{
+			Source: recommend.SourceInterest,
+			Weight: cfg.Interest.Weight,
+			IDs:    interestIDs,
+		})
+	}
+	return inputs, hotSnapshotID, nil
 }
 
 func (l *RecommendFeedLogic) loadCandidateFeatures(ids []int64) (map[int64]recommend.Candidate, error) {
