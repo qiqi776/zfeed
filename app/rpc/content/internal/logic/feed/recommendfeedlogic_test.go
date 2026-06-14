@@ -17,8 +17,18 @@ import (
 	contentconfig "zfeed/app/rpc/content/internal/config"
 	"zfeed/app/rpc/content/internal/model"
 	"zfeed/app/rpc/content/internal/recommend"
+	"zfeed/app/rpc/content/internal/recommend/track"
 	"zfeed/app/rpc/content/internal/svc"
 )
+
+type fakeRecommendTrackProducer struct {
+	events []track.Event
+}
+
+func (p *fakeRecommendTrackProducer) Emit(ctx context.Context, event track.Event) error {
+	p.events = append(p.events, event)
+	return nil
+}
 
 func TestParseHit(t *testing.T) {
 	res := []interface{}{
@@ -665,6 +675,73 @@ func TestRecommendEnhancementAppliesAndRecordsSeen(t *testing.T) {
 	}
 	if _, err := store.ZScore(seenKey, "8952"); err != nil {
 		t.Fatalf("returned content was not recorded in seen set: %v", err)
+	}
+}
+
+func TestRecommendEnhancementEmitsExposureTrackEvents(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8961, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8961", coverURL: "cover-8961"},
+		{contentID: 9961, authorID: 3001, contentType: contentpb.ContentType_VIDEO, title: "new-9961", coverURL: "cover-9961"},
+	})
+
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "8961")
+	store.ZAdd(redisconsts.RecommendNewContentKey, 9999, "9961")
+
+	producer := &fakeRecommendTrackProducer{}
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: contentconfig.RecommendConfig{
+				Enabled: true,
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: true,
+					Weight:  1,
+					Limit:   10,
+				},
+				NewContent: contentconfig.RecommendNewContentConfig{
+					Enabled: true,
+					Weight:  2,
+					Limit:   10,
+				},
+				Diversity: contentconfig.RecommendDiversityConfig{
+					Enabled: false,
+				},
+			},
+		},
+		MysqlDb:                db,
+		Redis:                  redisClient,
+		RecommendTrackProducer: producer,
+	})
+
+	userID := int64(1001)
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		UserId:   &userID,
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	if len(resp.GetItems()) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(resp.GetItems()))
+	}
+	if len(producer.events) != 1 {
+		t.Fatalf("track events = %+v, want one exposure", producer.events)
+	}
+	event := producer.events[0]
+	if event.EventType != track.EventTypeExposure {
+		t.Fatalf("event type = %q, want exposure", event.EventType)
+	}
+	if event.UserID != userID || event.ContentID != resp.GetItems()[0].GetContentId() {
+		t.Fatalf("event = %+v, want user/content from response", event)
+	}
+	if event.SnapshotID != resp.GetSnapshotId() || event.VariantID != recommendVariantControl {
+		t.Fatalf("event snapshot/variant = %q/%q, want %q/control", event.SnapshotID, event.VariantID, resp.GetSnapshotId())
+	}
+	if event.Position != 1 || event.OccurredAt <= 0 || event.EventID == "" {
+		t.Fatalf("event metadata = %+v, want position/event_id/occurred_at", event)
 	}
 }
 

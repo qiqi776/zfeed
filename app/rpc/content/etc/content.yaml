@@ -71,6 +71,12 @@ RedisConfig:
   Type: node
   Pass: ""
 
+KqProducerConf:
+  Brokers:
+    - "${KAFKA_BROKERS}"
+  Topic: zfeed-rec-track
+  MaxRetries: 3
+
 MySQL:
   DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
 
@@ -94,6 +100,11 @@ Recommend:
   CandidateLimit: 500
   FallbackToHot: true
   ColdStartMetaTTL: 604800
+  SeenTTL: 604800
+  Hot:
+    Enabled: true
+    Weight: 0.55
+    Limit: 300
   NewContent:
     Enabled: true
     Weight: 0.2
@@ -109,6 +120,10 @@ Recommend:
     TagIndexTTL: 604800
   Rank:
     CoarseLimit: 200
+    AlphaHot: 0.45
+    BetaInterest: 0.30
+    GammaFresh: 0.20
+    DeltaQuality: 0.05
     SeenPenalty: 0.3
   Diversity:
     Enabled: true
@@ -120,15 +135,19 @@ Recommend:
     ID: exp_rec_v1
     Enabled: false
     Salt: zfeed_20260531
+    TrafficPermyriad: 10000
+    TrafficPercent: 100
     DefaultVariant: control
     Variants:
       - ID: a
         TrafficPermyriad: 5000
+        TrafficPercent: 50
         Overrides:
           recall.interest.weight: "0.20"
           rank.beta_interest: "0.25"
       - ID: b
         TrafficPermyriad: 5000
+        TrafficPercent: 50
         Overrides:
           recall.interest.weight: "0.35"
           rank.beta_interest: "0.40"

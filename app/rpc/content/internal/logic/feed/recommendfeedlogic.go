@@ -2,6 +2,7 @@ package feedlogic
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	luautils "zfeed/app/rpc/content/internal/common/utils/lua"
 	contentconfig "zfeed/app/rpc/content/internal/config"
 	"zfeed/app/rpc/content/internal/recommend"
+	"zfeed/app/rpc/content/internal/recommend/track"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/errorx"
 )
@@ -91,6 +93,7 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 				result = recommendResultEmpty
 			}
 			recordRecommendRequestMetric(recommendModeSnapshot, recommendVariantControl, result)
+			l.emitExposureTrackEvents(in.GetUserId(), resp, recommendVariantControl)
 			return resp, nil
 		}
 		if err != nil {
@@ -121,6 +124,7 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 					runtime.variantID,
 					recommendResultSuccess,
 				)
+				l.emitExposureTrackEvents(in.GetUserId(), resp, runtime.variantID)
 				return resp, nil
 			}
 			if err != nil {
@@ -137,9 +141,11 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 	}
 	if len(resp.GetItems()) == 0 {
 		recordRecommendRequestMetric(recommendModeHot, recommendVariantControl, recommendResultEmpty)
+		l.emitExposureTrackEvents(in.GetUserId(), resp, recommendVariantControl)
 		return resp, nil
 	}
 	recordRecommendRequestMetric(recommendModeHot, recommendVariantControl, recommendResultSuccess)
+	l.emitExposureTrackEvents(in.GetUserId(), resp, recommendVariantControl)
 	return resp, nil
 }
 
@@ -584,6 +590,46 @@ func (l *RecommendFeedLogic) recordSeenResponse(
 		ids = append(ids, item.GetContentId())
 	}
 	return recommend.RecordSeenContents(l.ctx, l.svcCtx.Redis, cfg, userID, ids, time.Now())
+}
+
+func (l *RecommendFeedLogic) emitExposureTrackEvents(
+	userID int64,
+	resp *contentpb.RecommendFeedRes,
+	variantID string,
+) {
+	if l == nil || l.svcCtx == nil || l.svcCtx.RecommendTrackProducer == nil || resp == nil {
+		return
+	}
+	if len(resp.GetItems()) == 0 {
+		return
+	}
+
+	variantID = strings.TrimSpace(variantID)
+	if variantID == "" {
+		variantID = recommendVariantControl
+	}
+
+	now := time.Now()
+	for pos, item := range resp.GetItems() {
+		if item == nil || item.GetContentId() <= 0 {
+			continue
+		}
+
+		event := track.Event{
+			EventID:    fmt.Sprintf("rec_exposure_%d_%d_%d", userID, item.GetContentId(), now.UnixNano()),
+			EventType:  track.EventTypeExposure,
+			UserID:     userID,
+			ContentID:  item.GetContentId(),
+			SnapshotID: resp.GetSnapshotId(),
+			VariantID:  variantID,
+			Source:     "recommend",
+			Position:   pos + 1,
+			OccurredAt: now.Unix(),
+		}
+		if err := l.svcCtx.RecommendTrackProducer.Emit(l.ctx, event); err != nil {
+			l.Errorf("emit recommend exposure track event failed, event_id=%s, err=%v", event.EventID, err)
+		}
+	}
 }
 
 func (l *RecommendFeedLogic) resolveSnapshotKey(reqSnapshotID *string) (string, string) {

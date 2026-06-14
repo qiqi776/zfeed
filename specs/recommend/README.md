@@ -5,7 +5,7 @@
 - **Status**: Draft
 - **Author**: Codex
 - **Created**: 2026-05-31
-- **Last Updated**: 2026-06-06
+- **Last Updated**: 2026-06-14
 
 ## Overview
 
@@ -1218,6 +1218,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 热榜兜底已细分记录 disabled、cold_start、hot_error 和 build_error 原因，便于定位配置关闭、冷启动空结果、Redis 异常和详情补全失败。
 - 推荐候选缓存已落地 `feed:rec:candidate:{bucket}:{variant}:{config_hash}`，增强链路会优先命中缓存并回写合并后的候选池。
 - `rec:seen:{user_id}` 已接入排序降权和曝光回写，已曝光内容不会直接消失，但会按 `SeenPenalty` 被降权。
+- 行为埋点已接入服务端曝光链路，`content-rpc` 新增 `internal/recommend/track` 事件模型、`KafkaProducer` 和默认 no-op 生产者，`RecommendFeed` 在热榜、个性化快照和增强成功返回时会逐条写出曝光事件。
+- `ServiceContext` 已根据 `KqProducerConf` 注入 `zfeed-rec-track` 生产者，配置为空时自动回落到 no-op，避免本地和测试环境硬依赖 Kafka。
 
 已验证：
 
@@ -1235,6 +1237,10 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementUsesCandidateCache -count=1`
 - `go test ./app/rpc/content/internal/recommend -run 'Test(RecordSeenContentsWritesRecentExposureSet|LoadSeenCountsReturnsOnlyRequestedIDs)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementAppliesAndRecordsSeen -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementEmitsExposureTrackEvents -count=1`
+- `go test ./app/rpc/content/internal/recommend/track -count=1`
+- `go test ./app/rpc/content/internal/config -count=1`
+- `go test ./app/rpc/content/internal/recommend/track ./app/rpc/content/internal/config ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
@@ -1242,7 +1248,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 
 剩余缺口：
 
-- 行为埋点 `zfeed-rec-track`、曝光/点击/互动/停留事件写入和日聚合表还未落地。
+- 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者和主链路写入，点击/互动/停留事件写入和日聚合表还未落地。
 - 画像更新已有 `ApplyProfileEvent`，但 interaction outbox、Canal 消费或定时 worker 尚未接入。
 - 推荐 Prometheus 指标还需继续覆盖更多推荐增强链路失败路径，以及 rerank/profile/track 相关指标。
 - 旧 snapshot 按 `config_hash` 翻页隔离还未实现。
@@ -1262,3 +1268,5 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-14 | 1.0.0   | Add hot fallback reason metrics progress | Codex |
 | 2026-06-14 | 1.0.0   | Add candidate cache progress | Codex |
 | 2026-06-14 | 1.0.0   | Add seen penalty progress | Codex |
+| 2026-06-14 | 1.0.0   | Record in-progress recommendation track event work | Codex |
+| 2026-06-14 | 1.0.0   | Add recommendation exposure track emission and Kafka producer wiring | Codex |

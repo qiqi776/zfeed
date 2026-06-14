@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"time"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
@@ -14,9 +15,31 @@ type Config struct {
 	CountRpcClientConf       zrpc.RpcClientConf
 	Oss                      OssConfig
 	RedisConfig              redis.RedisConf
+	KqProducerConf           KqProducerConf
 	MySQL                    MySQLConf
 	XxlJob                   XxlJobConfig
 	Recommend                RecommendConfig
+}
+
+type KqProducerConf struct {
+	Brokers    []string
+	Topic      string
+	MaxRetries int
+}
+
+func (c KqProducerConf) Enabled() bool {
+	if strings.TrimSpace(c.Topic) == "" {
+		return false
+	}
+	if len(c.Brokers) == 0 {
+		return false
+	}
+	for _, broker := range c.Brokers {
+		if strings.TrimSpace(broker) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 type OssConfig struct {

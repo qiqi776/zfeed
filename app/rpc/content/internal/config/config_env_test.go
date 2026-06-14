@@ -18,6 +18,7 @@ func TestEnv(t *testing.T) {
 	t.Setenv("MYSQL_APP_PORT", "33306")
 	t.Setenv("MYSQL_USER", "zfeed")
 	t.Setenv("MYSQL_PASSWORD", "123456")
+	t.Setenv("KAFKA_BROKERS", "127.0.0.1:19092")
 	t.Setenv("LOG_PATH", "logs")
 	t.Setenv("XXL_JOB_ADMIN_ADDR", "http://127.0.0.1:8081/xxl-job-admin")
 	t.Setenv("XXL_EXECUTOR_ADDRESS", "127.0.0.1:5005")
@@ -42,7 +43,53 @@ func TestEnv(t *testing.T) {
 	if len(cfg.XxlJob.AdminAddresses) != 1 || cfg.XxlJob.AdminAddresses[0] != "http://127.0.0.1:8081/xxl-job-admin" {
 		t.Fatalf("unexpected xxl admin addresses: %v", cfg.XxlJob.AdminAddresses)
 	}
+	if len(cfg.KqProducerConf.Brokers) != 1 || cfg.KqProducerConf.Brokers[0] != "127.0.0.1:19092" {
+		t.Fatalf("unexpected recommend track brokers: %v", cfg.KqProducerConf.Brokers)
+	}
+	if cfg.KqProducerConf.Topic != "zfeed-rec-track" {
+		t.Fatalf("unexpected recommend track topic: %q", cfg.KqProducerConf.Topic)
+	}
 	if cfg.Telemetry.Name != "content-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" || !cfg.Telemetry.Disabled {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)
+	}
+}
+
+func TestKqProducerConfEnabled(t *testing.T) {
+	tests := []struct {
+		name string
+		cfg  KqProducerConf
+		want bool
+	}{
+		{
+			name: "topic and broker",
+			cfg: KqProducerConf{
+				Brokers: []string{"127.0.0.1:19092"},
+				Topic:   "zfeed-rec-track",
+			},
+			want: true,
+		},
+		{
+			name: "empty topic",
+			cfg: KqProducerConf{
+				Brokers: []string{"127.0.0.1:19092"},
+			},
+			want: false,
+		},
+		{
+			name: "empty broker",
+			cfg: KqProducerConf{
+				Brokers: []string{""},
+				Topic:   "zfeed-rec-track",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.Enabled(); got != tt.want {
+				t.Fatalf("Enabled() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

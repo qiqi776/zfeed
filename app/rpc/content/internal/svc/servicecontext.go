@@ -1,18 +1,20 @@
 package svc
 
 import (
+	"github.com/zeromicro/go-queue/kq"
+	"github.com/zeromicro/go-zero/core/stores/redis"
+	"github.com/zeromicro/go-zero/zrpc"
+	"gorm.io/gorm"
+
 	"zfeed/app/rpc/content/internal/config"
+	"zfeed/app/rpc/content/internal/recommend/track"
 	"zfeed/app/rpc/count/counterservice"
 	"zfeed/app/rpc/interaction/client/favoriteservice"
 	"zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/interaction/client/likeservice"
 	"zfeed/app/rpc/user/client/userservice"
-	"zfeed/pkg/grpcx"
 	"zfeed/orm"
-
-	"github.com/zeromicro/go-zero/core/stores/redis"
-	"github.com/zeromicro/go-zero/zrpc"
-	"gorm.io/gorm"
+	"zfeed/pkg/grpcx"
 )
 
 type ServiceContext struct {
@@ -24,6 +26,8 @@ type ServiceContext struct {
 	LikeRpc     likeservice.LikeService
 	UserRpc     userservice.UserService
 	CountRpc    counterservice.CounterService
+
+	RecommendTrackProducer track.Producer
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -48,5 +52,19 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		LikeRpc:     likeRpc,
 		UserRpc:     userRpc,
 		CountRpc:    countRpc,
+
+		RecommendTrackProducer: newRecommendTrackProducer(c.KqProducerConf),
 	}
+}
+
+func newRecommendTrackProducer(c config.KqProducerConf) track.Producer {
+	if !c.Enabled() {
+		return track.NoopProducer{}
+	}
+
+	maxRetries := c.MaxRetries
+	if maxRetries <= 0 {
+		maxRetries = 3
+	}
+	return track.NewKafkaProducer(kq.NewPusher(c.Brokers, c.Topic), maxRetries)
 }
