@@ -56,6 +56,7 @@ type RecommendConfig struct {
 	Interest         RecommendInterestConfig
 	Rank             RecommendRankConfig
 	Diversity        RecommendDiversityConfig
+	Experiment       RecommendExperimentConfig
 	CandidateLimit   int
 	FallbackToHot    bool
 	ColdStartMetaTTL int
@@ -85,12 +86,12 @@ type RecommendInterestConfig struct {
 }
 
 type RecommendRankConfig struct {
-	CoarseLimit   int
-	AlphaHot      float64
-	BetaInterest  float64
-	GammaFresh    float64
-	DeltaQuality  float64
-	SeenPenalty   float64
+	CoarseLimit  int
+	AlphaHot     float64
+	BetaInterest float64
+	GammaFresh   float64
+	DeltaQuality float64
+	SeenPenalty  float64
 }
 
 type RecommendDiversityConfig struct {
@@ -99,4 +100,21 @@ type RecommendDiversityConfig struct {
 	MaxSameAuthor int
 	TypeWindow    int
 	MaxSameType   int
+}
+
+type RecommendExperimentConfig struct {
+	ID               string
+	Enabled          bool
+	Salt             string
+	TrafficPermyriad int
+	TrafficPercent   int
+	DefaultVariant   string
+	Variants         []RecommendExperimentVariantConfig
+}
+
+type RecommendExperimentVariantConfig struct {
+	ID               string
+	TrafficPermyriad int
+	TrafficPercent   int
+	Overrides        map[string]string
 }

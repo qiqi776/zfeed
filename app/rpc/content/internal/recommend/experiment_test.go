@@ -1,6 +1,10 @@
 package recommend
 
-import "testing"
+import (
+	"testing"
+
+	contentconfig "zfeed/app/rpc/content/internal/config"
+)
 
 func TestResolveExperimentVariantUsesDefaultWhenDisabled(t *testing.T) {
 	exp := ExperimentConfig{
@@ -71,5 +75,68 @@ func TestResolveExperimentVariantIsStableForUserAndSalt(t *testing.T) {
 		if got.ID != first.ID {
 			t.Fatalf("variant changed from %q to %q", first.ID, got.ID)
 		}
+	}
+}
+
+func TestApplyExperimentVariantOverridesRecommendConfig(t *testing.T) {
+	cfg := NormalizeConfig(contentconfig.RecommendConfig{
+		Hot: contentconfig.RecommendHotConfig{
+			Weight: 0.55,
+		},
+		Interest: contentconfig.RecommendInterestConfig{
+			Weight: 0.25,
+		},
+		Rank: contentconfig.RecommendRankConfig{
+			BetaInterest: 0.30,
+		},
+		Diversity: contentconfig.RecommendDiversityConfig{
+			AuthorWindow: 5,
+		},
+	})
+	variant := ExperimentVariant{
+		ID: "b",
+		Overrides: map[string]string{
+			"recall.hot.weight":       "0.40",
+			"recall.interest.weight":  "0.35",
+			"rank.beta_interest":      "0.40",
+			"diversity.author_window": "7",
+		},
+	}
+
+	got := ApplyExperimentVariantOverrides(cfg, variant)
+
+	if got.Hot.Weight != 0.40 {
+		t.Fatalf("Hot.Weight = %f, want 0.40", got.Hot.Weight)
+	}
+	if got.Interest.Weight != 0.35 {
+		t.Fatalf("Interest.Weight = %f, want 0.35", got.Interest.Weight)
+	}
+	if got.Rank.BetaInterest != 0.40 {
+		t.Fatalf("Rank.BetaInterest = %f, want 0.40", got.Rank.BetaInterest)
+	}
+	if got.Diversity.AuthorWindow != 7 {
+		t.Fatalf("Diversity.AuthorWindow = %d, want 7", got.Diversity.AuthorWindow)
+	}
+}
+
+func TestConfigHashChangesWithExperimentOverrides(t *testing.T) {
+	base := NormalizeConfig(contentconfig.RecommendConfig{})
+	changed := ApplyExperimentVariantOverrides(base, ExperimentVariant{
+		ID: "b",
+		Overrides: map[string]string{
+			"rank.beta_interest": "0.40",
+		},
+	})
+
+	baseHash := ConfigHash(base)
+	changedHash := ConfigHash(changed)
+	if baseHash == "" {
+		t.Fatal("base hash is empty")
+	}
+	if changedHash == "" {
+		t.Fatal("changed hash is empty")
+	}
+	if baseHash == changedHash {
+		t.Fatalf("hash did not change after override: %s", baseHash)
 	}
 }

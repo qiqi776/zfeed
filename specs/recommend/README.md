@@ -1213,6 +1213,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - Redis `rec:flag:recommend` 动态覆盖结果已加 10 秒进程内缓存，避免推荐请求每次读取 Redis。
 - 推荐增强链路会按 `TimeoutMs` 派生带 deadline 的 context，并把该 context 传给 Redis/MySQL/item builder 路径。
 - 新增推荐指标声明、低基数 label 单测、增强主链路 request/stage/recall/snapshot 记录和 Grafana 推荐面板。
+- `ExperimentResolver` 已接入 `RecommendFeed`，同一 `user_id` 会稳定进入同一 variant，snapshot meta 会记录 variant 和 config hash。
 
 已验证：
 
@@ -1222,12 +1223,13 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendWithTimeoutUsesConfiguredBudget -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementRecordsCoreMetrics -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestLoadRuntimeConfigUsesTenSecondCache -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test(ApplyExperimentVariantOverridesRecommendConfig|ConfigHashChangesWithExperimentOverrides)' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendExperimentVariantWritesSnapshotMetaAndMetrics -count=1`
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/logic/content ./app/rpc/content/internal/cron/rec_new_cleanup -count=1`
 
 剩余缺口：
 
-- `ExperimentResolver` 已有单元能力，但还没有接入 `RecommendFeed`，snapshot meta 仍使用固定 `control/default`。
 - 行为埋点 `zfeed-rec-track`、曝光/点击/互动/停留事件写入和日聚合表还未落地。
 - 画像更新已有 `ApplyProfileEvent`，但 interaction outbox、Canal 消费或定时 worker 尚未接入。
 - 推荐 Prometheus 指标还未覆盖 personalized snapshot 命中、hot fallback 细分原因和失败路径的完整记录。
@@ -1242,3 +1244,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-06 | 1.0.0   | Record implementation progress, verification evidence, and remaining gaps | Codex |
 | 2026-06-06 | 1.0.0   | Add runtime hot recall switch verification, timeout budget, and core recommend metrics progress | Codex |
 | 2026-06-14 | 1.0.0   | Add 10-second in-process cache for Redis recommend runtime config | Codex |
+| 2026-06-14 | 1.0.0   | Wire experiment resolver into recommend feed and snapshot metadata | Codex |

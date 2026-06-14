@@ -1,9 +1,13 @@
 package recommend
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/spaolacci/murmur3"
+
+	contentconfig "zfeed/app/rpc/content/internal/config"
 )
 
 type ExperimentConfig struct {
@@ -21,6 +25,32 @@ type ExperimentVariant struct {
 	TrafficPermyriad int
 	TrafficPercent   int
 	Overrides        map[string]string
+}
+
+func ExperimentConfigFromContent(cfg contentconfig.RecommendExperimentConfig) ExperimentConfig {
+	variants := make([]ExperimentVariant, 0, len(cfg.Variants))
+	for _, variant := range cfg.Variants {
+		overrides := make(map[string]string, len(variant.Overrides))
+		for key, value := range variant.Overrides {
+			overrides[key] = value
+		}
+		variants = append(variants, ExperimentVariant{
+			ID:               variant.ID,
+			TrafficPermyriad: variant.TrafficPermyriad,
+			TrafficPercent:   variant.TrafficPercent,
+			Overrides:        overrides,
+		})
+	}
+
+	return ExperimentConfig{
+		ID:               cfg.ID,
+		Enabled:          cfg.Enabled,
+		Salt:             cfg.Salt,
+		TrafficPermyriad: cfg.TrafficPermyriad,
+		TrafficPercent:   cfg.TrafficPercent,
+		DefaultVariant:   cfg.DefaultVariant,
+		Variants:         variants,
+	}
 }
 
 func ResolveExperimentVariant(userID int64, exp ExperimentConfig) ExperimentVariant {
@@ -75,4 +105,21 @@ func trafficPermyriad(permyriad, percent int) int {
 		return 10000
 	}
 	return permyriad
+}
+
+func ApplyExperimentVariantOverrides(
+	cfg contentconfig.RecommendConfig,
+	variant ExperimentVariant,
+) contentconfig.RecommendConfig {
+	if len(variant.Overrides) == 0 {
+		return cfg
+	}
+	ApplyRuntimeOverrides(&cfg, variant.Overrides)
+	return NormalizeConfig(cfg)
+}
+
+func ConfigHash(cfg contentconfig.RecommendConfig) string {
+	normalized := NormalizeConfig(cfg)
+	sum := sha1.Sum([]byte(fmt.Sprintf("%#v", normalized)))
+	return hex.EncodeToString(sum[:])[:8]
 }

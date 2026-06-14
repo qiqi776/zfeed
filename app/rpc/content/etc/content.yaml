@@ -116,3 +116,19 @@ Recommend:
     MaxSameAuthor: 1
     TypeWindow: 6
     MaxSameType: 4
+  Experiment:
+    ID: exp_rec_v1
+    Enabled: false
+    Salt: zfeed_20260531
+    DefaultVariant: control
+    Variants:
+      - ID: a
+        TrafficPermyriad: 5000
+        Overrides:
+          recall.interest.weight: "0.20"
+          rank.beta_interest: "0.25"
+      - ID: b
+        TrafficPermyriad: 5000
+        Overrides:
+          recall.interest.weight: "0.35"
+          rank.beta_interest: "0.40"

@@ -15,10 +15,13 @@ import (
 
 const (
 	snapshotPrefix   = "rec:"
-	snapshotVariant  = "control"
-	snapshotConfigID = "default"
 	snapshotBaseRank = 1_000_000
 )
+
+type SnapshotMeta struct {
+	VariantID  string
+	ConfigHash string
+}
 
 func IsPersonalizedSnapshot(snapshotID string) bool {
 	return strings.HasPrefix(strings.TrimSpace(snapshotID), snapshotPrefix)
@@ -32,6 +35,18 @@ func SavePersonalizedSnapshot(
 	candidates []Candidate,
 	now time.Time,
 ) (string, error) {
+	return SavePersonalizedSnapshotWithMeta(ctx, rds, cfg, userID, candidates, SnapshotMeta{}, now)
+}
+
+func SavePersonalizedSnapshotWithMeta(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	cfg contentconfig.RecommendConfig,
+	userID int64,
+	candidates []Candidate,
+	meta SnapshotMeta,
+	now time.Time,
+) (string, error) {
 	if rds == nil || len(candidates) == 0 {
 		return "", nil
 	}
@@ -39,8 +54,9 @@ func SavePersonalizedSnapshot(
 		now = time.Now()
 	}
 	cfg = NormalizeConfig(cfg)
+	meta = normalizeSnapshotMeta(meta)
 
-	snapshotID := buildSnapshotID(userID, now)
+	snapshotID := buildSnapshotID(userID, meta, now)
 	snapshotKey := redisconsts.BuildRecommendUserSnapshotKey(snapshotID)
 	pairs := make([]gzredis.Pair, 0, len(candidates))
 	for rank, candidate := range candidates {
@@ -66,10 +82,10 @@ func SavePersonalizedSnapshot(
 	if err := rds.HsetCtx(ctx, metaKey, "user_bucket", fmt.Sprintf("%04d", userBucket(userID))); err != nil {
 		return "", err
 	}
-	if err := rds.HsetCtx(ctx, metaKey, "variant_id", snapshotVariant); err != nil {
+	if err := rds.HsetCtx(ctx, metaKey, "variant_id", meta.VariantID); err != nil {
 		return "", err
 	}
-	if err := rds.HsetCtx(ctx, metaKey, "config_hash", snapshotConfigID); err != nil {
+	if err := rds.HsetCtx(ctx, metaKey, "config_hash", meta.ConfigHash); err != nil {
 		return "", err
 	}
 	if err := rds.HsetCtx(ctx, metaKey, "created_at", strconv.FormatInt(now.Unix(), 10)); err != nil {
@@ -84,12 +100,25 @@ func SavePersonalizedSnapshot(
 	return snapshotID, nil
 }
 
-func buildSnapshotID(userID int64, now time.Time) string {
+func normalizeSnapshotMeta(meta SnapshotMeta) SnapshotMeta {
+	meta.VariantID = strings.TrimSpace(meta.VariantID)
+	if meta.VariantID == "" {
+		meta.VariantID = "control"
+	}
+	meta.ConfigHash = strings.TrimSpace(meta.ConfigHash)
+	if meta.ConfigHash == "" {
+		meta.ConfigHash = "default"
+	}
+	return meta
+}
+
+func buildSnapshotID(userID int64, meta SnapshotMeta, now time.Time) string {
+	meta = normalizeSnapshotMeta(meta)
 	return fmt.Sprintf(
 		"rec:%04d:%s:%s:%d",
 		userBucket(userID),
-		snapshotVariant,
-		snapshotConfigID,
+		meta.VariantID,
+		meta.ConfigHash,
 		now.UnixNano(),
 	)
 }

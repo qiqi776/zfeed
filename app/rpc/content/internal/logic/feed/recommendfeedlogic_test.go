@@ -552,6 +552,86 @@ func TestRecommendEnhancementRecordsCoreMetrics(t *testing.T) {
 	}
 }
 
+func TestRecommendExperimentVariantWritesSnapshotMetaAndMetrics(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8501, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8501", coverURL: "cover-8501"},
+		{contentID: 9501, authorID: 3001, contentType: contentpb.ContentType_VIDEO, title: "new-9501", coverURL: "cover-9501"},
+	})
+
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "8501")
+	store.ZAdd(redisconsts.RecommendNewContentKey, 9999, "9501")
+
+	oldRequest := recordRecommendRequestMetric
+	defer func() {
+		recordRecommendRequestMetric = oldRequest
+	}()
+	requestVariants := []string{}
+	recordRecommendRequestMetric = func(mode, variant, result string) {
+		if mode == recommendModePersonalized && result == recommendResultSuccess {
+			requestVariants = append(requestVariants, variant)
+		}
+	}
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: contentconfig.RecommendConfig{
+				Enabled: true,
+				NewContent: contentconfig.RecommendNewContentConfig{
+					Enabled: true,
+					Weight:  1,
+					Limit:   10,
+				},
+				Experiment: contentconfig.RecommendExperimentConfig{
+					ID:             "exp_rec_v1",
+					Enabled:        true,
+					Salt:           "salt",
+					DefaultVariant: "control",
+					Variants: []contentconfig.RecommendExperimentVariantConfig{
+						{
+							ID:               "b",
+							TrafficPermyriad: 10000,
+							Overrides: map[string]string{
+								"rank.beta_interest": "0.40",
+							},
+						},
+					},
+				},
+			},
+		},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	userID := int64(1001)
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		UserId:   &userID,
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	snapshotID := resp.GetSnapshotId()
+	if !strings.Contains(snapshotID, ":b:") {
+		t.Fatalf("snapshot_id = %q, want variant b embedded", snapshotID)
+	}
+
+	metaKey := redisconsts.BuildRecommendUserSnapshotMetaKey(snapshotID)
+	if got := store.HGet(metaKey, "variant_id"); got != "b" {
+		t.Fatalf("snapshot meta variant_id = %q, want b", got)
+	}
+	configHash := store.HGet(metaKey, "config_hash")
+	if configHash == "" || configHash == "default" {
+		t.Fatalf("snapshot meta config_hash = %q, want computed hash", configHash)
+	}
+	if len(requestVariants) != 1 || requestVariants[0] != "b" {
+		t.Fatalf("request variants = %v, want [b]", requestVariants)
+	}
+}
+
 func TestRecommendEnhancementUsesPersonalizedSnapshotForNextPage(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)

@@ -32,6 +32,12 @@ type hotFeedResult struct {
 	resolvedSnapshotID string
 }
 
+type recommendRuntime struct {
+	cfg        contentconfig.RecommendConfig
+	variantID  string
+	configHash string
+}
+
 type RecommendFeedLogic struct {
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
@@ -80,20 +86,20 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 		}
 	}
 
-	cfg, cfgErr := l.loadRecommendConfig()
+	runtime, cfgErr := l.loadRecommendRuntime(in.GetUserId())
 	if cfgErr != nil {
 		l.Errorf("load recommend runtime config failed, user_id=%d, err=%v", in.GetUserId(), cfgErr)
 	}
 	if cfgErr == nil {
-		scoped, cancel := l.withRecommendTimeout(cfg)
+		scoped, cancel := l.withRecommendTimeout(runtime.cfg)
 		defer cancel()
 
-		if scoped.shouldUseRecommendEnhancement(in, cfg) {
-			resp, err := scoped.recommendWithNewContent(in, pageSize, cfg)
+		if scoped.shouldUseRecommendEnhancement(in, runtime.cfg) {
+			resp, err := scoped.recommendWithNewContent(in, pageSize, runtime)
 			if err == nil && len(resp.GetItems()) > 0 {
 				recordRecommendRequestMetric(
 					recommendModePersonalized,
-					recommendVariantControl,
+					runtime.variantID,
 					recommendResultSuccess,
 				)
 				return resp, nil
@@ -118,11 +124,35 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 	return resp, nil
 }
 
-func (l *RecommendFeedLogic) loadRecommendConfig() (contentconfig.RecommendConfig, error) {
+func (l *RecommendFeedLogic) loadRecommendRuntime(userID int64) (recommendRuntime, error) {
 	if l == nil || l.svcCtx == nil {
-		return recommend.NormalizeConfig(contentconfig.RecommendConfig{}), nil
+		cfg := recommend.NormalizeConfig(contentconfig.RecommendConfig{})
+		return buildRecommendRuntime(cfg, userID), nil
 	}
-	return recommend.LoadRuntimeConfig(l.ctx, l.svcCtx.Redis, l.svcCtx.Config.Recommend)
+	cfg, err := recommend.LoadRuntimeConfig(l.ctx, l.svcCtx.Redis, l.svcCtx.Config.Recommend)
+	if err != nil {
+		return recommendRuntime{}, err
+	}
+	return buildRecommendRuntime(cfg, userID), nil
+}
+
+func buildRecommendRuntime(cfg contentconfig.RecommendConfig, userID int64) recommendRuntime {
+	cfg = recommend.NormalizeConfig(cfg)
+	variant := recommend.ResolveExperimentVariant(
+		userID,
+		recommend.ExperimentConfigFromContent(cfg.Experiment),
+	)
+	variantID := strings.TrimSpace(variant.ID)
+	if variantID == "" {
+		variantID = recommendVariantControl
+	}
+	cfg = recommend.ApplyExperimentVariantOverrides(cfg, variant)
+
+	return recommendRuntime{
+		cfg:        cfg,
+		variantID:  variantID,
+		configHash: recommend.ConfigHash(cfg),
+	}
 }
 
 func (l *RecommendFeedLogic) withRecommendTimeout(
@@ -255,8 +285,9 @@ func (l *RecommendFeedLogic) shouldUseRecommendEnhancement(
 func (l *RecommendFeedLogic) recommendWithNewContent(
 	in *contentpb.RecommendFeedReq,
 	pageSize int,
-	cfg contentconfig.RecommendConfig,
+	runtime recommendRuntime,
 ) (*contentpb.RecommendFeedRes, error) {
+	cfg := runtime.cfg
 	var hotSnapshotID string
 	inputs := make([]recommend.MergeInput, 0, 3)
 	recallStarted := time.Now()
@@ -276,7 +307,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		hotSnapshotID = hotResult.resolvedSnapshotID
 		recordRecommendRecallItemsMetric(
 			recommendRecallSourceHot,
-			recommendVariantControl,
+			runtime.variantID,
 			len(hotResult.ids),
 		)
 		inputs = append(inputs, recommend.MergeInput{
@@ -292,7 +323,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		}
 		recordRecommendRecallItemsMetric(
 			recommendRecallSourceNewContent,
-			recommendVariantControl,
+			runtime.variantID,
 			len(newIDs),
 		)
 		inputs = append(inputs, recommend.MergeInput{
@@ -308,7 +339,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		}
 		recordRecommendRecallItemsMetric(
 			recommendRecallSourceInterest,
-			recommendVariantControl,
+			runtime.variantID,
 			len(interestIDs),
 		)
 		inputs = append(inputs, recommend.MergeInput{
@@ -319,7 +350,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 	}
 	recordRecommendStageDurationMetric(
 		recommendStageRecall,
-		recommendVariantControl,
+		runtime.variantID,
 		time.Since(recallStarted),
 	)
 
@@ -328,7 +359,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 	merged = recommend.CoarseRank(merged, cfg.Rank)
 	recordRecommendStageDurationMetric(
 		recommendStageCoarseRank,
-		recommendVariantControl,
+		runtime.variantID,
 		time.Since(coarseRankStarted),
 	)
 	if len(merged) == 0 {
@@ -344,7 +375,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 	features, err := l.loadCandidateFeatures(recommend.IDs(merged))
 	recordRecommendStageDurationMetric(
 		recommendStageFeatureLoad,
-		recommendVariantControl,
+		runtime.variantID,
 		time.Since(featureLoadStarted),
 	)
 	if err != nil {
@@ -355,14 +386,14 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 	ranked = recommend.FineRank(ranked, cfg.Rank)
 	recordRecommendStageDurationMetric(
 		recommendStageFineRank,
-		recommendVariantControl,
+		runtime.variantID,
 		time.Since(fineRankStarted),
 	)
 	rerankStarted := time.Now()
 	ranked = recommend.DiversityRerank(ranked, cfg.Diversity)
 	recordRecommendStageDurationMetric(
 		recommendStageRerank,
-		recommendVariantControl,
+		runtime.variantID,
 		time.Since(rerankStarted),
 	)
 	if len(ranked) == 0 {
@@ -375,17 +406,21 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 	}
 
 	snapshotSaveStarted := time.Now()
-	snapshotID, err := recommend.SavePersonalizedSnapshot(
+	snapshotID, err := recommend.SavePersonalizedSnapshotWithMeta(
 		l.ctx,
 		l.svcCtx.Redis,
 		cfg,
 		in.GetUserId(),
 		ranked,
+		recommend.SnapshotMeta{
+			VariantID:  runtime.variantID,
+			ConfigHash: runtime.configHash,
+		},
 		time.Now(),
 	)
 	recordRecommendStageDurationMetric(
 		recommendStageSnapshotSave,
-		recommendVariantControl,
+		runtime.variantID,
 		time.Since(snapshotSaveStarted),
 	)
 	if err != nil {
