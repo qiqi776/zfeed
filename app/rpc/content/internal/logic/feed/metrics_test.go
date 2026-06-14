@@ -9,6 +9,7 @@ func TestRecommendMetricLabelsExcludeHighCardinalityIDs(t *testing.T) {
 		"zfeed_recommend_recall_items_total":     recommendRecallItemsMetricLabels,
 		"zfeed_recommend_fallback_total":         recommendFallbackMetricLabels,
 		"zfeed_recommend_snapshot_total":         recommendSnapshotMetricLabels,
+		"zfeed_recommend_rerank_adjust_total":    recommendRerankAdjustMetricLabels,
 		"zfeed_recommend_profile_total":          recommendProfileMetricLabels,
 		"zfeed_recommend_track_emit_total":       recommendTrackMetricLabels,
 	}
@@ -48,6 +49,8 @@ func TestRecommendMetricLabelNormalizersClampUnknownValues(t *testing.T) {
 		{name: "snapshot kind unknown", fn: normalizeRecommendSnapshotKindLabel, in: "snap-123", want: recommendMetricUnknownLabel},
 		{name: "snapshot result allowed", fn: normalizeRecommendSnapshotResultLabel, in: " hit ", want: "hit"},
 		{name: "snapshot result unknown", fn: normalizeRecommendSnapshotResultLabel, in: "snap-123", want: recommendMetricUnknownLabel},
+		{name: "rerank rule allowed", fn: normalizeRecommendRerankRuleLabel, in: " Author-Window ", want: "author_window"},
+		{name: "rerank rule unknown", fn: normalizeRecommendRerankRuleLabel, in: "user_123", want: recommendMetricUnknownLabel},
 		{name: "profile result allowed", fn: normalizeRecommendProfileResultLabel, in: " Skipped ", want: "skipped"},
 		{name: "profile result unknown", fn: normalizeRecommendProfileResultLabel, in: "user_123", want: recommendMetricUnknownLabel},
 		{name: "track event type allowed", fn: normalizeRecommendTrackEventTypeLabel, in: " Exposure ", want: "exposure"},
@@ -71,6 +74,7 @@ func TestRecommendMetricRecordHelpersAcceptUnknownValues(t *testing.T) {
 	recordRecommendRecallItems("content-123", "exp-user-123456", -1)
 	recordRecommendFallback("user_123")
 	recordRecommendSnapshot("snap-123", "snap-123")
+	recordRecommendRerankAdjust("user_123", "exp-user-123456", -1)
 	recordRecommendProfile("user_123")
 	recordRecommendTrackEmit("user_123", "snap-123")
 }

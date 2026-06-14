@@ -116,6 +116,32 @@ func TestDiversityRerankSpreadsAuthors(t *testing.T) {
 	}
 }
 
+func TestDiversityRerankWithAdjustmentsRecordsRules(t *testing.T) {
+	candidates := []Candidate{
+		{ContentID: 1001, AuthorID: 10, ContentType: 10},
+		{ContentID: 1002, AuthorID: 10, ContentType: 20},
+		{ContentID: 1003, AuthorID: 20, ContentType: 10},
+	}
+
+	got, adjustments := DiversityRerankWithAdjustments(candidates, contentconfig.RecommendDiversityConfig{
+		Enabled:       true,
+		AuthorWindow:  2,
+		MaxSameAuthor: 1,
+		TypeWindow:    2,
+		MaxSameType:   1,
+	})
+
+	if len(got) != len(candidates) {
+		t.Fatalf("len(got) = %d, want %d", len(got), len(candidates))
+	}
+	if adjustments[DiversityRuleAuthorWindow] == 0 {
+		t.Fatalf("adjustments = %#v, want author window adjustment", adjustments)
+	}
+	if adjustments[DiversityRuleTypeWindow] == 0 {
+		t.Fatalf("adjustments = %#v, want type window adjustment", adjustments)
+	}
+}
+
 func TestApplyFeaturesDropsMissingRows(t *testing.T) {
 	got := ApplyFeatures([]Candidate{
 		{ContentID: 1001},

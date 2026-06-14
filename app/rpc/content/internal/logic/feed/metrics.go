@@ -22,15 +22,17 @@ const (
 	recommendResultEmpty    = "empty"
 	recommendResultFallback = "fallback"
 
-	recommendStageTotal          = "total"
-	recommendStageSnapshotLookup = "snapshot_lookup"
-	recommendStageRecall         = "recall"
-	recommendStageFeatureLoad    = "feature_load"
-	recommendStageCoarseRank     = "coarse_rank"
-	recommendStageFineRank       = "fine_rank"
-	recommendStageRerank         = "rerank"
-	recommendStageBuildItems     = "build_items"
-	recommendStageSnapshotSave   = "snapshot_save"
+	recommendStageTotal             = "total"
+	recommendStageSnapshotLookup    = "snapshot_lookup"
+	recommendStageRecall            = "recall"
+	recommendStageFeatureLoad       = "feature_load"
+	recommendStageCoarseRank        = "coarse_rank"
+	recommendStageFineRank          = "fine_rank"
+	recommendStageRerank            = "rerank"
+	recommendStageBuildItems        = "build_items"
+	recommendStageSnapshotSave      = "snapshot_save"
+	recommendRerankRuleAuthorWindow = "author_window"
+	recommendRerankRuleTypeWindow   = "type_window"
 
 	recommendRecallSourceHot        = "hot"
 	recommendRecallSourceNewContent = "new_content"
@@ -67,6 +69,7 @@ var (
 	recommendRecallItemsMetricLabels   = []string{"source", "variant"}
 	recommendFallbackMetricLabels      = []string{"reason"}
 	recommendSnapshotMetricLabels      = []string{"kind", "result"}
+	recommendRerankAdjustMetricLabels  = []string{"rule", "variant"}
 	recommendProfileMetricLabels       = []string{"result"}
 	recommendTrackMetricLabels         = []string{"event_type", "result"}
 
@@ -111,6 +114,14 @@ var (
 		Labels:    recommendSnapshotMetricLabels,
 	})
 
+	metricRecommendRerankAdjustTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_rerank_adjust",
+		Name:      "total",
+		Help:      "Recommendation rerank adjustment count.",
+		Labels:    recommendRerankAdjustMetricLabels,
+	})
+
 	metricRecommendProfileTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 		Namespace: "zfeed",
 		Subsystem: "recommend_profile",
@@ -132,6 +143,7 @@ var (
 	recordRecommendRecallItemsMetric   = recordRecommendRecallItems
 	recordRecommendFallbackMetric      = recordRecommendFallback
 	recordRecommendSnapshotMetric      = recordRecommendSnapshot
+	recordRecommendRerankAdjustMetric  = recordRecommendRerankAdjust
 	recordRecommendProfileMetric       = recordRecommendProfile
 	recordRecommendTrackEmitMetric     = recordRecommendTrackEmit
 )
@@ -189,6 +201,20 @@ func recordRecommendSnapshot(kind, result string) {
 	metricRecommendSnapshotTotal.Inc(
 		normalizeRecommendSnapshotKindLabel(kind),
 		normalizeRecommendSnapshotResultLabel(result),
+	)
+}
+
+func recordRecommendRerankAdjust(rule, variant string, count int) {
+	if metricRecommendRerankAdjustTotal == nil {
+		return
+	}
+	if count < 0 {
+		count = 0
+	}
+	metricRecommendRerankAdjustTotal.Add(
+		float64(count),
+		normalizeRecommendRerankRuleLabel(rule),
+		normalizeRecommendVariantLabel(variant),
 	)
 }
 
@@ -305,6 +331,16 @@ func normalizeRecommendSnapshotResultLabel(value string) string {
 		recommendSnapshotResultError,
 		recommendSnapshotResultSaved,
 		recommendSnapshotResultSkipped:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendRerankRuleLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendRerankRuleAuthorWindow,
+		recommendRerankRuleTypeWindow:
 		return canonicalRecommendMetricLabel(value)
 	default:
 		return recommendMetricUnknownLabel

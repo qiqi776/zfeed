@@ -808,6 +808,40 @@ func TestRecommendInterestRecallRecordsProfileMetrics(t *testing.T) {
 	}
 }
 
+func TestRecordRerankAdjustmentsPreservesRuleVariantAndCount(t *testing.T) {
+	oldRerank := recordRecommendRerankAdjustMetric
+	defer func() {
+		recordRecommendRerankAdjustMetric = oldRerank
+	}()
+
+	records := []struct {
+		rule    string
+		variant string
+		count   int
+	}{}
+	recordRecommendRerankAdjustMetric = func(rule, variant string, count int) {
+		records = append(records, struct {
+			rule    string
+			variant string
+			count   int
+		}{rule: rule, variant: variant, count: count})
+	}
+
+	recordRerankAdjustments("b", map[string]int{
+		recommend.DiversityRuleAuthorWindow: 2,
+		recommend.DiversityRuleTypeWindow:   0,
+	})
+
+	if len(records) != 1 {
+		t.Fatalf("records = %+v, want one positive adjustment", records)
+	}
+	if records[0].rule != recommend.DiversityRuleAuthorWindow ||
+		records[0].variant != "b" ||
+		records[0].count != 2 {
+		t.Fatalf("record = %+v, want author_window/b/2", records[0])
+	}
+}
+
 func TestRecommendEnhancementEmitsExposureTrackEvents(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)

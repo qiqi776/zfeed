@@ -389,7 +389,9 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		time.Since(fineRankStarted),
 	)
 	rerankStarted := time.Now()
-	ranked = recommend.DiversityRerank(ranked, cfg.Diversity)
+	var rerankAdjustments map[string]int
+	ranked, rerankAdjustments = recommend.DiversityRerankWithAdjustments(ranked, cfg.Diversity)
+	recordRerankAdjustments(runtime.variantID, rerankAdjustments)
 	recordRecommendStageDurationMetric(
 		recommendStageRerank,
 		runtime.variantID,
@@ -538,6 +540,15 @@ func (l *RecommendFeedLogic) recallRecommendCandidates(
 		recordRecommendProfileMetric(recommendProfileResultDisabled)
 	}
 	return inputs, hotSnapshotID, nil
+}
+
+func recordRerankAdjustments(variantID string, adjustments map[string]int) {
+	for rule, count := range adjustments {
+		if count <= 0 {
+			continue
+		}
+		recordRecommendRerankAdjustMetric(rule, variantID, count)
+	}
 }
 
 func (l *RecommendFeedLogic) loadCandidateFeatures(ids []int64) (map[int64]recommend.Candidate, error) {

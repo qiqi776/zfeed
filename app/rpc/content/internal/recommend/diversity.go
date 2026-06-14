@@ -2,14 +2,28 @@ package recommend
 
 import contentconfig "zfeed/app/rpc/content/internal/config"
 
+const (
+	DiversityRuleAuthorWindow = "author_window"
+	DiversityRuleTypeWindow   = "type_window"
+)
+
 func DiversityRerank(candidates []Candidate, cfg contentconfig.RecommendDiversityConfig) []Candidate {
+	result, _ := DiversityRerankWithAdjustments(candidates, cfg)
+	return result
+}
+
+func DiversityRerankWithAdjustments(
+	candidates []Candidate,
+	cfg contentconfig.RecommendDiversityConfig,
+) ([]Candidate, map[string]int) {
 	if len(candidates) <= 1 || !cfg.Enabled {
-		return candidates
+		return candidates, map[string]int{}
 	}
 	cfg = NormalizeConfig(contentconfig.RecommendConfig{Diversity: cfg}).Diversity
 
 	result := make([]Candidate, 0, len(candidates))
 	used := make([]bool, len(candidates))
+	adjustments := map[string]int{}
 
 	for len(result) < len(candidates) {
 		pick := -1
@@ -17,7 +31,11 @@ func DiversityRerank(candidates []Candidate, cfg contentconfig.RecommendDiversit
 			if used[i] {
 				continue
 			}
-			if violatesWindow(result, candidate, cfg) {
+			violations := diversityViolations(result, candidate, cfg)
+			if len(violations) > 0 {
+				for _, rule := range violations {
+					adjustments[rule]++
+				}
 				continue
 			}
 			pick = i
@@ -34,21 +52,30 @@ func DiversityRerank(candidates []Candidate, cfg contentconfig.RecommendDiversit
 		result = append(result, candidates[pick])
 	}
 
-	return result
+	return result, adjustments
 }
 
 func violatesWindow(current []Candidate, next Candidate, cfg contentconfig.RecommendDiversityConfig) bool {
+	return len(diversityViolations(current, next, cfg)) > 0
+}
+
+func diversityViolations(
+	current []Candidate,
+	next Candidate,
+	cfg contentconfig.RecommendDiversityConfig,
+) []string {
+	rules := []string{}
 	if cfg.MaxSameAuthor > 0 && next.AuthorID > 0 {
 		if countRecentAuthors(current, next.AuthorID, cfg.AuthorWindow) >= cfg.MaxSameAuthor {
-			return true
+			rules = append(rules, DiversityRuleAuthorWindow)
 		}
 	}
 	if cfg.MaxSameType > 0 && next.ContentType > 0 {
 		if countRecentTypes(current, next.ContentType, cfg.TypeWindow) >= cfg.MaxSameType {
-			return true
+			rules = append(rules, DiversityRuleTypeWindow)
 		}
 	}
-	return false
+	return rules
 }
 
 func countRecentAuthors(candidates []Candidate, authorID int64, window int) int {
