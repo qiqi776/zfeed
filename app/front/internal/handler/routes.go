@@ -86,6 +86,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				},
 				{
 					Method:  http.MethodPost,
+					Path:    "/track",
+					Handler: feed.EmitRecommendTrackHandler(serverCtx),
+				},
+				{
+					Method:  http.MethodPost,
 					Path:    "/user/favorite",
 					Handler: feed.UserFavoriteHandler(serverCtx),
 				},

@@ -352,6 +352,22 @@ type RecommendFeedRes struct {
 	SnapshotId string              `json:"snapshot_id"`
 }
 
+type RecommendTrackReq struct {
+	EventType  *string  `json:"event_type,optional" validate:"required"`
+	ContentId  *int64   `json:"content_id,string,optional" validate:"required"`
+	RequestId  *string  `json:"request_id,optional"`
+	SnapshotId *string  `json:"snapshot_id,optional"`
+	VariantId  *string  `json:"variant_id,optional"`
+	Source     *string  `json:"source,optional"`
+	Position   *int64   `json:"position,optional"`
+	FinalScore *float64 `json:"final_score,optional"`
+	DwellMs    *int64   `json:"dwell_ms,optional"`
+	OccurredAt *int64   `json:"occurred_at,optional"`
+}
+
+type RecommendTrackRes struct {
+}
+
 type SearchContentItem struct {
 	ContentId    int64  `json:"content_id,string"`
 	ContentType  int32  `json:"content_type"`

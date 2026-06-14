@@ -85,6 +85,23 @@ message RecommendFeedRes {
   string snapshot_id = 4;
 }
 
+message EmitRecommendTrackReq {
+  int64 user_id = 1;
+  string event_type = 2;
+  int64 content_id = 3;
+  string request_id = 4;
+  string snapshot_id = 5;
+  string variant_id = 6;
+  string source = 7;
+  int32 position = 8;
+  double final_score = 9;
+  int64 dwell_ms = 10;
+  int64 occurred_at = 11;
+}
+
+message EmitRecommendTrackRes {
+}
+
 message FollowFeedReq {
   int64 user_id = 1;
   string cursor = 2;
@@ -253,6 +270,7 @@ service ContentService {
 
 service FeedService {
   rpc RecommendFeed(RecommendFeedReq) returns (RecommendFeedRes);
+  rpc EmitRecommendTrack(EmitRecommendTrackReq) returns (EmitRecommendTrackRes);
   rpc FollowFeed(FollowFeedReq) returns (FollowFeedRes);
   rpc UserPublishFeed(UserPublishFeedReq) returns (UserPublishFeedRes);
   rpc UserFavoriteFeed(UserFavoriteFeedReq) returns (UserFavoriteFeedRes);

@@ -1222,6 +1222,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 行为埋点已接入服务端曝光链路，`content-rpc` 新增 `internal/recommend/track` 事件模型、`KafkaProducer` 和默认 no-op 生产者，`RecommendFeed` 在热榜、个性化快照和增强成功返回时会逐条写出曝光事件。
 - `ServiceContext` 已根据 `KqProducerConf` 注入 `zfeed-rec-track` 生产者，配置为空时自动回落到 no-op，避免本地和测试环境硬依赖 Kafka。
 - `RecommendFeed` 的曝光写入已补 `zfeed_recommend_track_emit_total{event_type,result}` 观测，能区分曝光事件发射成功和失败。
+- 行为埋点 click/dwell 上报入口已落地，`front-api /v1/feed/track` 薄转发、`content-rpc FeedService.EmitRecommendTrack`、事件类型校验、Kafka 生产者写入和对应测试都已接通。
 - 兴趣召回画像读取已补 `zfeed_recommend_profile_total{result}` 观测，区分 disabled、skipped、miss、hit 和 error。
 - 重排环节已补 `zfeed_recommend_rerank_adjust_total{rule,variant}` 观测，按 author_window 和 type_window 记录多样性重排调整次数。
 - 推荐增强链路已补 `zfeed_recommend_error_total{stage,variant}` 观测，按 candidate_cache、recall、feature_load、seen_load、snapshot_save、snapshot_read、build_items 和 seen_write 定位阶段错误。
@@ -1230,6 +1231,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 已验证：
 
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecommend(RuntimeFlagDisablesEnhancement|FineRankUsesConfiguredWeightsInMainPath)' -count=1`
+- `go test ./app/front/internal/logic/feed -run 'TestEmitRecommendTrack' -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestLoadRuntimeConfigMergesRedisOverrides -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendRuntimeFlagDisablesHotRecallInEnhancedPath -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendWithTimeoutUsesConfiguredBudget -count=1`
@@ -1244,6 +1246,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend -run 'Test(RecordSeenContentsWritesRecentExposureSet|LoadSeenCountsReturnsOnlyRequestedIDs)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementAppliesAndRecordsSeen -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementEmitsExposureTrackEvents -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run 'TestEmitRecommendTrack(EmitsClickAndDwellEvents|RejectsInvalidEvent)' -count=1`
 - `go test ./app/rpc/content/internal/recommend/track -count=1`
 - `go test ./app/rpc/content/internal/config -count=1`
 - `go test ./app/rpc/content/internal/recommend/track ./app/rpc/content/internal/config ./app/rpc/content/internal/logic/feed -count=1`
@@ -1255,11 +1258,12 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
+- `go test ./app/front/internal/logic/feed ./app/rpc/content/internal/logic/feed ./app/rpc/content/internal/recommend/track -count=1`
 - `go test ./app/rpc/content/internal/logic/content ./app/rpc/content/internal/cron/rec_new_cleanup -count=1`
 
 剩余缺口：
 
-- 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者和主链路写入，点击/互动/停留事件写入和日聚合表还未落地。
+- 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者和主链路写入，click/dwell 上报入口已落地，点击/互动/停留事件实际写入和日聚合表还未落地。
 - 画像更新已有 `ApplyProfileEvent`，但 interaction outbox、Canal 消费或定时 worker 尚未接入。
 
 ## Change Log
@@ -1280,6 +1284,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-14 | 1.0.0   | Record in-progress recommendation track event work | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation exposure track emission and Kafka producer wiring | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation track emit metric and tests | Codex |
+| 2026-06-14 | 1.0.0   | Add recommend track click/dwell entry implementation and tests | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation profile metric and interest recall tests | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation rerank adjustment metric and diversity rerank tests | Codex |
 | 2026-06-14 | 1.0.0   | Add recommendation enhancement error stage metric and tests | Codex |

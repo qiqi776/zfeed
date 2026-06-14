@@ -22,6 +22,11 @@ func (s *FeedServiceServer) RecommendFeed(ctx context.Context, in *content.Recom
 	return l.RecommendFeed(in)
 }
 
+func (s *FeedServiceServer) EmitRecommendTrack(ctx context.Context, in *content.EmitRecommendTrackReq) (*content.EmitRecommendTrackRes, error) {
+	l := feedlogic.NewRecommendTrackLogic(ctx, s.svcCtx)
+	return l.EmitRecommendTrack(in)
+}
+
 func (s *FeedServiceServer) FollowFeed(ctx context.Context, in *content.FollowFeedReq) (*content.FollowFeedRes, error) {
 	l := feedlogic.NewFollowFeedLogic(ctx, s.svcCtx)
 	return l.FollowFeed(in)

@@ -8,7 +8,11 @@ import (
 	"time"
 )
 
-const EventTypeExposure = "exposure"
+const (
+	EventTypeExposure = "exposure"
+	EventTypeClick    = "click"
+	EventTypeDwell    = "dwell"
+)
 
 type Event struct {
 	EventID    string  `json:"event_id"`
@@ -23,6 +27,15 @@ type Event struct {
 	FinalScore float64 `json:"final_score,omitempty"`
 	DwellMs    int64   `json:"dwell_ms,omitempty"`
 	OccurredAt int64   `json:"occurred_at"`
+}
+
+func IsClientEventType(eventType string) bool {
+	switch eventType {
+	case EventTypeClick, EventTypeDwell:
+		return true
+	default:
+		return false
+	}
 }
 
 type Producer interface {

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.0
 // - protoc             v3.21.12
-// source: proto/content.proto
+// source: app/rpc/content/proto/content.proto
 
 package content
 
@@ -421,14 +421,15 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/content.proto",
+	Metadata: "app/rpc/content/proto/content.proto",
 }
 
 const (
-	FeedService_RecommendFeed_FullMethodName    = "/content.FeedService/RecommendFeed"
-	FeedService_FollowFeed_FullMethodName       = "/content.FeedService/FollowFeed"
-	FeedService_UserPublishFeed_FullMethodName  = "/content.FeedService/UserPublishFeed"
-	FeedService_UserFavoriteFeed_FullMethodName = "/content.FeedService/UserFavoriteFeed"
+	FeedService_RecommendFeed_FullMethodName      = "/content.FeedService/RecommendFeed"
+	FeedService_EmitRecommendTrack_FullMethodName = "/content.FeedService/EmitRecommendTrack"
+	FeedService_FollowFeed_FullMethodName         = "/content.FeedService/FollowFeed"
+	FeedService_UserPublishFeed_FullMethodName    = "/content.FeedService/UserPublishFeed"
+	FeedService_UserFavoriteFeed_FullMethodName   = "/content.FeedService/UserFavoriteFeed"
 )
 
 // FeedServiceClient is the client API for FeedService service.
@@ -436,6 +437,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FeedServiceClient interface {
 	RecommendFeed(ctx context.Context, in *RecommendFeedReq, opts ...grpc.CallOption) (*RecommendFeedRes, error)
+	EmitRecommendTrack(ctx context.Context, in *EmitRecommendTrackReq, opts ...grpc.CallOption) (*EmitRecommendTrackRes, error)
 	FollowFeed(ctx context.Context, in *FollowFeedReq, opts ...grpc.CallOption) (*FollowFeedRes, error)
 	UserPublishFeed(ctx context.Context, in *UserPublishFeedReq, opts ...grpc.CallOption) (*UserPublishFeedRes, error)
 	UserFavoriteFeed(ctx context.Context, in *UserFavoriteFeedReq, opts ...grpc.CallOption) (*UserFavoriteFeedRes, error)
@@ -453,6 +455,16 @@ func (c *feedServiceClient) RecommendFeed(ctx context.Context, in *RecommendFeed
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RecommendFeedRes)
 	err := c.cc.Invoke(ctx, FeedService_RecommendFeed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *feedServiceClient) EmitRecommendTrack(ctx context.Context, in *EmitRecommendTrackReq, opts ...grpc.CallOption) (*EmitRecommendTrackRes, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmitRecommendTrackRes)
+	err := c.cc.Invoke(ctx, FeedService_EmitRecommendTrack_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -494,6 +506,7 @@ func (c *feedServiceClient) UserFavoriteFeed(ctx context.Context, in *UserFavori
 // for forward compatibility.
 type FeedServiceServer interface {
 	RecommendFeed(context.Context, *RecommendFeedReq) (*RecommendFeedRes, error)
+	EmitRecommendTrack(context.Context, *EmitRecommendTrackReq) (*EmitRecommendTrackRes, error)
 	FollowFeed(context.Context, *FollowFeedReq) (*FollowFeedRes, error)
 	UserPublishFeed(context.Context, *UserPublishFeedReq) (*UserPublishFeedRes, error)
 	UserFavoriteFeed(context.Context, *UserFavoriteFeedReq) (*UserFavoriteFeedRes, error)
@@ -509,6 +522,9 @@ type UnimplementedFeedServiceServer struct{}
 
 func (UnimplementedFeedServiceServer) RecommendFeed(context.Context, *RecommendFeedReq) (*RecommendFeedRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method RecommendFeed not implemented")
+}
+func (UnimplementedFeedServiceServer) EmitRecommendTrack(context.Context, *EmitRecommendTrackReq) (*EmitRecommendTrackRes, error) {
+	return nil, status.Error(codes.Unimplemented, "method EmitRecommendTrack not implemented")
 }
 func (UnimplementedFeedServiceServer) FollowFeed(context.Context, *FollowFeedReq) (*FollowFeedRes, error) {
 	return nil, status.Error(codes.Unimplemented, "method FollowFeed not implemented")
@@ -554,6 +570,24 @@ func _FeedService_RecommendFeed_Handler(srv interface{}, ctx context.Context, de
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FeedServiceServer).RecommendFeed(ctx, req.(*RecommendFeedReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _FeedService_EmitRecommendTrack_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EmitRecommendTrackReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FeedServiceServer).EmitRecommendTrack(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: FeedService_EmitRecommendTrack_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FeedServiceServer).EmitRecommendTrack(ctx, req.(*EmitRecommendTrackReq))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -624,6 +658,10 @@ var FeedService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _FeedService_RecommendFeed_Handler,
 		},
 		{
+			MethodName: "EmitRecommendTrack",
+			Handler:    _FeedService_EmitRecommendTrack_Handler,
+		},
+		{
 			MethodName: "FollowFeed",
 			Handler:    _FeedService_FollowFeed_Handler,
 		},
@@ -637,5 +675,5 @@ var FeedService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/content.proto",
+	Metadata: "app/rpc/content/proto/content.proto",
 }

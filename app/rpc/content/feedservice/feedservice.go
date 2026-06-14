@@ -10,19 +10,22 @@ import (
 )
 
 type (
-	ContentItem         = content.ContentItem
-	FollowFeedItem      = content.FollowFeedItem
-	FollowFeedReq       = content.FollowFeedReq
-	FollowFeedRes       = content.FollowFeedRes
-	RecommendFeedReq    = content.RecommendFeedReq
-	RecommendFeedRes    = content.RecommendFeedRes
-	UserFavoriteFeedReq = content.UserFavoriteFeedReq
-	UserFavoriteFeedRes = content.UserFavoriteFeedRes
-	UserPublishFeedReq  = content.UserPublishFeedReq
-	UserPublishFeedRes  = content.UserPublishFeedRes
+	ContentItem           = content.ContentItem
+	EmitRecommendTrackReq = content.EmitRecommendTrackReq
+	EmitRecommendTrackRes = content.EmitRecommendTrackRes
+	FollowFeedItem        = content.FollowFeedItem
+	FollowFeedReq         = content.FollowFeedReq
+	FollowFeedRes         = content.FollowFeedRes
+	RecommendFeedReq      = content.RecommendFeedReq
+	RecommendFeedRes      = content.RecommendFeedRes
+	UserFavoriteFeedReq   = content.UserFavoriteFeedReq
+	UserFavoriteFeedRes   = content.UserFavoriteFeedRes
+	UserPublishFeedReq    = content.UserPublishFeedReq
+	UserPublishFeedRes    = content.UserPublishFeedRes
 
 	FeedService interface {
 		RecommendFeed(ctx context.Context, in *RecommendFeedReq, opts ...grpc.CallOption) (*RecommendFeedRes, error)
+		EmitRecommendTrack(ctx context.Context, in *EmitRecommendTrackReq, opts ...grpc.CallOption) (*EmitRecommendTrackRes, error)
 		FollowFeed(ctx context.Context, in *FollowFeedReq, opts ...grpc.CallOption) (*FollowFeedRes, error)
 		UserPublishFeed(ctx context.Context, in *UserPublishFeedReq, opts ...grpc.CallOption) (*UserPublishFeedRes, error)
 		UserFavoriteFeed(ctx context.Context, in *UserFavoriteFeedReq, opts ...grpc.CallOption) (*UserFavoriteFeedRes, error)
@@ -40,6 +43,11 @@ func NewFeedService(cli zrpc.Client) FeedService {
 func (m *defaultFeedService) RecommendFeed(ctx context.Context, in *RecommendFeedReq, opts ...grpc.CallOption) (*RecommendFeedRes, error) {
 	client := content.NewFeedServiceClient(m.cli.Conn())
 	return client.RecommendFeed(ctx, in, opts...)
+}
+
+func (m *defaultFeedService) EmitRecommendTrack(ctx context.Context, in *EmitRecommendTrackReq, opts ...grpc.CallOption) (*EmitRecommendTrackRes, error) {
+	client := content.NewFeedServiceClient(m.cli.Conn())
+	return client.EmitRecommendTrack(ctx, in, opts...)
 }
 
 func (m *defaultFeedService) FollowFeed(ctx context.Context, in *FollowFeedReq, opts ...grpc.CallOption) (*FollowFeedRes, error) {
