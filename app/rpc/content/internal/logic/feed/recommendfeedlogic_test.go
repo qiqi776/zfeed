@@ -9,10 +9,13 @@ import (
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	contentpb "zfeed/app/rpc/content/content"
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	contentconfig "zfeed/app/rpc/content/internal/config"
+	"zfeed/app/rpc/content/internal/model"
 	"zfeed/app/rpc/content/internal/recommend"
 	"zfeed/app/rpc/content/internal/svc"
 )
@@ -150,6 +153,124 @@ func TestColdStart(t *testing.T) {
 	}
 	if len(resp.GetItems()) != 0 || resp.GetHasMore() || resp.GetNextCursor() != 0 || resp.GetSnapshotId() != "" {
 		t.Fatalf("unexpected cold start response: %+v", resp)
+	}
+}
+
+func newRecommendContentOnlyDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "_content_only?mode=memory&cache=shared"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&model.ZfeedContent{}); err != nil {
+		t.Fatalf("auto migrate content: %v", err)
+	}
+	return db
+}
+
+func TestRecommendHotFallbackRecordsReasonMetrics(t *testing.T) {
+	tests := []struct {
+		name         string
+		setup        func(*miniredis.Miniredis, *svc.ServiceContext)
+		wantErr      bool
+		wantFallback string
+	}{
+		{
+			name: "disabled enhancement records disabled fallback",
+			setup: func(store *miniredis.Miniredis, svcCtx *svc.ServiceContext) {
+				db := newFollowFeedTestDB(t)
+				seedFollowFeedRows(t, db, []followFeedSeed{
+					{contentID: 8801, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8801", coverURL: "cover-8801"},
+				})
+				store.ZAdd(redisconsts.HotFeedKey, 1000, "8801")
+				svcCtx.MysqlDb = db
+				svcCtx.Config.Recommend = contentconfig.RecommendConfig{
+					Enabled: true,
+					NewContent: contentconfig.RecommendNewContentConfig{
+						Enabled: true,
+						Weight:  1,
+						Limit:   10,
+					},
+				}
+				if err := svcCtx.Redis.HsetCtx(context.Background(), recommend.RuntimeFlagKey, "enabled", "false"); err != nil {
+					t.Fatalf("hset runtime enabled=false: %v", err)
+				}
+			},
+			wantFallback: recommendFallbackReasonDisabled,
+		},
+		{
+			name:         "empty hot result records cold start fallback",
+			setup:        func(store *miniredis.Miniredis, svcCtx *svc.ServiceContext) {},
+			wantFallback: recommendFallbackReasonColdStart,
+		},
+		{
+			name: "redis hot query error records hot error fallback",
+			setup: func(store *miniredis.Miniredis, svcCtx *svc.ServiceContext) {
+				store.Set(redisconsts.HotFeedKey, "not-a-zset")
+			},
+			wantErr:      true,
+			wantFallback: recommendFallbackReasonHotError,
+		},
+		{
+			name: "item build error records build error fallback",
+			setup: func(store *miniredis.Miniredis, svcCtx *svc.ServiceContext) {
+				db := newRecommendContentOnlyDB(t)
+				publishedAt := time.Unix(8802, 0)
+				if err := db.Create(&model.ZfeedContent{
+					ID:          8802,
+					UserID:      2001,
+					ContentType: int32(contentpb.ContentType_ARTICLE),
+					Status:      int32(contentpb.ContentStatus_PUBLISHED),
+					Visibility:  int32(contentpb.Visibility_PUBLIC),
+					PublishedAt: &publishedAt,
+					IsDeleted:   0,
+				}).Error; err != nil {
+					t.Fatalf("create content row: %v", err)
+				}
+				store.ZAdd(redisconsts.HotFeedKey, 1000, "8802")
+				svcCtx.MysqlDb = db
+			},
+			wantErr:      true,
+			wantFallback: recommendFallbackReasonBuildError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, redisClient := newFollowFeedRedis(t)
+			svcCtx := &svc.ServiceContext{Redis: redisClient}
+			tt.setup(store, svcCtx)
+
+			oldFallback := recordRecommendFallbackMetric
+			defer func() {
+				recordRecommendFallbackMetric = oldFallback
+			}()
+			fallbacks := map[string]int{}
+			recordRecommendFallbackMetric = func(reason string) {
+				fallbacks[reason]++
+			}
+
+			logic := NewRecommendFeedLogic(context.Background(), svcCtx)
+			resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+				Cursor:   "",
+				PageSize: 1,
+			})
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("RecommendFeed returned nil error, want error")
+				}
+			} else if err != nil {
+				t.Fatalf("RecommendFeed returned error: %v", err)
+			}
+			if !tt.wantErr && resp == nil {
+				t.Fatal("RecommendFeed returned nil response")
+			}
+			if fallbacks[tt.wantFallback] != 1 {
+				t.Fatalf("fallback metrics = %#v, want %s", fallbacks, tt.wantFallback)
+			}
+		})
 	}
 }
 

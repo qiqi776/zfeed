@@ -1215,6 +1215,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 新增推荐指标声明、低基数 label 单测、增强主链路 request/stage/recall/snapshot 记录和 Grafana 推荐面板。
 - `ExperimentResolver` 已接入 `RecommendFeed`，同一 `user_id` 会稳定进入同一 variant，snapshot meta 会记录 variant 和 config hash。
 - 个性化 snapshot 翻页已记录 lookup stage、hit/miss/error snapshot 事件、snapshot 请求结果和 snapshot_miss/snapshot_error 兜底原因。
+- 热榜兜底已细分记录 disabled、cold_start、hot_error 和 build_error 原因，便于定位配置关闭、冷启动空结果、Redis 异常和详情补全失败。
 
 已验证：
 
@@ -1227,6 +1228,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend -run 'Test(ApplyExperimentVariantOverridesRecommendConfig|ConfigHashChangesWithExperimentOverrides)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendExperimentVariantWritesSnapshotMetaAndMetrics -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecommendPersonalizedSnapshot(RecordsHitMetric|RecordsMissAndErrorMetrics)' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendHotFallbackRecordsReasonMetrics -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/recommend ./app/rpc/content/internal/logic/feed -count=1`
@@ -1236,7 +1238,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 
 - 行为埋点 `zfeed-rec-track`、曝光/点击/互动/停留事件写入和日聚合表还未落地。
 - 画像更新已有 `ApplyProfileEvent`，但 interaction outbox、Canal 消费或定时 worker 尚未接入。
-- 推荐 Prometheus 指标还需继续覆盖 hot fallback 细分原因和更多失败路径。
+- 推荐 Prometheus 指标还需继续覆盖更多推荐增强链路失败路径，以及 rerank/profile/track 相关指标。
 - `rec:seen:{user_id}`、候选缓存 `feed:rec:candidate:{bucket}:{variant}:{config_hash}` 和旧 snapshot 按 `config_hash` 翻页隔离还未实现。
 
 ## Change Log
@@ -1251,3 +1253,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-14 | 1.0.0   | Wire experiment resolver into recommend feed and snapshot metadata | Codex |
 | 2026-06-14 | 1.0.0   | Sync current recommend implementation progress record | Codex |
 | 2026-06-14 | 1.0.0   | Add personalized snapshot lookup metrics progress | Codex |
+| 2026-06-14 | 1.0.0   | Add hot fallback reason metrics progress | Codex |

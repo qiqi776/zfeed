@@ -111,7 +111,9 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 		scoped, cancel := l.withRecommendTimeout(runtime.cfg)
 		defer cancel()
 
-		if scoped.shouldUseRecommendEnhancement(in, runtime.cfg) {
+		if !runtime.cfg.Enabled {
+			recordRecommendFallbackMetric(recommendFallbackReasonDisabled)
+		} else if scoped.shouldUseRecommendEnhancement(in, runtime.cfg) {
 			resp, err := scoped.recommendWithNewContent(in, pageSize, runtime)
 			if err == nil && len(resp.GetItems()) > 0 {
 				recordRecommendRequestMetric(
@@ -206,9 +208,18 @@ func (l *RecommendFeedLogic) recommendHotFallback(in *contentpb.RecommendFeedReq
 	preferredKey, preferredSnapshotID := l.resolveSnapshotKey(in.SnapshotId)
 	result, err := l.queryHotIDsByCursor(preferredKey, preferredSnapshotID, strings.TrimSpace(in.GetCursor()), pageSize)
 	if err != nil {
+		recordRecommendFallbackMetric(recommendFallbackReasonHotError)
 		return nil, err
 	}
-	return l.buildFeedResponse(in, result)
+	resp, err := l.buildFeedResponse(in, result)
+	if err != nil {
+		recordRecommendFallbackMetric(recommendFallbackReasonBuildError)
+		return nil, err
+	}
+	if resp == nil || len(resp.GetItems()) == 0 {
+		recordRecommendFallbackMetric(recommendFallbackReasonColdStart)
+	}
+	return resp, nil
 }
 
 func (l *RecommendFeedLogic) recommendFromPersonalizedSnapshot(
