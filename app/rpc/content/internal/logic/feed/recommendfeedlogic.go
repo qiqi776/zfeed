@@ -514,7 +514,13 @@ func (l *RecommendFeedLogic) recallRecommendCandidates(
 	if cfg.Interest.Enabled && in.GetUserId() > 0 {
 		interestIDs, err := recommend.RecallInterest(l.ctx, l.svcCtx.Redis, in.GetUserId(), cfg.Interest)
 		if err != nil {
+			recordRecommendProfileMetric(recommendProfileResultError)
 			return nil, "", err
+		}
+		if len(interestIDs) == 0 {
+			recordRecommendProfileMetric(recommendProfileResultMiss)
+		} else {
+			recordRecommendProfileMetric(recommendProfileResultHit)
 		}
 		recordRecommendRecallItemsMetric(
 			recommendRecallSourceInterest,
@@ -526,6 +532,10 @@ func (l *RecommendFeedLogic) recallRecommendCandidates(
 			Weight: cfg.Interest.Weight,
 			IDs:    interestIDs,
 		})
+	} else if cfg.Interest.Enabled {
+		recordRecommendProfileMetric(recommendProfileResultSkipped)
+	} else {
+		recordRecommendProfileMetric(recommendProfileResultDisabled)
 	}
 	return inputs, hotSnapshotID, nil
 }

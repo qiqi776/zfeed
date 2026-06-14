@@ -53,6 +53,12 @@ const (
 	recommendSnapshotResultError   = "error"
 	recommendSnapshotResultSaved   = "saved"
 	recommendSnapshotResultSkipped = "skipped"
+
+	recommendProfileResultDisabled = "disabled"
+	recommendProfileResultSkipped  = "skipped"
+	recommendProfileResultMiss     = "miss"
+	recommendProfileResultHit      = "hit"
+	recommendProfileResultError    = "error"
 )
 
 var (
@@ -61,6 +67,7 @@ var (
 	recommendRecallItemsMetricLabels   = []string{"source", "variant"}
 	recommendFallbackMetricLabels      = []string{"reason"}
 	recommendSnapshotMetricLabels      = []string{"kind", "result"}
+	recommendProfileMetricLabels       = []string{"result"}
 	recommendTrackMetricLabels         = []string{"event_type", "result"}
 
 	metricRecommendRequestsTotal = metric.NewCounterVec(&metric.CounterVecOpts{
@@ -104,6 +111,14 @@ var (
 		Labels:    recommendSnapshotMetricLabels,
 	})
 
+	metricRecommendProfileTotal = metric.NewCounterVec(&metric.CounterVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_profile",
+		Name:      "total",
+		Help:      "Recommendation profile lookup count.",
+		Labels:    recommendProfileMetricLabels,
+	})
+
 	metricRecommendTrackEmitTotal = metric.NewCounterVec(&metric.CounterVecOpts{
 		Namespace: "zfeed",
 		Subsystem: "recommend_track_emit",
@@ -117,6 +132,7 @@ var (
 	recordRecommendRecallItemsMetric   = recordRecommendRecallItems
 	recordRecommendFallbackMetric      = recordRecommendFallback
 	recordRecommendSnapshotMetric      = recordRecommendSnapshot
+	recordRecommendProfileMetric       = recordRecommendProfile
 	recordRecommendTrackEmitMetric     = recordRecommendTrackEmit
 )
 
@@ -174,6 +190,13 @@ func recordRecommendSnapshot(kind, result string) {
 		normalizeRecommendSnapshotKindLabel(kind),
 		normalizeRecommendSnapshotResultLabel(result),
 	)
+}
+
+func recordRecommendProfile(result string) {
+	if metricRecommendProfileTotal == nil {
+		return
+	}
+	metricRecommendProfileTotal.Inc(normalizeRecommendProfileResultLabel(result))
 }
 
 func recordRecommendTrackEmit(eventType, result string) {
@@ -282,6 +305,19 @@ func normalizeRecommendSnapshotResultLabel(value string) string {
 		recommendSnapshotResultError,
 		recommendSnapshotResultSaved,
 		recommendSnapshotResultSkipped:
+		return canonicalRecommendMetricLabel(value)
+	default:
+		return recommendMetricUnknownLabel
+	}
+}
+
+func normalizeRecommendProfileResultLabel(value string) string {
+	switch canonicalRecommendMetricLabel(value) {
+	case recommendProfileResultDisabled,
+		recommendProfileResultSkipped,
+		recommendProfileResultMiss,
+		recommendProfileResultHit,
+		recommendProfileResultError:
 		return canonicalRecommendMetricLabel(value)
 	default:
 		return recommendMetricUnknownLabel

@@ -680,6 +680,134 @@ func TestRecommendEnhancementAppliesAndRecordsSeen(t *testing.T) {
 	}
 }
 
+func TestRecommendInterestRecallRecordsProfileMetrics(t *testing.T) {
+	tests := []struct {
+		name       string
+		cfg        contentconfig.RecommendConfig
+		setup      func(*miniredis.Miniredis)
+		userID     int64
+		wantResult string
+	}{
+		{
+			name: "disabled",
+			cfg: contentconfig.RecommendConfig{
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: false,
+				},
+				Interest: contentconfig.RecommendInterestConfig{
+					Enabled: false,
+				},
+			},
+			userID:     1001,
+			wantResult: recommendProfileResultDisabled,
+		},
+		{
+			name: "skipped anonymous",
+			cfg: contentconfig.RecommendConfig{
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: false,
+				},
+				Interest: contentconfig.RecommendInterestConfig{
+					Enabled: true,
+				},
+			},
+			wantResult: recommendProfileResultSkipped,
+		},
+		{
+			name: "miss",
+			cfg: contentconfig.RecommendConfig{
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: false,
+				},
+				Interest: contentconfig.RecommendInterestConfig{
+					Enabled: true,
+					MinTags: 1,
+					TopTags: 1,
+					Limit:   10,
+				},
+			},
+			userID:     1001,
+			wantResult: recommendProfileResultMiss,
+		},
+		{
+			name: "hit",
+			cfg: contentconfig.RecommendConfig{
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: false,
+				},
+				Interest: contentconfig.RecommendInterestConfig{
+					Enabled: true,
+					MinTags: 1,
+					TopTags: 1,
+					Limit:   10,
+				},
+			},
+			setup: func(store *miniredis.Miniredis) {
+				store.HSet(redisconsts.BuildRecommendUserProfileKey(1001), "go", "1")
+				store.ZAdd(redisconsts.BuildRecommendTagIndexKey("go"), 10, "7001")
+			},
+			userID:     1001,
+			wantResult: recommendProfileResultHit,
+		},
+		{
+			name: "error",
+			cfg: contentconfig.RecommendConfig{
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: false,
+				},
+				Interest: contentconfig.RecommendInterestConfig{
+					Enabled: true,
+					MinTags: 1,
+					TopTags: 1,
+					Limit:   10,
+				},
+			},
+			setup: func(store *miniredis.Miniredis) {
+				store.Set(redisconsts.BuildRecommendUserProfileKey(1001), "not-a-hash")
+			},
+			userID:     1001,
+			wantResult: recommendProfileResultError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, redisClient := newFollowFeedRedis(t)
+			if tt.setup != nil {
+				tt.setup(store)
+			}
+
+			oldProfile := recordRecommendProfileMetric
+			defer func() {
+				recordRecommendProfileMetric = oldProfile
+			}()
+
+			results := map[string]int{}
+			recordRecommendProfileMetric = func(result string) {
+				results[result]++
+			}
+
+			logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+				Config: contentconfig.Config{
+					Recommend: tt.cfg,
+				},
+				Redis: redisClient,
+			})
+
+			_, _, _ = logic.recallRecommendCandidates(
+				&contentpb.RecommendFeedReq{UserId: &tt.userID},
+				1,
+				tt.cfg,
+				recommendVariantControl,
+			)
+
+			if results[tt.wantResult] != 1 {
+				t.Fatalf("profile metrics = %#v, want one %s", results, tt.wantResult)
+			}
+		})
+	}
+}
+
 func TestRecommendEnhancementEmitsExposureTrackEvents(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
