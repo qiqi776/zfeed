@@ -88,3 +88,4 @@ Oss:
 
 SessionTTL: 86400
 CountRPCTimeoutMs: 200
+DisableRecommendInteractionTrack: false

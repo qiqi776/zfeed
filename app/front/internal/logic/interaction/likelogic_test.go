@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"zfeed/app/front/internal/config"
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
 	contentpb "zfeed/app/rpc/content/content"
@@ -265,6 +266,40 @@ func TestLikeIgnoresRecommendTrackFailure(t *testing.T) {
 	}
 	if feedRPC.trackReq == nil {
 		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
+	}
+}
+
+func TestLikeSkipsRecommendTrackWhenDisabled(t *testing.T) {
+	contentID := int64(2001)
+	scene := "ARTICLE"
+	likeRPC := &fakeLikeService{}
+	feedRPC := &fakeFeedService{}
+	logic := NewLikeLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{
+			Config: config.Config{
+				DisableRecommendInteractionTrack: true,
+			},
+			LikeRpc: likeRPC,
+			FeedRpc: feedRPC,
+		},
+	)
+
+	resp, err := logic.Like(&types.LikeReq{
+		ContentId: &contentID,
+		Scene:     &scene,
+	})
+	if err != nil {
+		t.Fatalf("Like returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Like returned nil response")
+	}
+	if likeRPC.likeReq == nil {
+		t.Fatal("LikeRpc.Like was not called")
+	}
+	if feedRPC.trackReq != nil {
+		t.Fatalf("FeedRpc.EmitRecommendTrack was called: %+v", feedRPC.trackReq)
 	}
 }
 

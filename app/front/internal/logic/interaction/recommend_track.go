@@ -24,6 +24,9 @@ func emitRecommendTrack(
 	if svcCtx == nil || svcCtx.FeedRpc == nil || eventType == "" || userID <= 0 || contentID <= 0 {
 		return
 	}
+	if svcCtx.Config.DisableRecommendInteractionTrack {
+		return
+	}
 
 	_, err := svcCtx.FeedRpc.EmitRecommendTrack(ctx, &contentpb.EmitRecommendTrackReq{
 		UserId:     userID,
