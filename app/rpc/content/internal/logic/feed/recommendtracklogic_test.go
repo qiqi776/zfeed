@@ -235,3 +235,49 @@ func TestEmitRecommendTrackUpdatesUserProfileAfterSuccessfulEmit(t *testing.T) {
 		})
 	}
 }
+
+func TestEmitRecommendTrackSkipsShortDwellProfileUpdate(t *testing.T) {
+	store := miniredis.RunT(t)
+	redisClient := gzredis.MustNewRedis(gzredis.RedisConf{
+		Host: store.Addr(),
+		Type: "node",
+	})
+	cfg := contentconfig.RecommendConfig{}
+	contentID := int64(2001)
+	if err := recommend.WriteContentTags(
+		context.Background(),
+		redisClient,
+		cfg,
+		contentID,
+		map[string]float64{"go": 1},
+		1,
+	); err != nil {
+		t.Fatalf("WriteContentTags returned error: %v", err)
+	}
+
+	producer := &fakeRecommendTrackProducer{}
+	logic := NewRecommendTrackLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: cfg,
+		},
+		Redis:                  redisClient,
+		RecommendTrackProducer: producer,
+	})
+
+	if _, err := logic.EmitRecommendTrack(&contentpb.EmitRecommendTrackReq{
+		UserId:     1001,
+		EventType:  track.EventTypeDwell,
+		ContentId:  contentID,
+		DwellMs:    5_000,
+		Source:     "recommend",
+		OccurredAt: 123456,
+	}); err != nil {
+		t.Fatalf("EmitRecommendTrack returned error: %v", err)
+	}
+	if len(producer.events) != 1 {
+		t.Fatalf("emitted events = %+v, want one dwell track event", producer.events)
+	}
+	if store.Exists(redisconsts.BuildRecommendUserProfileKey(1001)) {
+		t.Fatal("profile key exists after short dwell, want no profile update")
+	}
+}

@@ -18,6 +18,8 @@ const (
 	ActionClick    = "click"
 	ActionDwell    = "dwell"
 	ActionUnlike   = "unlike"
+
+	MinProfileDwellMs int64 = 10_000
 )
 
 type ProfileEvent struct {
@@ -91,14 +93,18 @@ func LoadUserProfile(ctx context.Context, rds *redis.Redis, userID int64, cfg co
 	return topWeights(tags, cfg.TopTags), nil
 }
 
-func ProfileActionForEventType(eventType string) (string, bool) {
+func ProfileActionForTrackEvent(eventType string, dwellMs int64) (string, bool) {
 	switch eventType {
 	case ActionClick,
-		ActionDwell,
 		ActionLike,
 		ActionFavorite,
 		ActionComment,
 		ActionUnlike:
+		return eventType, true
+	case ActionDwell:
+		if dwellMs < MinProfileDwellMs {
+			return "", false
+		}
 		return eventType, true
 	default:
 		return "", false

@@ -1233,6 +1233,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 已新增 `zfeed_rec_metric_daily` MySQL 表和 `DailyAggregator` 聚合写入组件，可按 `metric_date + variant_id + source` 累加 exposure、click、dwell、like、favorite、comment 和停留时长。
 - `content-rpc` 已新增 `zfeed-rec-track` consumer，消费推荐埋点 JSON 后调用 `DailyAggregator` 写入日聚合表；consumer 配置已加入 `content.yaml`。
 - `zfeed-rec-track` consumer 已在日聚合前复用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`，同一 `event_id` 重放依赖既有 profile 事件去重避免重复加权，后续 interaction outbox 或 Canal 只要投递同结构事件即可异步更新画像。
+- `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 
 已验证：
 
@@ -1283,6 +1284,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend/track -run TestIsClientEventTypeAllowsInteractionEvents/unlike -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestEmitRecommendTrackUpdatesUserProfileAfterSuccessfulEmit/unlike -count=1`
 - `go test ./app/front/internal/logic/interaction -run TestUnlikeEmitsRecommendTrackAfterSuccess -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run 'TestEmitRecommendTrack(SkipsShortDwellProfileUpdate|UpdatesUserProfileAfterSuccessfulEmit/dwell)' -count=1`
+- `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerAppliesProfileEvent -count=1`
 
 剩余缺口：
 
@@ -1320,3 +1323,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Emit favorite and comment recommendation track events from front-api interaction paths | Codex |
 | 2026-06-15 | 1.0.0   | Apply user profile updates from recommendation track consumer | Codex |
 | 2026-06-15 | 1.0.0   | Add unlike recommendation track and profile decrement support | Codex |
+| 2026-06-15 | 1.0.0   | Gate dwell profile updates at ten seconds | Codex |

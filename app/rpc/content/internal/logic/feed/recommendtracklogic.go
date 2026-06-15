@@ -57,7 +57,7 @@ func (l *RecommendTrackLogic) applyProfileEvent(event track.Event) {
 		return
 	}
 
-	eventType, ok := recommend.ProfileActionForEventType(event.EventType)
+	eventType, ok := recommend.ProfileActionForTrackEvent(event.EventType, event.DwellMs)
 	if !ok {
 		return
 	}

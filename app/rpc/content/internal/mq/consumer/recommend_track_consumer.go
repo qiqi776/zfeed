@@ -89,7 +89,7 @@ type redisProfileUpdater struct {
 }
 
 func (u redisProfileUpdater) Apply(ctx context.Context, event track.Event) error {
-	action, ok := recommend.ProfileActionForEventType(event.EventType)
+	action, ok := recommend.ProfileActionForTrackEvent(event.EventType, event.DwellMs)
 	if !ok {
 		return nil
 	}
