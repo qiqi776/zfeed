@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zeromicro/go-zero/core/logc"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -20,6 +21,8 @@ const (
 	recommendTrackSourceInteraction = "interaction"
 
 	interactionEventTypeCancelLike = "cancel_like"
+
+	interactionCommentStatusNormal int32 = 10
 )
 
 type dailyAggregator interface {
@@ -93,7 +96,12 @@ func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) err
 
 type recommendTrackEnvelope struct {
 	track.Event
-	Timestamp int64 `json:"timestamp"`
+	Timestamp int64  `json:"timestamp"`
+	ID        int64  `json:"id"`
+	Comment   string `json:"comment"`
+	Status    int32  `json:"status"`
+	IsDeleted int32  `json:"is_deleted"`
+	CreatedAt string `json:"created_at"`
 }
 
 func parseRecommendTrackEvent(val string) (track.Event, error) {
@@ -105,6 +113,10 @@ func parseRecommendTrackEvent(val string) (track.Event, error) {
 	event := raw.Event
 	if event.Source != "" || event.OccurredAt > 0 {
 		return event, nil
+	}
+
+	if commentEvent, ok := normalizeCommentRow(raw); ok {
+		return commentEvent, nil
 	}
 
 	switch event.EventType {
@@ -121,6 +133,30 @@ func parseRecommendTrackEvent(val string) (track.Event, error) {
 	}
 
 	return event, nil
+}
+
+func normalizeCommentRow(raw recommendTrackEnvelope) (track.Event, bool) {
+	event := raw.Event
+	if event.EventType != "" ||
+		raw.ID <= 0 ||
+		event.UserID <= 0 ||
+		event.ContentID <= 0 ||
+		raw.Status != interactionCommentStatusNormal ||
+		raw.IsDeleted != 0 ||
+		strings.TrimSpace(raw.Comment) == "" {
+		return track.Event{}, false
+	}
+
+	event.EventID = "comment_" +
+		strconv.FormatInt(event.UserID, 10) +
+		"_" +
+		strconv.FormatInt(event.ContentID, 10) +
+		"_" +
+		strconv.FormatInt(raw.ID, 10)
+	event.EventType = track.EventTypeComment
+	event.Source = recommendTrackSourceInteraction
+	event.OccurredAt = unixSecondsFromCreatedAt(raw.CreatedAt)
+	return event, true
 }
 
 func interactionEventUnixSeconds(eventID string, timestamp int64) int64 {
@@ -147,6 +183,26 @@ func unixNanoFromEventID(eventID string) int64 {
 
 func unixNanoToSeconds(timestamp int64) int64 {
 	return timestamp / 1_000_000_000
+}
+
+func unixSecondsFromCreatedAt(createdAt string) int64 {
+	createdAt = strings.TrimSpace(createdAt)
+	if createdAt == "" {
+		return 0
+	}
+
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		"2006-01-02 15:04:05.999",
+		time.DateTime,
+	} {
+		parsed, err := time.Parse(layout, createdAt)
+		if err == nil {
+			return parsed.Unix()
+		}
+	}
+
+	return 0
 }
 
 type redisProfileUpdater struct {

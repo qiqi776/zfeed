@@ -146,6 +146,33 @@ func TestRecommendTrackConsumerNormalizesFavoriteEventRow(t *testing.T) {
 	}
 }
 
+func TestRecommendTrackConsumerNormalizesCommentRow(t *testing.T) {
+	aggregator := &fakeDailyAggregator{}
+	updater := &fakeProfileUpdater{}
+	consumer := newRecommendTrackConsumerWithProfileForTest(context.Background(), aggregator, updater)
+	raw := `{"id":9001,"content_id":2001,"content_user_id":3001,"user_id":1001,` +
+		`"comment":"nice post","status":10,"is_deleted":0,"created_at":"1970-01-01T00:00:42Z"}`
+
+	if err := consumer.Consume(context.Background(), "", raw); err != nil {
+		t.Fatalf("Consume returned error: %v", err)
+	}
+
+	want := track.Event{
+		EventID:    "comment_1001_2001_9001",
+		EventType:  track.EventTypeComment,
+		UserID:     1001,
+		ContentID:  2001,
+		Source:     "interaction",
+		OccurredAt: 42,
+	}
+	if len(updater.events) != 1 || updater.events[0] != want {
+		t.Fatalf("profile events = %+v, want [%+v]", updater.events, want)
+	}
+	if len(aggregator.events) != 1 || aggregator.events[0] != want {
+		t.Fatalf("aggregated events = %+v, want [%+v]", aggregator.events, want)
+	}
+}
+
 func TestRecommendTrackConsumerAppliesProfileEvent(t *testing.T) {
 	store := miniredis.RunT(t)
 	redisClient := gzredis.MustNewRedis(gzredis.RedisConf{

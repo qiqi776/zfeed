@@ -1235,6 +1235,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `zfeed-rec-track` consumer 已在日聚合前复用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`，同一 `event_id` 重放依赖既有 profile 事件去重避免重复加权，后续 interaction outbox 或 Canal 只要投递同结构事件即可异步更新画像。
 - `zfeed-rec-track` consumer 已兼容 interaction-rpc `zfeed-like` 原始事件，能将 `timestamp` 归一化为秒级 `occurred_at`，并把 `cancel_like` 映射为推荐画像使用的 `unlike`。
 - `zfeed-rec-track` consumer 已兼容 `zfeed_favorite_event` 的新增收藏原始事件，能从 `event_id` 末段 UnixNano 推导秒级 `occurred_at`，并以 `Source=interaction` 写入画像和日聚合。
+- `zfeed-rec-track` consumer 已兼容 `zfeed_comment` 正常未删除评论行，使用 `comment_{user_id}_{content_id}_{comment_id}` 派生幂等 `event_id`，并从 `created_at` 解析 `occurred_at`。
 - `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 - `ApplyProfileEvent` 已按 `_updated_at` 对既有 tag 权重执行 `exp(-hours_since_update/168)` 时间衰减，再叠加本次行为权重。
 
@@ -1293,11 +1294,12 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/mq/consumer -run 'TestRecommendTrackConsumer(NormalizesInteractionLikeEvent|MapsCancelLikeToUnlike)' -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerNormalizesFavoriteEventRow -count=1`
+- `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerNormalizesCommentRow -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike，`front-api` 点赞、取消点赞、收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like` 和 `favorite` 原始事件已兼容，取消收藏和评论的 outbox/Canal 事件源仍待补齐。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike，`front-api` 点赞、取消点赞、收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite` 和 `comment` 原始事件已兼容，取消收藏事件是否需要负反馈仍待定义。
 
 ## Change Log
 
@@ -1334,3 +1336,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Apply time decay to recommendation user profile weights | Codex |
 | 2026-06-15 | 1.0.0   | Normalize interaction like raw events in recommendation track consumer | Codex |
 | 2026-06-15 | 1.0.0   | Normalize favorite raw events in recommendation track consumer | Codex |
+| 2026-06-15 | 1.0.0   | Normalize comment raw rows in recommendation track consumer | Codex |
