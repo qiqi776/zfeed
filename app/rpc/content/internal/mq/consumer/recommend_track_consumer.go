@@ -3,6 +3,8 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"strconv"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/logc"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -101,21 +103,46 @@ func parseRecommendTrackEvent(val string) (track.Event, error) {
 	}
 
 	event := raw.Event
-	if event.Source != "" || event.OccurredAt > 0 || raw.Timestamp <= 0 {
+	if event.Source != "" || event.OccurredAt > 0 {
 		return event, nil
 	}
 
 	switch event.EventType {
 	case track.EventTypeLike:
 		event.Source = recommendTrackSourceInteraction
-		event.OccurredAt = unixNanoToSeconds(raw.Timestamp)
+		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
 	case interactionEventTypeCancelLike:
 		event.EventType = track.EventTypeUnlike
 		event.Source = recommendTrackSourceInteraction
-		event.OccurredAt = unixNanoToSeconds(raw.Timestamp)
+		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
+	case track.EventTypeFavorite:
+		event.Source = recommendTrackSourceInteraction
+		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
 	}
 
 	return event, nil
+}
+
+func interactionEventUnixSeconds(eventID string, timestamp int64) int64 {
+	if timestamp <= 0 {
+		timestamp = unixNanoFromEventID(eventID)
+	}
+	if timestamp <= 0 {
+		return 0
+	}
+	return unixNanoToSeconds(timestamp)
+}
+
+func unixNanoFromEventID(eventID string) int64 {
+	idx := strings.LastIndex(eventID, "_")
+	if idx < 0 || idx == len(eventID)-1 {
+		return 0
+	}
+	timestamp, err := strconv.ParseInt(eventID[idx+1:], 10, 64)
+	if err != nil {
+		return 0
+	}
+	return timestamp
 }
 
 func unixNanoToSeconds(timestamp int64) int64 {
