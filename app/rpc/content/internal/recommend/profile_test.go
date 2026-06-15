@@ -132,6 +132,54 @@ func TestApplyProfileEventTrimsProfileTagsToTopWeights(t *testing.T) {
 	}
 }
 
+func TestApplyProfileEventStoresProfileMetadata(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	cfg := contentconfig.RecommendConfig{}
+	contentID := int64(2003)
+	if err := WriteContentTags(
+		context.Background(),
+		client,
+		cfg,
+		contentID,
+		map[string]float64{
+			"go":    1,
+			"redis": 0.5,
+		},
+		1,
+	); err != nil {
+		t.Fatalf("WriteContentTags returned error: %v", err)
+	}
+
+	if err := ApplyProfileEvent(context.Background(), client, cfg, ProfileEvent{
+		EventID:   "evt-meta-1",
+		EventType: ActionLike,
+		UserID:    1001,
+		ContentID: contentID,
+	}); err != nil {
+		t.Fatalf("ApplyProfileEvent returned error: %v", err)
+	}
+
+	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+	if got := store.HGet(profileKey, "_tag_count"); got != "2" {
+		t.Fatalf("_tag_count = %q, want 2", got)
+	}
+	if got := store.HGet(profileKey, "_positive_count"); got != "2" {
+		t.Fatalf("_positive_count = %q, want 2", got)
+	}
+	if got := store.HGet(profileKey, "_negative_count"); got != "0" {
+		t.Fatalf("_negative_count = %q, want 0", got)
+	}
+	if got := store.HGet(profileKey, "_profile_version"); got != "1" {
+		t.Fatalf("_profile_version = %q, want 1", got)
+	}
+	if got := store.HGet(profileKey, "_last_event_id"); got != "evt-meta-1" {
+		t.Fatalf("_last_event_id = %q, want evt-meta-1", got)
+	}
+	if got := store.HGet(profileKey, "_last_active_at"); got == "" {
+		t.Fatal("_last_active_at is empty, want unix timestamp")
+	}
+}
+
 func assertFloatWithin(t *testing.T, name string, got, want, tolerance float64) {
 	t.Helper()
 

@@ -86,6 +86,9 @@ func ApplyProfileEvent(ctx context.Context, rds *redis.Redis, cfg contentconfig.
 	if err := trimProfileTags(ctx, rds, profileKey, maxProfileTags); err != nil {
 		return err
 	}
+	if err := updateProfileMetadata(ctx, rds, profileKey, event.EventID, now); err != nil {
+		return err
+	}
 	return rds.ExpireCtx(ctx, profileKey, cfg.Interest.ProfileTTL)
 }
 
@@ -205,5 +208,49 @@ func trimProfileTags(ctx context.Context, rds *redis.Redis, profileKey string, l
 	}
 
 	_, err = rds.HdelCtx(ctx, profileKey, fields...)
+	return err
+}
+
+func updateProfileMetadata(
+	ctx context.Context,
+	rds *redis.Redis,
+	profileKey string,
+	eventID string,
+	now time.Time,
+) error {
+	if rds == nil || profileKey == "" {
+		return nil
+	}
+
+	raw, err := rds.HgetallCtx(ctx, profileKey)
+	if err != nil {
+		return err
+	}
+	var positiveCount int
+	var negativeCount int
+	for _, weight := range parseWeights(raw) {
+		if weight > 0 {
+			positiveCount++
+			continue
+		}
+		negativeCount++
+	}
+
+	fields := map[string]string{
+		"_tag_count":      strconv.Itoa(positiveCount + negativeCount),
+		"_positive_count": strconv.Itoa(positiveCount),
+		"_negative_count": strconv.Itoa(negativeCount),
+		"_last_active_at": strconv.FormatInt(now.Unix(), 10),
+	}
+	if eventID != "" {
+		fields["_last_event_id"] = eventID
+	}
+	for field, value := range fields {
+		if err := rds.HsetCtx(ctx, profileKey, field, value); err != nil {
+			return err
+		}
+	}
+
+	_, err = rds.HincrbyCtx(ctx, profileKey, "_profile_version", 1)
 	return err
 }
