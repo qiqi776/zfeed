@@ -174,6 +174,7 @@ func TestEmitRecommendTrackUpdatesUserProfileAfterSuccessfulEmit(t *testing.T) {
 		{name: "like", eventType: track.EventTypeLike, wantGo: 1},
 		{name: "favorite", eventType: track.EventTypeFavorite, wantGo: 3},
 		{name: "comment", eventType: track.EventTypeComment, wantGo: 2},
+		{name: "unlike", eventType: "unlike", wantGo: -0.8},
 	}
 
 	for _, tt := range tests {

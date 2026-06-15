@@ -18,6 +18,7 @@ func TestIsClientEventTypeAllowsInteractionEvents(t *testing.T) {
 		{name: "like", eventType: EventTypeLike, want: true},
 		{name: "favorite", eventType: EventTypeFavorite, want: true},
 		{name: "comment", eventType: EventTypeComment, want: true},
+		{name: "unlike", eventType: "unlike", want: true},
 		{name: "exposure is server side", eventType: EventTypeExposure, want: false},
 		{name: "unknown", eventType: "share", want: false},
 	}

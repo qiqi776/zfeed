@@ -97,7 +97,8 @@ func ProfileActionForEventType(eventType string) (string, bool) {
 		ActionDwell,
 		ActionLike,
 		ActionFavorite,
-		ActionComment:
+		ActionComment,
+		ActionUnlike:
 		return eventType, true
 	default:
 		return "", false

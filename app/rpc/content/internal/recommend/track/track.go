@@ -15,6 +15,7 @@ const (
 	EventTypeLike     = "like"
 	EventTypeFavorite = "favorite"
 	EventTypeComment  = "comment"
+	EventTypeUnlike   = "unlike"
 )
 
 type Event struct {
@@ -38,7 +39,8 @@ func IsClientEventType(eventType string) bool {
 		EventTypeDwell,
 		EventTypeLike,
 		EventTypeFavorite,
-		EventTypeComment:
+		EventTypeComment,
+		EventTypeUnlike:
 		return true
 	default:
 		return false

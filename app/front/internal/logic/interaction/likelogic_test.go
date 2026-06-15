@@ -14,7 +14,8 @@ import (
 )
 
 type fakeLikeService struct {
-	likeReq *interactionpb.LikeReq
+	likeReq   *interactionpb.LikeReq
+	unlikeReq *interactionpb.UnlikeReq
 }
 
 func (f *fakeLikeService) Like(
@@ -27,10 +28,11 @@ func (f *fakeLikeService) Like(
 }
 
 func (f *fakeLikeService) Unlike(
-	context.Context,
-	*interactionpb.UnlikeReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.UnlikeReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.UnlikeRes, error) {
+	f.unlikeReq = in
 	return &interactionpb.UnlikeRes{}, nil
 }
 
@@ -261,6 +263,45 @@ func TestLikeIgnoresRecommendTrackFailure(t *testing.T) {
 	}
 	if feedRPC.trackReq == nil {
 		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
+	}
+}
+
+func TestUnlikeEmitsRecommendTrackAfterSuccess(t *testing.T) {
+	contentID := int64(2001)
+	scene := "ARTICLE"
+	likeRPC := &fakeLikeService{}
+	feedRPC := &fakeFeedService{}
+	logic := NewUnlikeLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{
+			LikeRpc: likeRPC,
+			FeedRpc: feedRPC,
+		},
+	)
+
+	resp, err := logic.Unlike(&types.UnlikeReq{
+		ContentId: &contentID,
+		Scene:     &scene,
+	})
+	if err != nil {
+		t.Fatalf("Unlike returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Unlike returned nil response")
+	}
+	if likeRPC.unlikeReq == nil {
+		t.Fatal("LikeRpc.Unlike was not called")
+	}
+	if feedRPC.trackReq == nil {
+		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
+	}
+
+	got := feedRPC.trackReq
+	if got.GetUserId() != 1001 ||
+		got.GetEventType() != "unlike" ||
+		got.GetContentId() != contentID ||
+		got.GetSource() != "interaction" {
+		t.Fatalf("recommend track request = %+v", got)
 	}
 }
 
