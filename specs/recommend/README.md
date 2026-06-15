@@ -1243,6 +1243,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `interaction-rpc` 已新增统一 user-action 事件模型、`zfeed_user_action_outbox`、Kafka producer 和后台 relay，可向 `zfeed-user-action` 发布 `action/target_id/source/occurred_at` 形态事件。
 - `front-api` 已新增 `DisableRecommendInteractionTrack` 迁移开关，默认保持现有同步推荐埋点；迁移到 interaction-rpc user-action outbox 时可关闭同步埋点，避免同一互动行为重复加权。
 - `interaction-rpc` 收藏和取消收藏写路径已在状态实际变化后调用 `UserActionProducer` 发出 `favorite` / `unfavorite` user-action；发送失败只记录日志，不回滚收藏业务。
+- 2026-06-15 同步点：推荐链路代码进度已停在 `a010081 接入收藏推荐用户行为事件`；like/cancel_like 与 comment 写路径尚未接入 `UserActionProducer`，下一步先处理 like/cancel_like。
 - `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 - `ApplyProfileEvent` 已按 `_updated_at` 对既有 tag 权重执行 `exp(-hours_since_update/168)` 时间衰减，再叠加本次行为权重。
 
@@ -1359,3 +1360,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Add interaction user-action outbox producer infrastructure | Codex |
 | 2026-06-15 | 1.0.0   | Add front-api recommend interaction track migration switch | Codex |
 | 2026-06-15 | 1.0.0   | Emit favorite user-action events from interaction-rpc write paths | Codex |
+| 2026-06-15 | 1.0.0   | Sync recommend implementation checkpoint after favorite user-action wiring | Codex |
