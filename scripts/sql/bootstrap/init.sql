@@ -23,3 +23,4 @@ SOURCE /seed-sql/zfeed_mq_consume_dedup.sql;
 SOURCE /seed-sql/zfeed_comment.sql;
 SOURCE /seed-sql/zfeed_comment_migrate.sql;
 SOURCE /seed-sql/zfeed_count_value.sql;
+SOURCE /seed-sql/zfeed_rec_metric_daily.sql;

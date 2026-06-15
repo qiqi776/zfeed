@@ -1229,6 +1229,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 个性化 snapshot 翻页已读取 `feed:rec:user:snapmeta:{snapshot_id}` 的 variant 和 config_hash，旧 snapshot 翻页继续按生成时的实验版本记录请求与曝光，不受新 runtime 配置覆盖。
 - click/dwell 客户端埋点上报成功后，会同步调用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`；画像更新失败只记录 `zfeed_recommend_error_total{stage="profile_update",variant}` 和日志，不影响埋点上报响应。
 - 推荐客户端埋点白名单已扩展到 `like`、`favorite`、`comment`，这些事件写入 `zfeed-rec-track` 成功后会复用同一画像更新路径，按既有权重增量更新用户兴趣标签。
+- 已新增 `zfeed_rec_metric_daily` MySQL 表和 `DailyAggregator` 聚合写入组件，可按 `metric_date + variant_id + source` 累加 exposure、click、dwell、like、favorite、comment 和停留时长。
 
 已验证：
 
@@ -1266,10 +1267,12 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend -run 'Test.*Profile|Test.*Tags' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestEmitRecommendTrack -count=1`
 - `go test ./app/rpc/content/internal/recommend/track -run TestIsClientEventTypeAllowsInteractionEvents -count=1`
+- `go test ./app/rpc/content/internal/recommend/track -run TestDailyAggregator -count=1`
+- `go test ./app/rpc/content/internal/recommend/track -count=1`
 
 剩余缺口：
 
-- 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入，以及 click/dwell/like/favorite/comment 客户端上报入口和对画像的同步更新；日聚合表还未落地。
+- 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入，以及 click/dwell/like/favorite/comment 客户端上报入口和对画像的同步更新；日聚合表和聚合写入组件已落地，但 Kafka consumer 调用聚合器的链路还未接入。
 - 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment；interaction outbox、Canal 消费或定时 worker 尚未接入，真实互动写路径还不会自动投递推荐画像事件。
 
 ## Change Log
@@ -1297,3 +1300,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-14 | 1.0.0   | Add personalized snapshot meta variant lookup and config hash isolation tests | Codex |
 | 2026-06-15 | 1.0.0   | Update user profile from successful click/dwell recommend track events | Codex |
 | 2026-06-15 | 1.0.0   | Allow like/favorite/comment recommend track events to update user profile | Codex |
+| 2026-06-15 | 1.0.0   | Add recommendation daily metric table and aggregator | Codex |
