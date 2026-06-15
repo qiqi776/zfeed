@@ -1284,6 +1284,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 兴趣召回读取画像时已只保留正权重 tag 参与 `MinTags` 冷启动门槛和 TopTags 排序，`unlike/unfavorite` 等负反馈不会把冷启动用户误判为可兴趣召回。
 - 2026-06-15 收尾同步点：推荐增强主链路、user-action 迁移观测、tag index 周期刷新、`empty_recall` 兜底记录、`FallbackToHot` 错误策略和兴趣召回正权重冷启动门槛均已完成并验证；后续以线上运行观察和数据校验为主。
 - `ApplyProfileEvent` 已在画像更新后按权重保留 Top 50 标签，避免长期互动用户的 `rec:user:profile:{user_id}` 标签字段无限增长，同时保留 `_updated_at` 等元数据字段。
+- 兴趣召回已使用 `rec:tag:index:{tag}` 的 ZSET score 做候选池全局归一化，再乘以用户画像 tag 权重累加，避免只按 rank 衰减导致低分标签命中压过高分内容。
 
 已验证：
 
@@ -1388,6 +1389,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecommendFallbackToHot(DisabledReturnsEnhancementError|EnabledKeepsHotFallbackOnEnhancementError)' -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestLoadUserProfileRequiresEnoughPositiveTags -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestApplyProfileEventTrimsProfileTagsToTopWeights -count=1`
+- `go test ./app/rpc/content/internal/recommend -run TestRecallInterestUsesTagIndexScores -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 
@@ -1459,3 +1461,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Require positive profile tags for interest recall cold-start gate | Codex |
 | 2026-06-15 | 1.0.0   | 同步推荐迁移收尾进度和剩余观测项 | Codex |
 | 2026-06-15 | 1.0.0   | Trim recommendation profile tags to top weights after updates | Codex |
+| 2026-06-15 | 1.0.0   | Use tag index scores in interest recall ranking | Codex |

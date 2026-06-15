@@ -27,6 +27,8 @@ func RecallInterest(
 	}
 
 	scoreByID := make(map[int64]float64)
+	tagPairs := make([]interestTagPairs, 0, len(profile))
+	var maxScore float64
 	for tag, profileWeight := range profile {
 		pairs, err := rds.ZrevrangeWithScoresByFloatCtx(
 			ctx,
@@ -37,14 +39,43 @@ func RecallInterest(
 		if err != nil {
 			return nil, err
 		}
-		for rank, pair := range pairs {
+		tagPairs = append(tagPairs, interestTagPairs{
+			profileWeight: profileWeight,
+			pairs:         pairs,
+		})
+		maxScore = max(maxScore, maxFloatPairScore(pairs))
+	}
+	for _, tagPair := range tagPairs {
+		for _, pair := range tagPair.pairs {
 			id, err := strconv.ParseInt(pair.Key, 10, 64)
 			if err != nil || id <= 0 {
 				continue
 			}
-			scoreByID[id] += profileWeight * rankScore(rank)
+			scoreByID[id] += tagPair.profileWeight * normalizeTagIndexScore(pair.Score, maxScore)
 		}
 	}
 
 	return rankIDs(scoreByID, cfg.Limit), nil
+}
+
+type interestTagPairs struct {
+	profileWeight float64
+	pairs         []redis.FloatPair
+}
+
+func maxFloatPairScore(pairs []redis.FloatPair) float64 {
+	var maxScore float64
+	for _, pair := range pairs {
+		if pair.Score > maxScore {
+			maxScore = pair.Score
+		}
+	}
+	return maxScore
+}
+
+func normalizeTagIndexScore(score, maxScore float64) float64 {
+	if score <= 0 || maxScore <= 0 {
+		return 0
+	}
+	return score / maxScore
 }
