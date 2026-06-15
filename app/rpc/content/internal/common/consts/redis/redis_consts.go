@@ -18,6 +18,7 @@ const (
 	RecommendContentTagsPrefix    = "rec:content:tags"
 	RecommendTagIndexPrefix       = "rec:tag:index"
 	RecommendSeenPrefix           = "rec:seen"
+	RecommendSeenHistoryPrefix    = "rec:seen:history"
 	RecommendSeenCountPrefix      = "rec:seen:count"
 	RecommendCandidatePrefix      = "feed:rec:candidate"
 	RecommendUserSnapshotPrefix   = "feed:rec:user:snap"
@@ -77,6 +78,10 @@ func BuildRecommendTagIndexKey(tag string) string {
 
 func BuildRecommendSeenKey(userID int64) string {
 	return fmt.Sprintf("%s:%d", RecommendSeenPrefix, userID)
+}
+
+func BuildRecommendSeenHistoryKey(userID int64, contentID int64) string {
+	return fmt.Sprintf("%s:%d:%d", RecommendSeenHistoryPrefix, userID, contentID)
 }
 
 func BuildRecommendSeenCountKey(userID int64) string {

@@ -142,6 +142,9 @@ func ApplyRuntimeOverrides(cfg *contentconfig.RecommendConfig, raw map[string]st
 	if value, ok := parseNonNegativeFloat(raw["rank.seen_penalty"]); ok {
 		cfg.Rank.SeenPenalty = value
 	}
+	if value, ok := parsePositiveInt(raw["rank.repeated_seen_filter_n"]); ok {
+		cfg.Rank.RepeatedSeenFilterN = value
+	}
 	if value, ok := parseBool(raw["diversity.enabled"]); ok {
 		cfg.Diversity.Enabled = value
 	}

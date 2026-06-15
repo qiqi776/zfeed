@@ -34,8 +34,9 @@ func TestNormalizeConfigFillsRecommendDefaults(t *testing.T) {
 		got.Rank.BetaInterest != 0.30 ||
 		got.Rank.GammaFresh != 0.20 ||
 		got.Rank.DeltaQuality != 0.05 ||
-		got.Rank.SeenPenalty != 0.30 {
-		t.Fatalf("Rank defaults = %+v, want alpha/beta/gamma/delta/penalty 0.45/0.30/0.20/0.05/0.30", got.Rank)
+		got.Rank.SeenPenalty != 0.30 ||
+		got.Rank.RepeatedSeenFilterN != 2 {
+		t.Fatalf("Rank defaults = %+v, want alpha/beta/gamma/delta/penalty/filter 0.45/0.30/0.20/0.05/0.30/2", got.Rank)
 	}
 	if got.Diversity.NewContentTopN != 20 || got.Diversity.NewContentMinCount != 2 {
 		t.Fatalf("Diversity new content defaults = %+v, want top_n=20 min_count=2", got.Diversity)
@@ -90,6 +91,9 @@ func TestLoadRuntimeConfigMergesRedisOverrides(t *testing.T) {
 	}
 	if err := client.HsetCtx(context.Background(), RuntimeFlagKey, "rank.gamma_fresh", "0.10"); err != nil {
 		t.Fatalf("hset gamma: %v", err)
+	}
+	if err := client.HsetCtx(context.Background(), RuntimeFlagKey, "rank.repeated_seen_filter_n", "3"); err != nil {
+		t.Fatalf("hset repeated seen filter: %v", err)
 	}
 	if err := client.HsetCtx(context.Background(), RuntimeFlagKey, "diversity.author_window", "9"); err != nil {
 		t.Fatalf("hset author window: %v", err)
@@ -160,6 +164,9 @@ func TestLoadRuntimeConfigMergesRedisOverrides(t *testing.T) {
 	assertFloat(t, "Rank.AlphaHot", got.Rank.AlphaHot, 0.45)
 	assertFloat(t, "Rank.BetaInterest", got.Rank.BetaInterest, 0.60)
 	assertFloat(t, "Rank.GammaFresh", got.Rank.GammaFresh, 0.10)
+	if got.Rank.RepeatedSeenFilterN != 3 {
+		t.Fatalf("Rank.RepeatedSeenFilterN = %d, want 3", got.Rank.RepeatedSeenFilterN)
+	}
 	if got.Diversity.AuthorWindow != 9 {
 		t.Fatalf("Diversity.AuthorWindow = %d, want 9", got.Diversity.AuthorWindow)
 	}

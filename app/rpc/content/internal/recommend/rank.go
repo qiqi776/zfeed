@@ -52,12 +52,31 @@ func FineRank(candidates []Candidate, cfg contentconfig.RecommendRankConfig) []C
 			float64(candidate.SeenCount)*cfg.SeenPenalty
 		result = append(result, candidate)
 	}
+	result = filterRepeatedSeen(result, cfg.RepeatedSeenFilterN)
 	sort.SliceStable(result, func(i, j int) bool {
 		if result[i].FinalScore == result[j].FinalScore {
 			return result[i].ContentID > result[j].ContentID
 		}
 		return result[i].FinalScore > result[j].FinalScore
 	})
+	return result
+}
+
+func filterRepeatedSeen(candidates []Candidate, threshold int) []Candidate {
+	if len(candidates) <= 1 || threshold <= 0 {
+		return candidates
+	}
+
+	result := make([]Candidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if candidate.SeenCount >= threshold {
+			continue
+		}
+		result = append(result, candidate)
+	}
+	if len(result) == 0 {
+		return candidates
+	}
 	return result
 }
 

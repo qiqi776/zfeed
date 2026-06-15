@@ -145,6 +145,7 @@ Recommend:
     GammaFresh: 0.20
     DeltaQuality: 0.05
     SeenPenalty: 0.3
+    RepeatedSeenFilterN: 2
   Diversity:
     Enabled: true
     AuthorWindow: 5

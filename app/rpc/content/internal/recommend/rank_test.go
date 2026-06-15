@@ -60,3 +60,20 @@ func TestFineRankAppliesSeenPenalty(t *testing.T) {
 		t.Fatalf("top content id = %d, want unseen candidate 1002", got[0].ContentID)
 	}
 }
+
+func TestFineRankFiltersRepeatedSeenWhenPoolHasFallback(t *testing.T) {
+	candidates := []Candidate{
+		{ContentID: 1001, HotScore: 0.9, SeenCount: 2},
+		{ContentID: 1002, HotScore: 0.8, SeenCount: 1},
+		{ContentID: 1003, HotScore: 0.7},
+	}
+
+	got := FineRank(candidates, contentconfig.RecommendRankConfig{
+		AlphaHot:    1,
+		SeenPenalty: 0.1,
+	})
+	ids := IDs(got)
+	if len(ids) != 2 || ids[0] != 1002 || ids[1] != 1003 {
+		t.Fatalf("ids = %v, want repeated seen content filtered and fallback retained [1002 1003]", ids)
+	}
+}

@@ -87,7 +87,8 @@ func TestApplyExperimentVariantOverridesRecommendConfig(t *testing.T) {
 			Weight: 0.25,
 		},
 		Rank: contentconfig.RecommendRankConfig{
-			BetaInterest: 0.30,
+			BetaInterest:        0.30,
+			RepeatedSeenFilterN: 2,
 		},
 		Diversity: contentconfig.RecommendDiversityConfig{
 			AuthorWindow:       5,
@@ -100,6 +101,7 @@ func TestApplyExperimentVariantOverridesRecommendConfig(t *testing.T) {
 			"recall.hot.weight":               "0.40",
 			"recall.interest.weight":          "0.35",
 			"rank.beta_interest":              "0.40",
+			"rank.repeated_seen_filter_n":     "3",
 			"diversity.author_window":         "7",
 			"diversity.new_content_min_count": "3",
 		},
@@ -115,6 +117,9 @@ func TestApplyExperimentVariantOverridesRecommendConfig(t *testing.T) {
 	}
 	if got.Rank.BetaInterest != 0.40 {
 		t.Fatalf("Rank.BetaInterest = %f, want 0.40", got.Rank.BetaInterest)
+	}
+	if got.Rank.RepeatedSeenFilterN != 3 {
+		t.Fatalf("Rank.RepeatedSeenFilterN = %d, want 3", got.Rank.RepeatedSeenFilterN)
 	}
 	if got.Diversity.AuthorWindow != 7 {
 		t.Fatalf("Diversity.AuthorWindow = %d, want 7", got.Diversity.AuthorWindow)

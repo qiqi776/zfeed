@@ -1295,6 +1295,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 推荐候选缓存已新增 `feed:rec:candidate:{bucket}:{variant}:{config_hash}:detail` 并行 Hash，缓存命中后会恢复多路 `SourceScores` 和 `SourceRanks`；旧的 `:source` 主来源缓存仍兼容读取，避免短 TTL 老缓存命中时丢失曝光来源。
 - 热榜增强召回已直接读取 Redis ZSET score 生成候选 `HotScore` 和 `SourceScores["hot"]`，粗排阶段保留 `hot_score_norm` 对热榜候选的真实贡献，不再只按 rank 顺序回填热榜分。
 - 多样性重排已接入新内容保底规则，`NewContentTopN` / `NewContentMinCount` 支持 YAML、Redis 动态覆盖和实验覆盖；候选池存在新内容时会把新内容提升到前 N 条，调整量通过 `new_content_quota` 低基数规则记录。
+- 已曝光过滤已补齐最近 24 小时窗口与重复曝光阈值，`rec:seen:history:{user_id}:{content_id}` 记录单内容曝光历史并按精确 24 小时滑窗计数，`rec:seen:count:{user_id}` 仅作为旧累计数据兼容读取；`RepeatedSeenFilterN` 默认 2，当候选池仍有备选内容时，重复曝光达到阈值的候选会被过滤而非仅降权。
 
 已验证：
 
@@ -1416,6 +1417,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementUsesAccumulatedSeenPenalty -count=1`
 - `go test ./app/rpc/content/internal/recommend -run 'Test(DiversityRerankPromotesNewContentQuota|LoadRuntimeConfigMergesRedisOverrides|NormalizeConfigFillsRecommendDefaults|ApplyExperimentVariantOverridesRecommendConfig)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendMetricLabelNormalizersClampUnknownValues -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test(FineRankFiltersRepeatedSeenWhenPoolHasFallback|LoadSeenCountsUsesExactRollingTwentyFourHourHistory|LoadSeenCountsIgnoresLegacyCountWhenLastSeenExpired|LoadSeenCountsIgnoresExpiredDailyExposureCount|LoadSeenCountsReturnsOnlyRequestedIDs|RecordSeenContentsAccumulatesExposureCounts)' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementFiltersRepeatedSeenWhenCandidatesRemain -count=1`
 
 剩余缺口：
 
@@ -1496,3 +1499,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Preserve hot score in enhanced hot recall candidates | Codex |
 | 2026-06-15 | 1.0.0   | Record accumulated seen counts for repeated exposure penalty | Codex |
 | 2026-06-15 | 1.0.0   | Add new content quota to diversity rerank | Codex |
+| 2026-06-15 | 1.0.0   | Add repeated seen filtering with rolling 24h window | Codex |

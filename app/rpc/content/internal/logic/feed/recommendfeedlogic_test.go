@@ -807,6 +807,75 @@ func TestRecommendEnhancementUsesAccumulatedSeenPenalty(t *testing.T) {
 	}
 }
 
+func TestRecommendEnhancementFiltersRepeatedSeenWhenCandidatesRemain(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8951, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8951", coverURL: "cover-8951"},
+		{contentID: 8952, authorID: 2002, contentType: contentpb.ContentType_ARTICLE, title: "hot-8952", coverURL: "cover-8952"},
+	})
+
+	store.ZAdd(redisconsts.HotFeedKey, 100, "8951")
+	store.ZAdd(redisconsts.HotFeedKey, 90, "8952")
+	userID := int64(1001)
+	cfg := contentconfig.RecommendConfig{
+		Enabled: true,
+		Hot: contentconfig.RecommendHotConfig{
+			Enabled: true,
+			Weight:  1,
+			Limit:   10,
+		},
+		Rank: contentconfig.RecommendRankConfig{
+			AlphaHot:            1,
+			SeenPenalty:         0.1,
+			RepeatedSeenFilterN: 2,
+		},
+		Interest: contentconfig.RecommendInterestConfig{
+			Enabled: true,
+			Weight:  0.25,
+			Limit:   10,
+		},
+		Diversity: contentconfig.RecommendDiversityConfig{
+			Enabled: false,
+		},
+		SeenTTL: 3600,
+	}
+	for i := 0; i < 2; i++ {
+		if err := recommend.RecordSeenContents(
+			context.Background(),
+			redisClient,
+			cfg,
+			userID,
+			[]int64{8951},
+			time.Now(),
+		); err != nil {
+			t.Fatalf("RecordSeenContents #%d returned error: %v", i+1, err)
+		}
+	}
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: cfg,
+		},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		UserId:   &userID,
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	ids := recommendContentIDs(resp.GetItems())
+	if len(ids) != 1 || ids[0] != 8952 {
+		t.Fatalf("ids = %v, want repeated seen content filtered and fallback [8952]", ids)
+	}
+}
+
 func TestRecommendInterestRecallRecordsProfileMetrics(t *testing.T) {
 	tests := []struct {
 		name       string

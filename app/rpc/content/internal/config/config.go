@@ -113,12 +113,13 @@ type RecommendInterestConfig struct {
 }
 
 type RecommendRankConfig struct {
-	CoarseLimit  int
-	AlphaHot     float64
-	BetaInterest float64
-	GammaFresh   float64
-	DeltaQuality float64
-	SeenPenalty  float64
+	CoarseLimit         int
+	AlphaHot            float64
+	BetaInterest        float64
+	GammaFresh          float64
+	DeltaQuality        float64
+	SeenPenalty         float64
+	RepeatedSeenFilterN int
 }
 
 type RecommendDiversityConfig struct {

@@ -24,6 +24,7 @@ const (
 	defaultGammaFresh       = 0.20
 	defaultDeltaQuality     = 0.05
 	defaultSeenPenalty      = 0.30
+	defaultRepeatedSeen     = 2
 	defaultColdMetaTTL      = 7 * 24 * 3600
 	defaultSeenTTL          = 7 * 24 * 3600
 	defaultAuthorWindow     = 5
@@ -106,6 +107,9 @@ func NormalizeConfig(cfg contentconfig.RecommendConfig) contentconfig.RecommendC
 	}
 	if cfg.Rank.SeenPenalty <= 0 {
 		cfg.Rank.SeenPenalty = defaultSeenPenalty
+	}
+	if cfg.Rank.RepeatedSeenFilterN <= 0 {
+		cfg.Rank.RepeatedSeenFilterN = defaultRepeatedSeen
 	}
 	if cfg.Diversity.AuthorWindow <= 0 {
 		cfg.Diversity.AuthorWindow = defaultAuthorWindow
