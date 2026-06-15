@@ -1286,6 +1286,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `ApplyProfileEvent` 已在画像更新后按权重保留 Top 50 标签，避免长期互动用户的 `rec:user:profile:{user_id}` 标签字段无限增长，同时保留 `_updated_at` 等元数据字段。
 - 兴趣召回已使用 `rec:tag:index:{tag}` 的 ZSET score 做候选池全局归一化，再乘以用户画像 tag 权重累加，避免只按 rank 衰减导致低分标签命中压过高分内容。
 - `ApplyProfileEvent` 已随画像更新维护 `_tag_count`、`_positive_count`、`_negative_count`、`_last_active_at`、`_last_event_id` 和 `_profile_version` 元数据，便于冷启动判断、排障和后续画像版本迁移。
+- `LoadUserProfile` 已读取 `_last_active_at` 并按 `ProfileTTL` 活跃窗口执行冷启动回退，超过 30 天没有正向行为的老画像不会继续触发兴趣召回。
 
 已验证：
 
@@ -1392,6 +1393,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend -run TestApplyProfileEventTrimsProfileTagsToTopWeights -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestRecallInterestUsesTagIndexScores -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestApplyProfileEventStoresProfileMetadata -count=1`
+- `go test ./app/rpc/content/internal/recommend -run TestLoadUserProfileTreatsStaleActiveTimeAsColdStart -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 
@@ -1465,3 +1467,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Trim recommendation profile tags to top weights after updates | Codex |
 | 2026-06-15 | 1.0.0   | Use tag index scores in interest recall ranking | Codex |
 | 2026-06-15 | 1.0.0   | Store recommendation profile metadata after updates | Codex |
+| 2026-06-15 | 1.0.0   | Treat stale recommendation profiles as cold-start users | Codex |

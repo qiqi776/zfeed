@@ -102,6 +102,9 @@ func LoadUserProfile(ctx context.Context, rds *redis.Redis, userID int64, cfg co
 	if err != nil {
 		return nil, err
 	}
+	if isProfileInactive(raw, cfg.ProfileTTL, time.Now()) {
+		return map[string]float64{}, nil
+	}
 	tags := positiveWeights(parseWeights(raw))
 	if len(tags) < cfg.MinTags {
 		return map[string]float64{}, nil
@@ -118,6 +121,22 @@ func positiveWeights(weights map[string]float64) map[string]float64 {
 		result[tag] = weight
 	}
 	return result
+}
+
+func isProfileInactive(raw map[string]string, activeWindowSeconds int, now time.Time) bool {
+	if activeWindowSeconds <= 0 {
+		return false
+	}
+	lastActiveRaw := raw["_last_active_at"]
+	if lastActiveRaw == "" {
+		return false
+	}
+
+	lastActiveAt, err := strconv.ParseInt(lastActiveRaw, 10, 64)
+	if err != nil || lastActiveAt <= 0 {
+		return false
+	}
+	return now.Unix()-lastActiveAt > int64(activeWindowSeconds)
 }
 
 func ProfileActionForTrackEvent(eventType string, dwellMs int64) (string, bool) {

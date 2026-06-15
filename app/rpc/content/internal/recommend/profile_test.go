@@ -83,6 +83,32 @@ func TestLoadUserProfileRequiresEnoughPositiveTags(t *testing.T) {
 	}
 }
 
+func TestLoadUserProfileTreatsStaleActiveTimeAsColdStart(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+	store.HSet(profileKey, "go", "1")
+	store.HSet(profileKey, "redis", "1")
+	store.HSet(profileKey, "mysql", "1")
+	store.HSet(profileKey, "_last_active_at", strconv.FormatInt(time.Now().Add(-31*24*time.Hour).Unix(), 10))
+
+	got, err := LoadUserProfile(
+		context.Background(),
+		client,
+		1001,
+		contentconfig.RecommendInterestConfig{
+			MinTags:    3,
+			TopTags:    8,
+			ProfileTTL: 30 * 24 * 3600,
+		},
+	)
+	if err != nil {
+		t.Fatalf("LoadUserProfile returned error: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("LoadUserProfile = %#v, want cold-start empty profile after 30 days without activity", got)
+	}
+}
+
 func TestApplyProfileEventTrimsProfileTagsToTopWeights(t *testing.T) {
 	store, client := newRecommendRedis(t)
 	cfg := contentconfig.RecommendConfig{}
