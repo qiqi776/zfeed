@@ -494,6 +494,57 @@ func TestRecommendFineRankUsesConfiguredWeightsInMainPath(t *testing.T) {
 	}
 }
 
+func TestRecallRecommendCandidatesPreservesHotScores(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	store.ZAdd(redisconsts.HotFeedKey, 100, "8302")
+	store.ZAdd(redisconsts.HotFeedKey, 80, "8301")
+
+	cfg := contentconfig.RecommendConfig{
+		CandidateLimit: 10,
+		Hot: contentconfig.RecommendHotConfig{
+			Enabled: true,
+			Weight:  0.55,
+			Limit:   10,
+		},
+	}
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: cfg,
+		},
+		Redis: redisClient,
+	})
+
+	inputs, _, err := logic.recallRecommendCandidates(
+		&contentpb.RecommendFeedReq{},
+		1,
+		cfg,
+		recommendVariantControl,
+	)
+	if err != nil {
+		t.Fatalf("recallRecommendCandidates returned error: %v", err)
+	}
+
+	merged := recommend.Merge(inputs, 10)
+	if len(merged) != 2 {
+		t.Fatalf("len(merged) = %d, want 2", len(merged))
+	}
+	if merged[0].ContentID != 8302 || merged[1].ContentID != 8301 {
+		t.Fatalf("ids = [%d %d], want [8302 8301]", merged[0].ContentID, merged[1].ContentID)
+	}
+	if merged[0].HotScore != 1 {
+		t.Fatalf("first hot score = %v, want 1", merged[0].HotScore)
+	}
+	if merged[1].HotScore != 0.8 {
+		t.Fatalf("second hot score = %v, want normalized zset score 0.8", merged[1].HotScore)
+	}
+	if merged[1].SourceScores[recommend.SourceHot] != 0.8 {
+		t.Fatalf("second source hot score = %v, want 0.8", merged[1].SourceScores[recommend.SourceHot])
+	}
+	if merged[0].SourceRanks[recommend.SourceHot] != 1 || merged[1].SourceRanks[recommend.SourceHot] != 2 {
+		t.Fatalf("hot source ranks = %#v/%#v, want 1/2", merged[0].SourceRanks, merged[1].SourceRanks)
+	}
+}
+
 func TestRecommendRuntimeFlagDisablesHotRecallInEnhancedPath(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
@@ -965,6 +1016,24 @@ func TestRebalanceEmptyRecallWeightTransfersInterestMissToHot(t *testing.T) {
 				},
 			},
 			wantHotWeight: 0.55,
+		},
+		{
+			name: "candidate input interest miss",
+			inputs: []recommend.MergeInput{
+				{
+					Source: recommend.SourceHot,
+					Weight: 0.55,
+					Candidates: []recommend.Candidate{
+						{ContentID: 101},
+					},
+				},
+				{
+					Source:     recommend.SourceInterest,
+					Weight:     0.25,
+					Candidates: []recommend.Candidate{},
+				},
+			},
+			wantHotWeight: 0.80,
 		},
 	}
 
