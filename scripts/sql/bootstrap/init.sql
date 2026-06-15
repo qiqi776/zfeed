@@ -16,6 +16,7 @@ SOURCE /seed-sql/zfeed_article.sql;
 SOURCE /seed-sql/zfeed_video.sql;
 SOURCE /seed-sql/zfeed_like.sql;
 SOURCE /seed-sql/zfeed_like_event_outbox.sql;
+SOURCE /seed-sql/zfeed_user_action_outbox.sql;
 SOURCE /seed-sql/zfeed_favorite.sql;
 SOURCE /seed-sql/zfeed_favorite_event.sql;
 SOURCE /seed-sql/zfeed_follow.sql;

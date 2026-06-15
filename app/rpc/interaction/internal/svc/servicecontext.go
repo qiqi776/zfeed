@@ -16,14 +16,17 @@ import (
 )
 
 type ServiceContext struct {
-	Config       config.Config
-	Redis        *redis.Redis
-	KqProducer   *kq.Pusher
-	LikeProducer producer.EventProducer
-	LikeRelay    service.Service
-	MysqlDb      *gorm.DB
-	UserRpc      userservice.UserService
-	ContentRpc   contentservice.ContentService
+	Config             config.Config
+	Redis              *redis.Redis
+	KqProducer         *kq.Pusher
+	UserActionPusher   *kq.Pusher
+	LikeProducer       producer.EventProducer
+	UserActionProducer producer.UserActionEventProducer
+	LikeRelay          service.Service
+	UserActionRelay    service.Service
+	MysqlDb            *gorm.DB
+	UserRpc            userservice.UserService
+	ContentRpc         contentservice.ContentService
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -37,18 +40,27 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	if maxRetries <= 0 {
 		maxRetries = 3
 	}
+	userActionPusher := kq.NewPusher(c.KqUserActionProducerConf.Brokers, c.KqUserActionProducerConf.Topic)
+	userActionMaxRetries := c.KqUserActionProducerConf.MaxRetries
+	if userActionMaxRetries <= 0 {
+		userActionMaxRetries = 3
+	}
 	userRpcClient := zrpc.MustNewClient(c.UserRpcClientConf, grpcx.ClientInterceptorOption())
 	contentRpcClient := zrpc.MustNewClient(c.ContentRpcClientConf, grpcx.ClientInterceptorOption())
 	likeProducer := producer.NewLikeProducer(kqPusher, db, maxRetries)
+	userActionProducer := producer.NewUserActionProducer(userActionPusher, db, userActionMaxRetries)
 
 	return &ServiceContext{
-		Config:       c,
-		Redis:        redis.MustNewRedis(c.RedisConfig),
-		KqProducer:   kqPusher,
-		LikeProducer: likeProducer,
-		LikeRelay:    producer.NewLikeOutboxRelay(likeProducer),
-		MysqlDb:      db,
-		UserRpc:      userservice.NewUserService(userRpcClient),
-		ContentRpc:   contentservice.NewContentService(contentRpcClient),
+		Config:             c,
+		Redis:              redis.MustNewRedis(c.RedisConfig),
+		KqProducer:         kqPusher,
+		UserActionPusher:   userActionPusher,
+		LikeProducer:       likeProducer,
+		UserActionProducer: userActionProducer,
+		LikeRelay:          producer.NewLikeOutboxRelay(likeProducer),
+		UserActionRelay:    producer.NewUserActionOutboxRelay(userActionProducer),
+		MysqlDb:            db,
+		UserRpc:            userservice.NewUserService(userRpcClient),
+		ContentRpc:         contentservice.NewContentService(contentRpcClient),
 	}
 }

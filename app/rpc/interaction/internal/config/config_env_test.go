@@ -34,6 +34,14 @@ func TestInteractionConfigLoadsWithEnv(t *testing.T) {
 	if len(cfg.KqProducerConf.Brokers) != 1 || cfg.KqProducerConf.Brokers[0] != "127.0.0.1:19092" {
 		t.Fatalf("unexpected producer brokers: %v", cfg.KqProducerConf.Brokers)
 	}
+	if cfg.KqUserActionProducerConf.Topic != "zfeed-user-action" ||
+		cfg.KqUserActionProducerConf.MaxRetries != 3 {
+		t.Fatalf(
+			"unexpected user action producer config: topic=%q max_retries=%d",
+			cfg.KqUserActionProducerConf.Topic,
+			cfg.KqUserActionProducerConf.MaxRetries,
+		)
+	}
 	if len(cfg.KqConsumerConf.Brokers) != 1 || cfg.KqConsumerConf.Brokers[0] != "127.0.0.1:19092" {
 		t.Fatalf("unexpected consumer brokers: %v", cfg.KqConsumerConf.Brokers)
 	}

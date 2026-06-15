@@ -49,6 +49,9 @@ func main() {
 	if ctx.LikeRelay != nil {
 		serviceGroup.Add(ctx.LikeRelay)
 	}
+	if ctx.UserActionRelay != nil {
+		serviceGroup.Add(ctx.UserActionRelay)
+	}
 	for _, mq := range consumer.Consumers(c, context.Background(), ctx) {
 		serviceGroup.Add(mq)
 	}

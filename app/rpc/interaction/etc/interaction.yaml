@@ -60,6 +60,12 @@ KqProducerConf:
   Topic: zfeed-like
   MaxRetries: 3
 
+KqUserActionProducerConf:
+  Brokers:
+    - "${KAFKA_BROKERS}"
+  Topic: zfeed-user-action
+  MaxRetries: 3
+
 KqConsumerConf:
   Name: interaction-like-consumer
   Brokers:
