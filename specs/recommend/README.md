@@ -1281,6 +1281,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `rec.tag.refresh` 已覆盖无互动新内容场景：即使 like/comment/favorite 均为 0，也会按发布时间 freshness 衰减刷新 tag index，防止发布时写入的高时间戳分数长期残留。
 - 推荐增强链路已在三路召回合并为空时记录 `empty_recall` 兜底原因，再回退到热榜路径，避免空召回静默降级影响迁移观测。
 - `FallbackToHot=false` 已接入增强链路错误分支：当推荐增强发生召回、缓存、排序等错误时会直接返回错误并记录 personalized error 请求指标，不再静默回退热榜；`FallbackToHot=true` 仍保持热榜兜底，便于灰度策略双向验证。
+- 兴趣召回读取画像时已只保留正权重 tag 参与 `MinTags` 冷启动门槛和 TopTags 排序，`unlike/unfavorite` 等负反馈不会把冷启动用户误判为可兴趣召回。
 
 已验证：
 
@@ -1383,6 +1384,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/cron/rec_tag_refresh ./app/rpc/content/internal/cron/rec_new_cleanup -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementRecordsEmptyRecallFallback -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecommendFallbackToHot(DisabledReturnsEnhancementError|EnabledKeepsHotFallbackOnEnhancementError)' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run TestLoadUserProfileRequiresEnoughPositiveTags -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 
 剩余缺口：
@@ -1450,3 +1452,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | 补充推荐标签索引无互动内容 freshness 衰减刷新记录 | Codex |
 | 2026-06-15 | 1.0.0   | Record empty recall fallback observability for enhanced recommendation path | Codex |
 | 2026-06-15 | 1.0.0   | Wire `FallbackToHot` into enhanced recommendation error handling | Codex |
+| 2026-06-15 | 1.0.0   | Require positive profile tags for interest recall cold-start gate | Codex |

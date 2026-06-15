@@ -95,11 +95,22 @@ func LoadUserProfile(ctx context.Context, rds *redis.Redis, userID int64, cfg co
 	if err != nil {
 		return nil, err
 	}
-	tags := parseWeights(raw)
+	tags := positiveWeights(parseWeights(raw))
 	if len(tags) < cfg.MinTags {
 		return map[string]float64{}, nil
 	}
 	return topWeights(tags, cfg.TopTags), nil
+}
+
+func positiveWeights(weights map[string]float64) map[string]float64 {
+	result := make(map[string]float64, len(weights))
+	for tag, weight := range weights {
+		if weight <= 0 {
+			continue
+		}
+		result[tag] = weight
+	}
+	return result
 }
 
 func ProfileActionForTrackEvent(eventType string, dwellMs int64) (string, bool) {

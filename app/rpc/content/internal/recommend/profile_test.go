@@ -59,6 +59,29 @@ func TestApplyProfileEventDecaysExistingWeight(t *testing.T) {
 	}
 }
 
+func TestLoadUserProfileRequiresEnoughPositiveTags(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+	store.HSet(profileKey, "go", "1")
+	store.HSet(profileKey, "redis", "-0.5")
+
+	got, err := LoadUserProfile(
+		context.Background(),
+		client,
+		1001,
+		contentconfig.RecommendInterestConfig{
+			MinTags: 2,
+			TopTags: 8,
+		},
+	)
+	if err != nil {
+		t.Fatalf("LoadUserProfile returned error: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("LoadUserProfile = %#v, want cold-start empty profile with fewer than 2 positive tags", got)
+	}
+}
+
 func assertFloatWithin(t *testing.T, name string, got, want, tolerance float64) {
 	t.Helper()
 
