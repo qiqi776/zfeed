@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	miniredis "github.com/alicebob/miniredis/v2"
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
@@ -44,10 +46,23 @@ type recommendTrackConsumeMetricRecord struct {
 	result    string
 }
 
+type recommendTrackConsumeLagRecord struct {
+	eventType string
+	source    string
+	seconds   float64
+}
+
+type recommendUserActionConsumeLagRecord struct {
+	eventType string
+	seconds   float64
+}
+
 func TestRecommendUserActionConsumeMetricLabelsExcludeHighCardinalityIDs(t *testing.T) {
 	metricLabels := map[string][]string{
-		"zfeed_recommend_user_action_consume_total": recommendUserActionConsumeMetricLabels,
-		"zfeed_recommend_track_consume_total":       recommendTrackConsumeMetricLabels,
+		"zfeed_recommend_user_action_consume_total":       recommendUserActionConsumeMetricLabels,
+		"zfeed_recommend_user_action_consume_lag_seconds": recommendUserActionConsumeLagMetricLabels,
+		"zfeed_recommend_track_consume_total":             recommendTrackConsumeMetricLabels,
+		"zfeed_recommend_track_consume_lag_seconds":       recommendTrackConsumeLagMetricLabels,
 	}
 
 	for metricName, labels := range metricLabels {
@@ -232,6 +247,128 @@ func TestRecommendTrackConsumerRecordsTrackConsumeMetrics(t *testing.T) {
 				t.Fatalf("metric record = %+v, want %+v", records[0], tt.want)
 			}
 		})
+	}
+}
+
+func TestRecommendTrackConsumerRecordsConsumeLagMetrics(t *testing.T) {
+	now := time.Now()
+	trackOccurredAt := now.Add(-6 * time.Second).Unix()
+	userActionOccurredAt := now.Add(-4 * time.Second).Unix()
+
+	tests := []struct {
+		name              string
+		raw               string
+		wantTrackLag      bool
+		wantUserActionLag bool
+		wantTrackType     string
+		wantTrackSource   string
+		wantUserType      string
+	}{
+		{
+			name: "recommend track event",
+			raw: fmt.Sprintf(
+				`{"event_id":"rec_click_1001_2001_%d","event_type":"click","user_id":1001,`+
+					`"content_id":2001,"variant_id":"b","source":"new_content","occurred_at":%d}`,
+				trackOccurredAt,
+				trackOccurredAt,
+			),
+			wantTrackLag:    true,
+			wantTrackType:   track.EventTypeClick,
+			wantTrackSource: recommendTrackConsumeSourceNewContent,
+		},
+		{
+			name: "user action event records both track and user-action lag",
+			raw: fmt.Sprintf(
+				`{"event_id":"ua_1001_2001_%d","action":"favorite","user_id":1001,`+
+					`"target_type":"content","target_id":2001,"source":"interaction","occurred_at":%d}`,
+				userActionOccurredAt,
+				userActionOccurredAt,
+			),
+			wantTrackLag:      true,
+			wantUserActionLag: true,
+			wantTrackType:     track.EventTypeFavorite,
+			wantTrackSource:   recommendTrackConsumeSourceInteraction,
+			wantUserType:      track.EventTypeFavorite,
+		},
+		{
+			name: "missing occurred_at skips lag metric",
+			raw: `{"event_id":"rec_click_1001_2001_0","event_type":"click","user_id":1001,` +
+				`"content_id":2001,"variant_id":"b","source":"recommend"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldTrackLag := observeRecommendTrackConsumeLagMetric
+			oldUserActionLag := observeRecommendUserActionConsumeLagMetric
+			defer func() {
+				observeRecommendTrackConsumeLagMetric = oldTrackLag
+				observeRecommendUserActionConsumeLagMetric = oldUserActionLag
+			}()
+
+			trackLags := []recommendTrackConsumeLagRecord{}
+			userActionLags := []recommendUserActionConsumeLagRecord{}
+			observeRecommendTrackConsumeLagMetric = func(eventType, source string, seconds float64) {
+				trackLags = append(trackLags, recommendTrackConsumeLagRecord{
+					eventType: eventType,
+					source:    source,
+					seconds:   seconds,
+				})
+			}
+			observeRecommendUserActionConsumeLagMetric = func(eventType string, seconds float64) {
+				userActionLags = append(userActionLags, recommendUserActionConsumeLagRecord{
+					eventType: eventType,
+					seconds:   seconds,
+				})
+			}
+
+			consumer := newRecommendTrackConsumerWithProfileForTest(
+				context.Background(),
+				&fakeDailyAggregator{},
+				&fakeProfileUpdater{},
+			)
+			if err := consumer.Consume(context.Background(), "", tt.raw); err != nil {
+				t.Fatalf("Consume returned error: %v", err)
+			}
+
+			if !tt.wantTrackLag {
+				if len(trackLags) != 0 {
+					t.Fatalf("track lag records = %+v, want none", trackLags)
+				}
+			} else {
+				if len(trackLags) != 1 {
+					t.Fatalf("track lag records = %+v, want one record", trackLags)
+				}
+				got := trackLags[0]
+				if got.eventType != tt.wantTrackType || got.source != tt.wantTrackSource {
+					t.Fatalf("track lag record = %+v, want %s/%s", got, tt.wantTrackType, tt.wantTrackSource)
+				}
+				assertLagSecondsBetween(t, got.seconds, 3, 8)
+			}
+
+			if !tt.wantUserActionLag {
+				if len(userActionLags) != 0 {
+					t.Fatalf("user-action lag records = %+v, want none", userActionLags)
+				}
+				return
+			}
+			if len(userActionLags) != 1 {
+				t.Fatalf("user-action lag records = %+v, want one record", userActionLags)
+			}
+			got := userActionLags[0]
+			if got.eventType != tt.wantUserType {
+				t.Fatalf("user-action lag record = %+v, want event type %s", got, tt.wantUserType)
+			}
+			assertLagSecondsBetween(t, got.seconds, 3, 8)
+		})
+	}
+}
+
+func assertLagSecondsBetween(t *testing.T, got, min, max float64) {
+	t.Helper()
+
+	if got < min || got > max {
+		t.Fatalf("lag seconds = %.3f, want between %.3f and %.3f", got, min, max)
 	}
 }
 

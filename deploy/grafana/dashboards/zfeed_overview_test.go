@@ -52,6 +52,19 @@ func TestZFeedOverviewIncludesExperimentEffectPanels(t *testing.T) {
 	)
 }
 
+func TestZFeedOverviewIncludesRecommendationConsumeLagPanels(t *testing.T) {
+	dashboard := loadOverviewDashboard(t)
+
+	assertPanelTarget(t, dashboard, "Recommendation Track Consume Lag P95",
+		`histogram_quantile(0.95, sum by (le, event_type, source) (rate(zfeed_recommend_track_consume_lag_seconds_bucket[5m])))`,
+		"{{event_type}} / {{source}}",
+	)
+	assertPanelTarget(t, dashboard, "Recommendation User Action Consume Lag P95",
+		`histogram_quantile(0.95, sum by (le, event_type) (rate(zfeed_recommend_user_action_consume_lag_seconds_bucket[5m])))`,
+		"{{event_type}}",
+	)
+}
+
 func loadOverviewDashboard(t *testing.T) overviewDashboard {
 	t.Helper()
 

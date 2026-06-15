@@ -33,8 +33,10 @@ const (
 )
 
 var (
-	recommendUserActionConsumeMetricLabels = []string{"event_type", "result"}
-	recommendTrackConsumeMetricLabels      = []string{"event_type", "variant", "source", "result"}
+	recommendUserActionConsumeMetricLabels    = []string{"event_type", "result"}
+	recommendTrackConsumeMetricLabels         = []string{"event_type", "variant", "source", "result"}
+	recommendUserActionConsumeLagMetricLabels = []string{"event_type"}
+	recommendTrackConsumeLagMetricLabels      = []string{"event_type", "source"}
 
 	// PromQL: sum(rate(zfeed_recommend_user_action_consume_total[5m])) by (event_type, result)
 	metricRecommendUserActionConsumeTotal = metric.NewCounterVec(&metric.CounterVecOpts{
@@ -58,8 +60,30 @@ var (
 		Labels:    recommendTrackConsumeMetricLabels,
 	})
 
-	recordRecommendUserActionConsumeMetric = recordRecommendUserActionConsume
-	recordRecommendTrackConsumeMetric      = recordRecommendTrackConsume
+	// PromQL: histogram_quantile(0.95, sum(rate(zfeed_recommend_user_action_consume_lag_seconds_bucket[5m])) by (le, event_type))
+	metricRecommendUserActionConsumeLagSeconds = metric.NewHistogramVec(&metric.HistogramVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_user_action_consume",
+		Name:      "lag_seconds",
+		Help:      "Recommendation user-action event consume lag in seconds.",
+		Labels:    recommendUserActionConsumeLagMetricLabels,
+		Buckets:   []float64{0, 0.1, 0.5, 1, 3, 5, 10, 30, 60, 300, 900},
+	})
+
+	// PromQL: histogram_quantile(0.95, sum(rate(zfeed_recommend_track_consume_lag_seconds_bucket[5m])) by (le, event_type, source))
+	metricRecommendTrackConsumeLagSeconds = metric.NewHistogramVec(&metric.HistogramVecOpts{
+		Namespace: "zfeed",
+		Subsystem: "recommend_track_consume",
+		Name:      "lag_seconds",
+		Help:      "Recommendation track event consume lag in seconds.",
+		Labels:    recommendTrackConsumeLagMetricLabels,
+		Buckets:   []float64{0, 0.1, 0.5, 1, 3, 5, 10, 30, 60, 300, 900},
+	})
+
+	recordRecommendUserActionConsumeMetric     = recordRecommendUserActionConsume
+	recordRecommendTrackConsumeMetric          = recordRecommendTrackConsume
+	observeRecommendUserActionConsumeLagMetric = observeRecommendUserActionConsumeLag
+	observeRecommendTrackConsumeLagMetric      = observeRecommendTrackConsumeLag
 )
 
 func recordRecommendUserActionConsume(eventType, result string) {
@@ -84,6 +108,36 @@ func recordRecommendTrackConsume(eventType, variant, source, result string) {
 		normalizeRecommendTrackConsumeSourceLabel(source),
 		normalizeRecommendTrackConsumeResultLabel(result),
 	)
+}
+
+func observeRecommendUserActionConsumeLag(eventType string, seconds float64) {
+	if metricRecommendUserActionConsumeLagSeconds == nil {
+		return
+	}
+
+	metricRecommendUserActionConsumeLagSeconds.ObserveFloat(
+		normalizeRecommendConsumeLagSeconds(seconds),
+		normalizeRecommendUserActionConsumeEventTypeLabel(eventType),
+	)
+}
+
+func observeRecommendTrackConsumeLag(eventType, source string, seconds float64) {
+	if metricRecommendTrackConsumeLagSeconds == nil {
+		return
+	}
+
+	metricRecommendTrackConsumeLagSeconds.ObserveFloat(
+		normalizeRecommendConsumeLagSeconds(seconds),
+		normalizeRecommendTrackConsumeEventTypeLabel(eventType),
+		normalizeRecommendTrackConsumeSourceLabel(source),
+	)
+}
+
+func normalizeRecommendConsumeLagSeconds(seconds float64) float64 {
+	if seconds < 0 {
+		return 0
+	}
+	return seconds
 }
 
 func normalizeRecommendUserActionConsumeEventTypeLabel(value string) string {

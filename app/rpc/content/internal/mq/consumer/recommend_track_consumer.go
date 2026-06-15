@@ -91,6 +91,8 @@ func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) err
 		return err
 	}
 
+	recordRecommendConsumeLag(event, isUserAction, time.Now())
+
 	if c != nil && c.profileUpdater != nil {
 		if err := c.profileUpdater.Apply(ctx, event); err != nil {
 			recordRecommendTrackConsumeMetric(
@@ -148,6 +150,18 @@ func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) err
 		recordRecommendUserActionConsumeMetric(event.EventType, recommendUserActionConsumeResultSuccess)
 	}
 	return nil
+}
+
+func recordRecommendConsumeLag(event track.Event, isUserAction bool, now time.Time) {
+	if event.OccurredAt <= 0 {
+		return
+	}
+
+	lagSeconds := now.Sub(time.Unix(event.OccurredAt, 0)).Seconds()
+	observeRecommendTrackConsumeLagMetric(event.EventType, event.Source, lagSeconds)
+	if isUserAction {
+		observeRecommendUserActionConsumeLagMetric(event.EventType, lagSeconds)
+	}
 }
 
 type recommendTrackEnvelope struct {
