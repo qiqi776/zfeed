@@ -1038,6 +1038,8 @@ zfeed_recommend_profile_total{result}
 zfeed_recommend_track_emit_total{event_type,result}
 zfeed_recommend_track_consume_total{event_type,variant,source,result}
 zfeed_recommend_user_action_consume_total{event_type,result}
+zfeed_recommend_track_consume_lag_seconds_bucket{event_type,source}
+zfeed_recommend_user_action_consume_lag_seconds_bucket{event_type}
 zfeed_user_action_outbox_total{action,result}
 ```
 
@@ -1060,6 +1062,17 @@ zfeed_user_action_outbox_total{action,result}
 - 实验 CTR/IPM：`zfeed_recommend_track_consume_total` 按 `variant` 聚合点击、互动和曝光事件。
 - 新内容曝光占比：`new_content_exposure / total_exposure`。
 - Kafka consumer lag：画像更新和埋点消费延迟。
+
+### 7.5 Prometheus 告警
+
+推荐迁移链路的告警规则放在 `deploy/prometheus/rules/zfeed-recommend-alerts.yml`，由现有 `rules/*.yml` 自动加载：
+
+- 消费延迟：`zfeed_recommend_track_consume_lag_seconds_bucket` 和 `zfeed_recommend_user_action_consume_lag_seconds_bucket` p95 超过 60 秒持续 10 分钟。
+- 消费错误率：`zfeed_recommend_track_consume_total{result=~"parse_error|profile_error|aggregate_error"}` 超过 1% 持续 10 分钟。
+- user-action outbox 异常：`zfeed_user_action_outbox_total{result=~"retry|mark_failed"}` 出现持续 10 分钟。
+- 推荐兜底率：`zfeed_recommend_fallback_total / zfeed_recommend_requests_total` 超过 20% 持续 15 分钟。
+
+告警表达式继续保持低基数维度，只使用 `event_type`、`source`、`result` 等有限集合，不使用 `user_id`、`content_id`、`target_id`、`event_id` 或 `snapshot_id`。
 
 ## 8. 渐进式落地计划
 
@@ -1262,6 +1275,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - Grafana overview 已新增 `Recommendation New Content Exposure Share` 面板，基于 `zfeed_recommend_track_consume_total{event_type="exposure",source="new_content",result="success"}` 除以成功曝光总量，按 `variant` 展示新内容曝光占比。
 - `content-rpc` 已新增 `zfeed_recommend_track_consume_lag_seconds{event_type,source}` 和 `zfeed_recommend_user_action_consume_lag_seconds{event_type}` 直方图，按事件 `occurred_at` 到实际消费时间记录 Kafka 消费延迟；缺失 `occurred_at` 的历史或异常事件会跳过延迟观测，避免产生误导样本。
 - Grafana overview 已新增 `Recommendation Track Consume Lag P95` 和 `Recommendation User Action Consume Lag P95` 面板，分别按 `event_type/source` 和 `event_type` 展示 p95 消费延迟，继续避免 `user_id`、`content_id`、`target_id` 等高基数标签。
+- Prometheus 已新增 `zfeed-recommend-alerts.yml` 推荐迁移告警规则，覆盖推荐埋点消费延迟、user-action 消费延迟、埋点消费错误率、user-action outbox 重试/失败和推荐兜底率异常；规则测试会校验告警表达式和低基数约束。
 
 已验证：
 
@@ -1355,11 +1369,13 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/mq/consumer -count=1`
 - `go test ./deploy/grafana/dashboards -run TestZFeedOverviewIncludesRecommendationConsumeLagPanels -count=1`
 - `go test ./deploy/grafana/dashboards -count=1`
+- `go test ./deploy/prometheus/rules -run TestZfeedRecommendAlertsCoverMigrationRisks -count=1`
+- `go test ./deploy/prometheus/rules -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果和消费延迟指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 兼容投递路径已删除，Grafana overview 也能看到 user-action 生产和消费速率、消费延迟、实验 CTR/IPM 以及新内容曝光占比。后续需要继续观察迁移后的 `zfeed-user-action` 消费、画像增量和日聚合数据。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果和消费延迟指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 兼容投递路径已删除，Grafana overview 和 Prometheus 告警也能覆盖 user-action 生产、消费速率、消费延迟、消费错误、实验 CTR/IPM 以及新内容曝光占比。后续需要继续观察迁移后的 `zfeed-user-action` 消费、画像增量和日聚合数据。
 
 ## Change Log
 
@@ -1416,3 +1432,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Remove front-api fallback recommendation interaction track emission | Codex |
 | 2026-06-15 | 1.0.0   | 同步推荐迁移进度和剩余观测缺口 | Codex |
 | 2026-06-15 | 1.0.0   | Add recommendation consume lag metrics and Grafana panels | Codex |
+| 2026-06-15 | 1.0.0   | Add recommendation migration Prometheus alerts | Codex |

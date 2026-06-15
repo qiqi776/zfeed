@@ -1,0 +1,58 @@
+groups:
+  - name: zfeed-recommend
+    interval: 30s
+    rules:
+      - alert: ZfeedRecommendTrackConsumeLagHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le, event_type, source) (rate(zfeed_recommend_track_consume_lag_seconds_bucket[5m]))) > 60
+        for: 10m
+        labels:
+          severity: warning
+          scope: recommend
+        annotations:
+          summary: "recommend track consume lag p95 is above 60 seconds"
+          description: "Recommendation track consumer p95 lag has stayed above 60 seconds for event_type={{ $labels.event_type }}, source={{ $labels.source }}."
+
+      - alert: ZfeedRecommendUserActionConsumeLagHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le, event_type) (rate(zfeed_recommend_user_action_consume_lag_seconds_bucket[5m]))) > 60
+        for: 10m
+        labels:
+          severity: warning
+          scope: recommend
+        annotations:
+          summary: "recommend user-action consume lag p95 is above 60 seconds"
+          description: "Recommendation user-action consumer p95 lag has stayed above 60 seconds for event_type={{ $labels.event_type }}."
+
+      - alert: ZfeedRecommendTrackConsumeErrorRateHigh
+        expr: |
+          sum(rate(zfeed_recommend_track_consume_total{result=~"parse_error|profile_error|aggregate_error"}[5m])) / clamp_min(sum(rate(zfeed_recommend_track_consume_total[5m])), 0.000001) > 0.01
+        for: 10m
+        labels:
+          severity: warning
+          scope: recommend
+        annotations:
+          summary: "recommend track consume error rate is above 1%"
+          description: "Recommendation track consumer parse/profile/aggregate errors have exceeded 1% for 10 minutes."
+
+      - alert: ZfeedUserActionOutboxFailureHigh
+        expr: |
+          sum(rate(zfeed_user_action_outbox_total{result=~"retry|mark_failed"}[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          scope: recommend
+        annotations:
+          summary: "user-action outbox is retrying or marking failures"
+          description: "Interaction user-action outbox has retry or mark_failed events, so recommendation profile updates may lag behind interactions."
+
+      - alert: ZfeedRecommendFallbackRateHigh
+        expr: |
+          sum(rate(zfeed_recommend_fallback_total[5m])) / clamp_min(sum(rate(zfeed_recommend_requests_total[5m])), 0.000001) > 0.2
+        for: 15m
+        labels:
+          severity: warning
+          scope: recommend
+        annotations:
+          summary: "recommend fallback rate is above 20%"
+          description: "More than 20% of recommendation requests have fallen back to the hot feed for 15 minutes."
