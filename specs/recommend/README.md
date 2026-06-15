@@ -1282,6 +1282,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 推荐增强链路已在三路召回合并为空时记录 `empty_recall` 兜底原因，再回退到热榜路径，避免空召回静默降级影响迁移观测。
 - `FallbackToHot=false` 已接入增强链路错误分支：当推荐增强发生召回、缓存、排序等错误时会直接返回错误并记录 personalized error 请求指标，不再静默回退热榜；`FallbackToHot=true` 仍保持热榜兜底，便于灰度策略双向验证。
 - 兴趣召回读取画像时已只保留正权重 tag 参与 `MinTags` 冷启动门槛和 TopTags 排序，`unlike/unfavorite` 等负反馈不会把冷启动用户误判为可兴趣召回。
+- 2026-06-15 收尾同步点：推荐增强主链路、user-action 迁移观测、tag index 周期刷新、`empty_recall` 兜底记录、`FallbackToHot` 错误策略和兴趣召回正权重冷启动门槛均已完成并验证；后续以线上运行观察和数据校验为主。
 
 已验证：
 
@@ -1390,7 +1391,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果和消费延迟指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 兼容投递路径已删除，`rec.tag.refresh` 也能周期刷新兴趣召回 tag index，并已覆盖无互动内容 freshness 衰减刷新，Grafana overview 和 Prometheus 告警覆盖 user-action 生产、消费速率、消费延迟、消费错误、实验 CTR/IPM 以及新内容曝光占比。后续需要继续观察迁移后的 `zfeed-user-action` 消费、画像增量和日聚合数据。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果和消费延迟指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 兼容投递路径已删除，`rec.tag.refresh` 也能周期刷新兴趣召回 tag index，并已覆盖无互动内容 freshness 衰减刷新，Grafana overview 和 Prometheus 告警覆盖 user-action 生产、消费速率、消费延迟、消费错误、实验 CTR/IPM、新内容曝光占比、消费延迟和推荐兜底率。当前剩余项不包含新的实现任务，主要是线上观察 `zfeed-user-action` 消费、画像增量、日聚合数据和兜底率是否稳定。
 
 ## Change Log
 
@@ -1453,3 +1454,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Record empty recall fallback observability for enhanced recommendation path | Codex |
 | 2026-06-15 | 1.0.0   | Wire `FallbackToHot` into enhanced recommendation error handling | Codex |
 | 2026-06-15 | 1.0.0   | Require positive profile tags for interest recall cold-start gate | Codex |
+| 2026-06-15 | 1.0.0   | 同步推荐迁移收尾进度和剩余观测项 | Codex |
