@@ -49,6 +49,12 @@ func TestEnv(t *testing.T) {
 	if cfg.KqProducerConf.Topic != "zfeed-rec-track" {
 		t.Fatalf("unexpected recommend track topic: %q", cfg.KqProducerConf.Topic)
 	}
+	if len(cfg.KqConsumerConf.Brokers) != 1 || cfg.KqConsumerConf.Brokers[0] != "127.0.0.1:19092" {
+		t.Fatalf("unexpected recommend track consumer brokers: %v", cfg.KqConsumerConf.Brokers)
+	}
+	if cfg.KqConsumerConf.Topic != "zfeed-rec-track" || cfg.KqConsumerConf.Group != "zfeed-content-rec-track-consumer" {
+		t.Fatalf("unexpected recommend track consumer config: topic=%q group=%q", cfg.KqConsumerConf.Topic, cfg.KqConsumerConf.Group)
+	}
 	if cfg.Telemetry.Name != "content-rpc" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" || !cfg.Telemetry.Disabled {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)
 	}

@@ -8,6 +8,7 @@ import (
 	"zfeed/app/rpc/content/content"
 	"zfeed/app/rpc/content/internal/config"
 	"zfeed/app/rpc/content/internal/cron"
+	"zfeed/app/rpc/content/internal/mq/consumer"
 	"zfeed/app/rpc/content/internal/server"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/envx"
@@ -65,5 +66,13 @@ func main() {
 	})
 
 	fmt.Printf("Starting rpc server at %s...\n", c.ListenOn)
-	s.Start()
+
+	serviceGroup := service.NewServiceGroup()
+	defer serviceGroup.Stop()
+
+	for _, mq := range consumer.Consumers(c, context.Background(), ctx) {
+		serviceGroup.Add(mq)
+	}
+	serviceGroup.Add(s)
+	serviceGroup.Start()
 }

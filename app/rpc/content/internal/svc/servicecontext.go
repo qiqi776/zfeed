@@ -27,7 +27,8 @@ type ServiceContext struct {
 	UserRpc     userservice.UserService
 	CountRpc    counterservice.CounterService
 
-	RecommendTrackProducer track.Producer
+	RecommendTrackProducer   track.Producer
+	RecommendDailyAggregator *track.DailyAggregator
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -53,7 +54,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		UserRpc:     userRpc,
 		CountRpc:    countRpc,
 
-		RecommendTrackProducer: newRecommendTrackProducer(c.KqProducerConf),
+		RecommendTrackProducer:   newRecommendTrackProducer(c.KqProducerConf),
+		RecommendDailyAggregator: track.NewDailyAggregator(db),
 	}
 }
 

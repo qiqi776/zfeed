@@ -77,6 +77,16 @@ KqProducerConf:
   Topic: zfeed-rec-track
   MaxRetries: 3
 
+KqConsumerConf:
+  Name: content-rec-track-consumer
+  Brokers:
+    - "${KAFKA_BROKERS}"
+  Group: zfeed-content-rec-track-consumer
+  Topic: zfeed-rec-track
+  Offset: last
+  Consumers: 2
+  Processors: 2
+
 MySQL:
   DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
 
