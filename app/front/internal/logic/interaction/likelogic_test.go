@@ -7,7 +7,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	"zfeed/app/front/internal/config"
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
 	contentpb "zfeed/app/rpc/content/content"
@@ -202,7 +201,7 @@ func (f *fakeFeedService) UserFavoriteFeed(
 	return &contentpb.UserFavoriteFeedRes{}, nil
 }
 
-func TestLikeEmitsRecommendTrackAfterSuccess(t *testing.T) {
+func TestLikeDoesNotEmitRecommendTrackAfterSuccess(t *testing.T) {
 	contentID := int64(2001)
 	scene := "ARTICLE"
 	likeRPC := &fakeLikeService{}
@@ -210,76 +209,6 @@ func TestLikeEmitsRecommendTrackAfterSuccess(t *testing.T) {
 	logic := NewLikeLogic(
 		context.WithValue(context.Background(), "user_id", int64(1001)),
 		&svc.ServiceContext{
-			LikeRpc: likeRPC,
-			FeedRpc: feedRPC,
-		},
-	)
-
-	resp, err := logic.Like(&types.LikeReq{
-		ContentId: &contentID,
-		Scene:     &scene,
-	})
-	if err != nil {
-		t.Fatalf("Like returned error: %v", err)
-	}
-	if resp == nil {
-		t.Fatal("Like returned nil response")
-	}
-	if likeRPC.likeReq == nil {
-		t.Fatal("LikeRpc.Like was not called")
-	}
-	if feedRPC.trackReq == nil {
-		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
-	}
-
-	got := feedRPC.trackReq
-	if got.GetUserId() != 1001 ||
-		got.GetEventType() != "like" ||
-		got.GetContentId() != contentID ||
-		got.GetSource() != "interaction" {
-		t.Fatalf("recommend track request = %+v", got)
-	}
-}
-
-func TestLikeIgnoresRecommendTrackFailure(t *testing.T) {
-	contentID := int64(2001)
-	scene := "ARTICLE"
-	likeRPC := &fakeLikeService{}
-	feedRPC := &fakeFeedService{err: errors.New("content rpc down")}
-	logic := NewLikeLogic(
-		context.WithValue(context.Background(), "user_id", int64(1001)),
-		&svc.ServiceContext{
-			LikeRpc: likeRPC,
-			FeedRpc: feedRPC,
-		},
-	)
-
-	resp, err := logic.Like(&types.LikeReq{
-		ContentId: &contentID,
-		Scene:     &scene,
-	})
-	if err != nil {
-		t.Fatalf("Like returned error: %v", err)
-	}
-	if resp == nil {
-		t.Fatal("Like returned nil response")
-	}
-	if feedRPC.trackReq == nil {
-		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
-	}
-}
-
-func TestLikeSkipsRecommendTrackWhenDisabled(t *testing.T) {
-	contentID := int64(2001)
-	scene := "ARTICLE"
-	likeRPC := &fakeLikeService{}
-	feedRPC := &fakeFeedService{}
-	logic := NewLikeLogic(
-		context.WithValue(context.Background(), "user_id", int64(1001)),
-		&svc.ServiceContext{
-			Config: config.Config{
-				DisableRecommendInteractionTrack: true,
-			},
 			LikeRpc: likeRPC,
 			FeedRpc: feedRPC,
 		},
@@ -303,7 +232,38 @@ func TestLikeSkipsRecommendTrackWhenDisabled(t *testing.T) {
 	}
 }
 
-func TestUnlikeEmitsRecommendTrackAfterSuccess(t *testing.T) {
+func TestLikeDoesNotDependOnRecommendTrack(t *testing.T) {
+	contentID := int64(2001)
+	scene := "ARTICLE"
+	likeRPC := &fakeLikeService{}
+	feedRPC := &fakeFeedService{err: errors.New("content rpc down")}
+	logic := NewLikeLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{
+			LikeRpc: likeRPC,
+			FeedRpc: feedRPC,
+		},
+	)
+
+	resp, err := logic.Like(&types.LikeReq{
+		ContentId: &contentID,
+		Scene:     &scene,
+	})
+	if err != nil {
+		t.Fatalf("Like returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Like returned nil response")
+	}
+	if likeRPC.likeReq == nil {
+		t.Fatal("LikeRpc.Like was not called")
+	}
+	if feedRPC.trackReq != nil {
+		t.Fatalf("FeedRpc.EmitRecommendTrack was called: %+v", feedRPC.trackReq)
+	}
+}
+
+func TestUnlikeDoesNotEmitRecommendTrackAfterSuccess(t *testing.T) {
 	contentID := int64(2001)
 	scene := "ARTICLE"
 	likeRPC := &fakeLikeService{}
@@ -329,20 +289,12 @@ func TestUnlikeEmitsRecommendTrackAfterSuccess(t *testing.T) {
 	if likeRPC.unlikeReq == nil {
 		t.Fatal("LikeRpc.Unlike was not called")
 	}
-	if feedRPC.trackReq == nil {
-		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
-	}
-
-	got := feedRPC.trackReq
-	if got.GetUserId() != 1001 ||
-		got.GetEventType() != "unlike" ||
-		got.GetContentId() != contentID ||
-		got.GetSource() != "interaction" {
-		t.Fatalf("recommend track request = %+v", got)
+	if feedRPC.trackReq != nil {
+		t.Fatalf("FeedRpc.EmitRecommendTrack was called: %+v", feedRPC.trackReq)
 	}
 }
 
-func TestFavoriteEmitsRecommendTrackAfterSuccess(t *testing.T) {
+func TestFavoriteDoesNotEmitRecommendTrackAfterSuccess(t *testing.T) {
 	contentID := int64(2001)
 	scene := "ARTICLE"
 	favoriteRPC := &fakeFavoriteService{}
@@ -368,20 +320,12 @@ func TestFavoriteEmitsRecommendTrackAfterSuccess(t *testing.T) {
 	if favoriteRPC.favoriteReq == nil {
 		t.Fatal("FavoriteRpc.Favorite was not called")
 	}
-	if feedRPC.trackReq == nil {
-		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
-	}
-
-	got := feedRPC.trackReq
-	if got.GetUserId() != 1001 ||
-		got.GetEventType() != "favorite" ||
-		got.GetContentId() != contentID ||
-		got.GetSource() != "interaction" {
-		t.Fatalf("recommend track request = %+v", got)
+	if feedRPC.trackReq != nil {
+		t.Fatalf("FeedRpc.EmitRecommendTrack was called: %+v", feedRPC.trackReq)
 	}
 }
 
-func TestRemoveFavoriteEmitsRecommendTrackAfterSuccess(t *testing.T) {
+func TestRemoveFavoriteDoesNotEmitRecommendTrackAfterSuccess(t *testing.T) {
 	contentID := int64(2001)
 	scene := "ARTICLE"
 	favoriteRPC := &fakeFavoriteService{}
@@ -407,20 +351,12 @@ func TestRemoveFavoriteEmitsRecommendTrackAfterSuccess(t *testing.T) {
 	if favoriteRPC.removeFavoriteReq == nil {
 		t.Fatal("FavoriteRpc.RemoveFavorite was not called")
 	}
-	if feedRPC.trackReq == nil {
-		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
-	}
-
-	got := feedRPC.trackReq
-	if got.GetUserId() != 1001 ||
-		got.GetEventType() != "unfavorite" ||
-		got.GetContentId() != contentID ||
-		got.GetSource() != "interaction" {
-		t.Fatalf("recommend track request = %+v", got)
+	if feedRPC.trackReq != nil {
+		t.Fatalf("FeedRpc.EmitRecommendTrack was called: %+v", feedRPC.trackReq)
 	}
 }
 
-func TestCommentEmitsRecommendTrackAfterSuccess(t *testing.T) {
+func TestCommentDoesNotEmitRecommendTrackAfterSuccess(t *testing.T) {
 	contentID := int64(2001)
 	contentUserID := int64(3001)
 	scene := "ARTICLE"
@@ -450,15 +386,7 @@ func TestCommentEmitsRecommendTrackAfterSuccess(t *testing.T) {
 	if commentRPC.commentReq == nil {
 		t.Fatal("CommentRpc.Comment was not called")
 	}
-	if feedRPC.trackReq == nil {
-		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
-	}
-
-	got := feedRPC.trackReq
-	if got.GetUserId() != 1001 ||
-		got.GetEventType() != "comment" ||
-		got.GetContentId() != contentID ||
-		got.GetSource() != "interaction" {
-		t.Fatalf("recommend track request = %+v", got)
+	if feedRPC.trackReq != nil {
+		t.Fatalf("FeedRpc.EmitRecommendTrack was called: %+v", feedRPC.trackReq)
 	}
 }

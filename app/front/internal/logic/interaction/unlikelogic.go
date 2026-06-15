@@ -52,7 +52,6 @@ func (l *UnlikeLogic) Unlike(req *types.UnlikeReq) (resp *types.UnlikeRes, err e
 	if err != nil {
 		return nil, err
 	}
-	emitRecommendTrack(l.ctx, l.svcCtx, "unlike", userID, *req.ContentId)
 
 	return &types.UnlikeRes{}, nil
 }

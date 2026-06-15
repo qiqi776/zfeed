@@ -57,7 +57,6 @@ func (l *CommentLogic) Comment(req *types.CommentReq) (resp *types.CommentRes, e
 	if err != nil {
 		return nil, err
 	}
-	emitRecommendTrack(l.ctx, l.svcCtx, "comment", userID, *req.ContentId)
 
 	return &types.CommentRes{
 		CommentId: res.GetCommentId(),

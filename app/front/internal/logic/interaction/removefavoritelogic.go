@@ -52,7 +52,6 @@ func (l *RemoveFavoriteLogic) RemoveFavorite(req *types.RemoveFavoriteReq) (resp
 	if err != nil {
 		return nil, err
 	}
-	emitRecommendTrack(l.ctx, l.svcCtx, "unfavorite", userID, *req.ContentId)
 
 	return &types.RemoveFavoriteRes{}, nil
 }

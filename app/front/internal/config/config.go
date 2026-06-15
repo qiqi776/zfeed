@@ -11,17 +11,16 @@ import (
 
 type Config struct {
 	rest.RestConf
-	ContentRpcClientConf             zrpc.RpcClientConf
-	InteractionRpcClientConf         zrpc.RpcClientConf
-	UserRpcClientConf                zrpc.RpcClientConf
-	CountRpcClientConf               zrpc.RpcClientConf
-	SearchRpcClientConf              zrpc.RpcClientConf
-	Oss                              OssConfig
-	SessionTTL                       int64
-	CountRPCTimeoutMs                int64
-	DisableRecommendInteractionTrack bool
-	RedisConfig                      redis.RedisConf
-	MySQL                            MySQLConf
+	ContentRpcClientConf     zrpc.RpcClientConf
+	InteractionRpcClientConf zrpc.RpcClientConf
+	UserRpcClientConf        zrpc.RpcClientConf
+	CountRpcClientConf       zrpc.RpcClientConf
+	SearchRpcClientConf      zrpc.RpcClientConf
+	Oss                      OssConfig
+	SessionTTL               int64
+	CountRPCTimeoutMs        int64
+	RedisConfig              redis.RedisConf
+	MySQL                    MySQLConf
 }
 
 type OssConfig struct {
