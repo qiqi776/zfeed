@@ -37,8 +37,8 @@ func TestFrontConfigLoadsWithEnv(t *testing.T) {
 	if len(cfg.SearchRpcClientConf.Etcd.Hosts) != 1 || cfg.SearchRpcClientConf.Etcd.Hosts[0] != "127.0.0.1:12379" {
 		t.Fatalf("unexpected search rpc etcd hosts: %v", cfg.SearchRpcClientConf.Etcd.Hosts)
 	}
-	if cfg.DisableRecommendInteractionTrack {
-		t.Fatal("DisableRecommendInteractionTrack = true, want default false")
+	if !cfg.DisableRecommendInteractionTrack {
+		t.Fatal("DisableRecommendInteractionTrack = false, want migration default true")
 	}
 	if cfg.Telemetry.Name != "front-api" || cfg.Telemetry.Endpoint != "127.0.0.1:4317" || !cfg.Telemetry.Disabled {
 		t.Fatalf("unexpected telemetry config: %+v", cfg.Telemetry)

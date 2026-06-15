@@ -1241,11 +1241,11 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `zfeed-rec-track` consumer 已兼容统一 user-action JSON 形态，支持通过 `action` 和 `target_id` 归一为既有 `track.Event`，后续 interaction 侧收敛事件生产者时无需改动画像更新和日聚合链路。
 - `content-rpc` 已新增 `KqUserActionConsumerConf`，可独立订阅 `zfeed-user-action` topic，并复用同一个 `RecommendTrackConsumer` 写入画像更新和日聚合。
 - `interaction-rpc` 已新增统一 user-action 事件模型、`zfeed_user_action_outbox`、Kafka producer 和后台 relay，可向 `zfeed-user-action` 发布 `action/target_id/source/occurred_at` 形态事件。
-- `front-api` 已新增 `DisableRecommendInteractionTrack` 迁移开关，默认保持现有同步推荐埋点；迁移到 interaction-rpc user-action outbox 时可关闭同步埋点，避免同一互动行为重复加权。
+- `front-api` 已启用 `DisableRecommendInteractionTrack` 迁移开关，默认关闭点赞、取消点赞、收藏、取消收藏、评论写路径的同步推荐埋点；互动画像改由 interaction-rpc user-action outbox 异步驱动，避免同一互动行为重复加权。
 - `interaction-rpc` 收藏和取消收藏写路径已在状态实际变化后调用 `UserActionProducer` 发出 `favorite` / `unfavorite` user-action；发送失败只记录日志，不回滚收藏业务。
 - `interaction-rpc` 点赞和取消点赞写路径已在状态实际变化后调用 `UserActionProducer` 发出 `like` / `unlike` user-action；发送失败只记录日志，不回滚点赞业务。
 - `interaction-rpc` 评论写路径已在评论事务提交成功后调用 `UserActionProducer` 发出 `comment` user-action；发送失败只记录日志，不回滚评论业务。
-- 2026-06-15 同步点：interaction-rpc 点赞、收藏、评论写路径均已接入 `UserActionProducer`；下一步在迁移时启用 front-api `DisableRecommendInteractionTrack`，避免同步埋点和 outbox 双写重复加权。
+- 2026-06-15 同步点：interaction-rpc 点赞、收藏、评论写路径均已接入 `UserActionProducer`，front-api 同步互动埋点禁用开关已默认启用；后续观察 `zfeed-user-action` 消费和画像权重稳定性，再清理 front-api 兼容投递路径。
 - `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 - `ApplyProfileEvent` 已按 `_updated_at` 对既有 tag 权重执行 `exp(-hours_since_update/168)` 时间衰减，再叠加本次行为权重。
 
@@ -1319,11 +1319,14 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/interaction/... -count=1`
 - `go test ./app/rpc/interaction/internal/logic/comment -run 'TestComment(EmitsUserActionAfterSuccessfulCreate|IgnoresUserActionFailure)' -count=1`
 - `go test ./app/rpc/interaction/internal/logic/comment -count=1`
+- `go test ./app/front/internal/config -run TestFrontConfigLoadsWithEnv -count=1`
+- `go test ./app/front/internal/config ./app/front/internal/logic/interaction -run 'TestFrontConfigLoadsWithEnv|TestLikeSkipsRecommendTrackWhenDisabled' -count=1`
+- `go test ./app/front/... -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`front-api` 点赞、取消点赞、收藏、取消收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action`，interaction-rpc 侧统一 outbox/producer 基础设施已就绪，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入。后续需要在迁移时打开 front-api 同步埋点禁用开关。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action`，interaction-rpc 侧统一 outbox/producer 基础设施已就绪，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 同步互动埋点禁用开关已默认启用。后续需要观察迁移后的 `zfeed-user-action` 消费、画像增量和日聚合数据，再清理 front-api 兼容投递路径。
 
 ## Change Log
 
@@ -1370,3 +1373,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Sync recommend implementation checkpoint after favorite user-action wiring | Codex |
 | 2026-06-15 | 1.0.0   | Emit like user-action events from interaction-rpc write paths | Codex |
 | 2026-06-15 | 1.0.0   | Emit comment user-action events from interaction-rpc write path | Codex |
+| 2026-06-15 | 1.0.0   | Enable front-api recommend interaction track migration switch | Codex |
