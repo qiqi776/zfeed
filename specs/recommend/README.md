@@ -1239,6 +1239,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `zfeed-rec-track` consumer 已兼容 `zfeed_favorite_event` 的取消收藏原始事件，把 `remove_favorite` 映射为推荐画像使用的 `unfavorite`，按 -1.5 权重撤回部分收藏偏好。
 - `zfeed-rec-track` consumer 已兼容 `zfeed_comment` 正常未删除评论行，使用 `comment_{user_id}_{content_id}_{comment_id}` 派生幂等 `event_id`，并从 `created_at` 解析 `occurred_at`。
 - `zfeed-rec-track` consumer 已兼容统一 user-action JSON 形态，支持通过 `action` 和 `target_id` 归一为既有 `track.Event`，后续 interaction 侧收敛事件生产者时无需改动画像更新和日聚合链路。
+- `content-rpc` 已新增 `KqUserActionConsumerConf`，可独立订阅 `zfeed-user-action` topic，并复用同一个 `RecommendTrackConsumer` 写入画像更新和日聚合。
 - `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 - `ApplyProfileEvent` 已按 `_updated_at` 对既有 tag 权重执行 `exp(-hours_since_update/168)` 时间衰减，再叠加本次行为权重。
 
@@ -1303,11 +1304,12 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/front/internal/logic/interaction -run TestRemoveFavoriteEmitsRecommendTrackAfterSuccess -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerMapsRemoveFavoriteToUnfavorite -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerNormalizesUserActionEvent -count=1`
+- `go test ./app/rpc/content/internal/config ./app/rpc/content/internal/mq/consumer -run 'TestEnv|TestRecommendConsumerConfigsIncludesUserActionTopic' -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`front-api` 点赞、取消点赞、收藏、取消收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容。后续如果继续生产化，可在 interaction-rpc 侧把分散事件源收敛为统一 `zfeed-user-action` outbox / producer。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`front-api` 点赞、取消点赞、收藏、取消收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action`。后续如果继续生产化，可在 interaction-rpc 侧把分散事件源收敛为统一 `zfeed-user-action` outbox / producer。
 
 ## Change Log
 
@@ -1347,3 +1349,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Normalize comment raw rows in recommendation track consumer | Codex |
 | 2026-06-15 | 1.0.0   | Add unfavorite recommendation feedback support | Codex |
 | 2026-06-15 | 1.0.0   | Normalize unified user-action events in recommendation track consumer | Codex |
+| 2026-06-15 | 1.0.0   | Add dedicated user-action topic consumer config for content-rpc | Codex |

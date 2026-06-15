@@ -11,10 +11,25 @@ import (
 )
 
 func Consumers(c config.Config, ctx context.Context, svcCtx *svc.ServiceContext) []service.Service {
-	if c.KqConsumerConf.Topic == "" {
-		return nil
+	configs := recommendConsumerConfigs(c)
+	if len(configs) == 0 {
+		return []service.Service{}
 	}
-	return []service.Service{
-		kq.MustNewQueue(c.KqConsumerConf, NewRecommendTrackConsumer(ctx, svcCtx)),
+
+	consumers := make([]service.Service, 0, len(configs))
+	for _, cfg := range configs {
+		consumers = append(consumers, kq.MustNewQueue(cfg, NewRecommendTrackConsumer(ctx, svcCtx)))
 	}
+	return consumers
+}
+
+func recommendConsumerConfigs(c config.Config) []kq.KqConf {
+	configs := []kq.KqConf{}
+	if c.KqConsumerConf.Topic != "" {
+		configs = append(configs, c.KqConsumerConf)
+	}
+	if c.KqUserActionConsumerConf.Topic != "" {
+		configs = append(configs, c.KqUserActionConsumerConf)
+	}
+	return configs
 }

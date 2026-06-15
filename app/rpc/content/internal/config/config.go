@@ -18,6 +18,7 @@ type Config struct {
 	RedisConfig              redis.RedisConf
 	KqProducerConf           KqProducerConf
 	KqConsumerConf           kq.KqConf
+	KqUserActionConsumerConf kq.KqConf
 	MySQL                    MySQLConf
 	XxlJob                   XxlJobConfig
 	Recommend                RecommendConfig

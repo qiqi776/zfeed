@@ -87,6 +87,16 @@ KqConsumerConf:
   Consumers: 2
   Processors: 2
 
+KqUserActionConsumerConf:
+  Name: content-user-action-consumer
+  Brokers:
+    - "${KAFKA_BROKERS}"
+  Group: zfeed-content-user-action-consumer
+  Topic: zfeed-user-action
+  Offset: last
+  Consumers: 2
+  Processors: 2
+
 MySQL:
   DataSource: "${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(${MYSQL_HOST}:${MYSQL_APP_PORT})/zfeed?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai"
 
