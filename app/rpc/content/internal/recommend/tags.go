@@ -75,6 +75,45 @@ func WriteContentTags(
 	return rds.ExpireCtx(ctx, contentKey, cfg.Interest.ContentTagTTL)
 }
 
+func RefreshContentTagIndex(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	cfg contentconfig.RecommendConfig,
+	contentID int64,
+	baseScore float64,
+) (bool, error) {
+	if rds == nil || contentID <= 0 || baseScore <= 0 {
+		return false, nil
+	}
+	cfg = NormalizeConfig(cfg)
+
+	tags, err := LoadContentTags(ctx, rds, contentID)
+	if err != nil || len(tags) == 0 {
+		return false, err
+	}
+
+	member := strconv.FormatInt(contentID, 10)
+	for tag, weight := range tags {
+		tag = normalizeTag(tag)
+		if tag == "" || weight == 0 {
+			continue
+		}
+		if _, err := rds.ZaddFloatCtx(
+			ctx,
+			redisconsts.BuildRecommendTagIndexKey(tag),
+			baseScore*weight,
+			member,
+		); err != nil {
+			return false, err
+		}
+		if err := rds.ExpireCtx(ctx, redisconsts.BuildRecommendTagIndexKey(tag), cfg.Interest.TagIndexTTL); err != nil {
+			return false, err
+		}
+	}
+
+	return true, nil
+}
+
 func LoadContentTags(ctx context.Context, rds *gzredis.Redis, contentID int64) (map[string]float64, error) {
 	if rds == nil || contentID <= 0 {
 		return map[string]float64{}, nil

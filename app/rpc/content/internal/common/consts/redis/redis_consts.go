@@ -23,6 +23,7 @@ const (
 	RecommendUserSnapshotMeta     = "feed:rec:user:snapmeta"
 	RecommendUserSnapshotSource   = "feed:rec:user:snapsource"
 	RecommendNewCleanupLockPrefix = "feed:rec:new:lock:cleanup"
+	RecommendTagRefreshLockPrefix = "rec:tag:index:lock:refresh"
 
 	UserPublishPrefix      = "feed:user:publish"
 	UserPublishLockPrefix  = "feed:user:publish:lock"
@@ -91,6 +92,10 @@ func BuildRecommendUserSnapshotSourceKey(snapshotID string) string {
 
 func BuildRecommendNewCleanupLockKey(bucket string) string {
 	return fmt.Sprintf("%s:%s", RecommendNewCleanupLockPrefix, bucket)
+}
+
+func BuildRecommendTagRefreshLockKey(bucket string) string {
+	return fmt.Sprintf("%s:%s", RecommendTagRefreshLockPrefix, bucket)
 }
 
 func BuildUserPublishRebuildLockKey(userID int64) string {

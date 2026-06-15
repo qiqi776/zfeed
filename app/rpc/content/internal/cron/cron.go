@@ -8,6 +8,7 @@ import (
 	"zfeed/app/rpc/content/internal/cron/hot_fast_update"
 	"zfeed/app/rpc/content/internal/cron/hot_snapshot_refresh"
 	"zfeed/app/rpc/content/internal/cron/rec_new_cleanup"
+	"zfeed/app/rpc/content/internal/cron/rec_tag_refresh"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/xxljob"
 )
@@ -18,4 +19,5 @@ func Register(ctx context.Context, executor *xxljob.Executor, svcCtx *svc.Servic
 	hot_snapshot_refresh.Register(ctx, executor, svcCtx)
 	hot_bucket_cleanup.Register(ctx, executor, svcCtx)
 	rec_new_cleanup.Register(ctx, executor, svcCtx)
+	rec_tag_refresh.Register(ctx, executor, svcCtx)
 }
