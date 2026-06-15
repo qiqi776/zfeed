@@ -206,6 +206,42 @@ func TestApplyProfileEventStoresProfileMetadata(t *testing.T) {
 	}
 }
 
+func TestApplyProfileEventDoesNotRefreshLastActiveAtForNegativeFeedback(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	cfg := contentconfig.RecommendConfig{}
+	contentID := int64(2004)
+	if err := WriteContentTags(
+		context.Background(),
+		client,
+		cfg,
+		contentID,
+		map[string]float64{"go": 1},
+		1,
+	); err != nil {
+		t.Fatalf("WriteContentTags returned error: %v", err)
+	}
+
+	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+	oldLastActiveAt := time.Now().Add(-10 * 24 * time.Hour).Unix()
+	store.HSet(profileKey, "_last_active_at", strconv.FormatInt(oldLastActiveAt, 10))
+
+	if err := ApplyProfileEvent(context.Background(), client, cfg, ProfileEvent{
+		EventID:   "evt-unlike-1",
+		EventType: ActionUnlike,
+		UserID:    1001,
+		ContentID: contentID,
+	}); err != nil {
+		t.Fatalf("ApplyProfileEvent returned error: %v", err)
+	}
+
+	if got := store.HGet(profileKey, "_last_active_at"); got != strconv.FormatInt(oldLastActiveAt, 10) {
+		t.Fatalf("_last_active_at = %q, want unchanged %d for negative feedback", got, oldLastActiveAt)
+	}
+	if got := store.HGet(profileKey, "_negative_count"); got != "1" {
+		t.Fatalf("_negative_count = %q, want 1", got)
+	}
+}
+
 func assertFloatWithin(t *testing.T, name string, got, want, tolerance float64) {
 	t.Helper()
 

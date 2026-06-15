@@ -86,7 +86,7 @@ func ApplyProfileEvent(ctx context.Context, rds *redis.Redis, cfg contentconfig.
 	if err := trimProfileTags(ctx, rds, profileKey, maxProfileTags); err != nil {
 		return err
 	}
-	if err := updateProfileMetadata(ctx, rds, profileKey, event.EventID, now); err != nil {
+	if err := updateProfileMetadata(ctx, rds, profileKey, event.EventID, delta > 0, now); err != nil {
 		return err
 	}
 	return rds.ExpireCtx(ctx, profileKey, cfg.Interest.ProfileTTL)
@@ -235,6 +235,7 @@ func updateProfileMetadata(
 	rds *redis.Redis,
 	profileKey string,
 	eventID string,
+	refreshLastActive bool,
 	now time.Time,
 ) error {
 	if rds == nil || profileKey == "" {
@@ -259,7 +260,9 @@ func updateProfileMetadata(
 		"_tag_count":      strconv.Itoa(positiveCount + negativeCount),
 		"_positive_count": strconv.Itoa(positiveCount),
 		"_negative_count": strconv.Itoa(negativeCount),
-		"_last_active_at": strconv.FormatInt(now.Unix(), 10),
+	}
+	if refreshLastActive {
+		fields["_last_active_at"] = strconv.FormatInt(now.Unix(), 10)
 	}
 	if eventID != "" {
 		fields["_last_event_id"] = eventID
