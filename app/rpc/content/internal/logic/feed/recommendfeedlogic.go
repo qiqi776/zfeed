@@ -579,7 +579,35 @@ func (l *RecommendFeedLogic) recallRecommendCandidates(
 	} else {
 		recordRecommendProfileMetric(recommendProfileResultDisabled)
 	}
+	inputs = rebalanceEmptyRecallWeight(inputs, recommend.SourceInterest, recommend.SourceHot)
 	return inputs, hotSnapshotID, nil
+}
+
+func rebalanceEmptyRecallWeight(
+	inputs []recommend.MergeInput,
+	emptySource recommend.Source,
+	fallbackSource recommend.Source,
+) []recommend.MergeInput {
+	var emptyWeight float64
+	fallbackIndex := -1
+
+	for i := range inputs {
+		input := inputs[i]
+		if input.Source == emptySource && len(input.IDs) == 0 && input.Weight > 0 {
+			emptyWeight += input.Weight
+			continue
+		}
+		if input.Source == fallbackSource && len(input.IDs) > 0 {
+			fallbackIndex = i
+		}
+	}
+
+	if emptyWeight <= 0 || fallbackIndex < 0 {
+		return inputs
+	}
+
+	inputs[fallbackIndex].Weight += emptyWeight
+	return inputs
 }
 
 func recordRerankAdjustments(variantID string, adjustments map[string]int) {

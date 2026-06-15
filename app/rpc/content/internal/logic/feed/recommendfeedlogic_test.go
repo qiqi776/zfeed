@@ -808,6 +808,129 @@ func TestRecommendInterestRecallRecordsProfileMetrics(t *testing.T) {
 	}
 }
 
+func TestRecallRecommendCandidatesTransfersInterestMissWeightToHot(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "7001")
+
+	userID := int64(1001)
+	cfg := contentconfig.RecommendConfig{
+		CandidateLimit: 10,
+		Hot: contentconfig.RecommendHotConfig{
+			Enabled: true,
+			Weight:  0.55,
+			Limit:   10,
+		},
+		Interest: contentconfig.RecommendInterestConfig{
+			Enabled: true,
+			Weight:  0.25,
+			MinTags: 1,
+			TopTags: 1,
+			Limit:   10,
+		},
+	}
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: cfg,
+		},
+		Redis: redisClient,
+	})
+
+	inputs, _, err := logic.recallRecommendCandidates(
+		&contentpb.RecommendFeedReq{UserId: &userID},
+		1,
+		cfg,
+		recommendVariantControl,
+	)
+	if err != nil {
+		t.Fatalf("recallRecommendCandidates returned error: %v", err)
+	}
+
+	hotWeight := recallInputWeight(inputs, recommend.SourceHot)
+	if hotWeight < 0.799 || hotWeight > 0.801 {
+		t.Fatalf("hot weight = %v, want 0.80 after interest miss transfer; inputs=%#v", hotWeight, inputs)
+	}
+}
+
+func TestRebalanceEmptyRecallWeightTransfersInterestMissToHot(t *testing.T) {
+	tests := []struct {
+		name          string
+		inputs        []recommend.MergeInput
+		wantHotWeight float64
+	}{
+		{
+			name: "interest miss",
+			inputs: []recommend.MergeInput{
+				{
+					Source: recommend.SourceHot,
+					Weight: 0.55,
+					IDs:    []int64{101, 102},
+				},
+				{
+					Source: recommend.SourceInterest,
+					Weight: 0.25,
+					IDs:    nil,
+				},
+			},
+			wantHotWeight: 0.80,
+		},
+		{
+			name: "interest hit",
+			inputs: []recommend.MergeInput{
+				{
+					Source: recommend.SourceHot,
+					Weight: 0.55,
+					IDs:    []int64{101, 102},
+				},
+				{
+					Source: recommend.SourceInterest,
+					Weight: 0.25,
+					IDs:    []int64{201},
+				},
+			},
+			wantHotWeight: 0.55,
+		},
+		{
+			name: "hot miss",
+			inputs: []recommend.MergeInput{
+				{
+					Source: recommend.SourceHot,
+					Weight: 0.55,
+					IDs:    nil,
+				},
+				{
+					Source: recommend.SourceInterest,
+					Weight: 0.25,
+					IDs:    nil,
+				},
+			},
+			wantHotWeight: 0.55,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := rebalanceEmptyRecallWeight(tt.inputs, recommend.SourceInterest, recommend.SourceHot)
+
+			if len(got) != len(tt.inputs) {
+				t.Fatalf("rebalanceEmptyRecallWeight returned %d inputs, want %d", len(got), len(tt.inputs))
+			}
+			hotWeight := recallInputWeight(got, recommend.SourceHot)
+			if hotWeight < tt.wantHotWeight-0.001 || hotWeight > tt.wantHotWeight+0.001 {
+				t.Fatalf("hot weight = %v, want %v", hotWeight, tt.wantHotWeight)
+			}
+		})
+	}
+}
+
+func recallInputWeight(inputs []recommend.MergeInput, source recommend.Source) float64 {
+	for _, input := range inputs {
+		if input.Source == source {
+			return input.Weight
+		}
+	}
+	return 0
+}
+
 func TestRecordRerankAdjustmentsPreservesRuleVariantAndCount(t *testing.T) {
 	oldRerank := recordRecommendRerankAdjustMetric
 	defer func() {
