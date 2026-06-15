@@ -109,12 +109,16 @@ func (p *UserActionProducer) enqueueEvent(ctx context.Context, action event.User
 		if markErr := repo.MarkRetry(action.EventID, nextUserActionRetryTime(now, 1), err.Error()); markErr != nil {
 			logx.WithContext(ctx).Errorf("mark user action retry failed, event_id=%s, err=%v", action.EventID, markErr)
 		}
+		recordUserActionOutboxMetric(action.Action, userActionOutboxResultRetry)
 		return nil
 	}
 
 	if err := repo.MarkSent(action.EventID, time.Now()); err != nil {
 		logx.WithContext(ctx).Errorf("mark user action sent failed, event_id=%s, err=%v", action.EventID, err)
+		recordUserActionOutboxMetric(action.Action, userActionOutboxResultMarkFailed)
+		return nil
 	}
+	recordUserActionOutboxMetric(action.Action, userActionOutboxResultSent)
 	return nil
 }
 
@@ -137,12 +141,16 @@ func (p *UserActionProducer) dispatchDueEvents(ctx context.Context, batchSize in
 			if markErr := repo.MarkRetry(record.EventID, nextRetryAt, err.Error()); markErr != nil {
 				logx.WithContext(ctx).Errorf("mark user action replay retry failed, event_id=%s, err=%v", record.EventID, markErr)
 			}
+			recordUserActionOutboxMetric(record.EventType, userActionOutboxResultRetry)
 			continue
 		}
 
 		if err := repo.MarkSent(record.EventID, time.Now()); err != nil {
 			logx.WithContext(ctx).Errorf("mark user action replay sent failed, event_id=%s, err=%v", record.EventID, err)
+			recordUserActionOutboxMetric(record.EventType, userActionOutboxResultMarkFailed)
+			continue
 		}
+		recordUserActionOutboxMetric(record.EventType, userActionOutboxResultReplayed)
 	}
 }
 
