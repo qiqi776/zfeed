@@ -61,3 +61,47 @@ func TestLoadSeenCountsReturnsOnlyRequestedIDs(t *testing.T) {
 		t.Fatalf("seen counts includes unrequested id 9003: %#v", got)
 	}
 }
+
+func TestRecordSeenContentsAccumulatesExposureCounts(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	defer store.Close()
+
+	cfg := contentconfig.RecommendConfig{SeenTTL: 3600}
+	userID := int64(1001)
+	if err := RecordSeenContents(
+		context.Background(),
+		client,
+		cfg,
+		userID,
+		[]int64{9001, 9002},
+		time.Unix(1780191000, 0),
+	); err != nil {
+		t.Fatalf("first RecordSeenContents returned error: %v", err)
+	}
+	if err := RecordSeenContents(
+		context.Background(),
+		client,
+		cfg,
+		userID,
+		[]int64{9001},
+		time.Unix(1780191060, 0),
+	); err != nil {
+		t.Fatalf("second RecordSeenContents returned error: %v", err)
+	}
+
+	got, err := LoadSeenCounts(context.Background(), client, userID, []int64{9001, 9002})
+	if err != nil {
+		t.Fatalf("LoadSeenCounts returned error: %v", err)
+	}
+	if got[9001] != 2 {
+		t.Fatalf("seen count for repeated exposure = %d, want 2", got[9001])
+	}
+	if got[9002] != 1 {
+		t.Fatalf("seen count for single exposure = %d, want 1", got[9002])
+	}
+
+	seenKey := redisconsts.BuildRecommendSeenKey(userID)
+	if score, err := store.ZScore(seenKey, "9001"); err != nil || score != float64(1780191060) {
+		t.Fatalf("seen zset score = %f, err=%v, want latest exposure unix", score, err)
+	}
+}

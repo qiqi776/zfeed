@@ -42,10 +42,22 @@ func RecordSeenContents(
 	}
 
 	key := redisconsts.BuildRecommendSeenKey(userID)
+	countKey := redisconsts.BuildRecommendSeenCountKey(userID)
 	if _, err := rds.ZaddsCtx(ctx, key, pairs...); err != nil {
 		return err
 	}
-	return rds.ExpireCtx(ctx, key, cfg.SeenTTL)
+	for _, contentID := range contentIDs {
+		if contentID <= 0 {
+			continue
+		}
+		if _, err := rds.HincrbyCtx(ctx, countKey, strconv.FormatInt(contentID, 10), 1); err != nil {
+			return err
+		}
+	}
+	if err := rds.ExpireCtx(ctx, key, cfg.SeenTTL); err != nil {
+		return err
+	}
+	return rds.ExpireCtx(ctx, countKey, cfg.SeenTTL)
 }
 
 func LoadSeenCounts(
@@ -59,12 +71,38 @@ func LoadSeenCounts(
 		return result, nil
 	}
 
-	key := redisconsts.BuildRecommendSeenKey(userID)
+	fields := make([]string, 0, len(contentIDs))
 	for _, contentID := range contentIDs {
 		if contentID <= 0 {
 			continue
 		}
-		score, err := rds.ZscoreCtx(ctx, key, strconv.FormatInt(contentID, 10))
+		fields = append(fields, strconv.FormatInt(contentID, 10))
+	}
+	if len(fields) == 0 {
+		return result, nil
+	}
+
+	countKey := redisconsts.BuildRecommendSeenCountKey(userID)
+	counts, err := rds.HmgetCtx(ctx, countKey, fields...)
+	if err != nil && !isRedisNil(err) {
+		return nil, err
+	}
+
+	key := redisconsts.BuildRecommendSeenKey(userID)
+	for i, field := range fields {
+		contentID, _ := strconv.ParseInt(field, 10, 64)
+		if i < len(counts) && counts[i] != "" {
+			count, parseErr := strconv.Atoi(counts[i])
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			if count > 0 {
+				result[contentID] = count
+			}
+			continue
+		}
+
+		score, err := rds.ZscoreCtx(ctx, key, field)
 		if err != nil {
 			if isRedisNil(err) {
 				continue

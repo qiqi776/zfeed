@@ -731,6 +731,82 @@ func TestRecommendEnhancementAppliesAndRecordsSeen(t *testing.T) {
 	}
 }
 
+func TestRecommendEnhancementUsesAccumulatedSeenPenalty(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8951, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8951", coverURL: "cover-8951"},
+		{contentID: 8952, authorID: 2002, contentType: contentpb.ContentType_ARTICLE, title: "hot-8952", coverURL: "cover-8952"},
+	})
+
+	store.ZAdd(redisconsts.HotFeedKey, 100, "8951")
+	store.ZAdd(redisconsts.HotFeedKey, 90, "8952")
+	userID := int64(1001)
+	cfg := contentconfig.RecommendConfig{
+		Enabled: true,
+		Hot: contentconfig.RecommendHotConfig{
+			Enabled: true,
+			Weight:  1,
+			Limit:   10,
+		},
+		Rank: contentconfig.RecommendRankConfig{
+			AlphaHot:    1,
+			SeenPenalty: 0.6,
+		},
+		Interest: contentconfig.RecommendInterestConfig{
+			Enabled: true,
+			Weight:  0.25,
+			Limit:   10,
+		},
+		Diversity: contentconfig.RecommendDiversityConfig{
+			Enabled: false,
+		},
+		SeenTTL: 3600,
+	}
+	if err := recommend.RecordSeenContents(
+		context.Background(),
+		redisClient,
+		cfg,
+		userID,
+		[]int64{8951},
+		time.Now().Add(-time.Minute),
+	); err != nil {
+		t.Fatalf("first RecordSeenContents returned error: %v", err)
+	}
+	if err := recommend.RecordSeenContents(
+		context.Background(),
+		redisClient,
+		cfg,
+		userID,
+		[]int64{8951},
+		time.Now(),
+	); err != nil {
+		t.Fatalf("second RecordSeenContents returned error: %v", err)
+	}
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: cfg,
+		},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		UserId:   &userID,
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	ids := recommendContentIDs(resp.GetItems())
+	if len(ids) != 1 || ids[0] != 8952 {
+		t.Fatalf("ids = %v, want less exposed hot content [8952]", ids)
+	}
+}
+
 func TestRecommendInterestRecallRecordsProfileMetrics(t *testing.T) {
 	tests := []struct {
 		name       string

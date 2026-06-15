@@ -1276,6 +1276,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `content-rpc` 已新增 `zfeed_recommend_track_consume_lag_seconds{event_type,source}` 和 `zfeed_recommend_user_action_consume_lag_seconds{event_type}` 直方图，按事件 `occurred_at` 到实际消费时间记录 Kafka 消费延迟；缺失 `occurred_at` 的历史或异常事件会跳过延迟观测，避免产生误导样本。
 - Grafana overview 已新增 `Recommendation Track Consume Lag P95` 和 `Recommendation User Action Consume Lag P95` 面板，分别按 `event_type/source` 和 `event_type` 展示 p95 消费延迟，继续避免 `user_id`、`content_id`、`target_id` 等高基数标签。
 - Prometheus 已新增 `zfeed-recommend-alerts.yml` 推荐迁移告警规则，覆盖推荐埋点消费延迟、user-action 消费延迟、埋点消费错误率、user-action outbox 重试/失败和推荐兜底率异常；规则测试会校验告警表达式和低基数约束。
+- `rec:seen:{user_id}` 现在与 `rec:seen:count:{user_id}` 配合记录最近曝光时间和累计曝光次数，`LoadSeenCounts` 会优先读取累计次数，旧数据则回退到单次曝光兼容路径，已曝光内容的降权能真正随重复曝光加重。
 - `content-rpc` 已新增 `rec.tag.refresh` XXL-Job，按公开已发布内容分页读取最近内容，复用 `hotrank.Formula` 计算互动热度衰减分，并叠加发布时间 freshness 衰减分作为 base score，再由 `recommend.RefreshContentTagIndex` 按已有 `rec:content:tags:{content_id}` 权重刷新 `rec:tag:index:{tag}` 分数并续 `TagIndexTTL`。
 - `recommend.RefreshContentTagIndex` 已把标签索引刷新封装在 recommend 包内，cron 只负责调度、分页和加锁，避免把兴趣召回打分策略散落到任务层。
 - `rec.tag.refresh` 已覆盖无互动新内容场景：即使 like/comment/favorite 均为 0，也会按发布时间 freshness 衰减刷新 tag index，防止发布时写入的高时间戳分数长期残留。
@@ -1410,6 +1411,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend -run 'TestCandidateCache(PreservesSourceScoresAndRanks|LoadsLegacyPrimarySourceHash|PreservesPrimarySources|SaveAndLoad)' -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestHotCandidatesFromPairsNormalizesScoreAndRanks -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'Test(RecallRecommendCandidatesPreservesHotScores|RebalanceEmptyRecallWeightTransfersInterestMissToHot|RecallRecommendCandidatesTransfersInterestMissWeightToHot)' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test(RecordSeenContentsWritesRecentExposureSet|LoadSeenCountsReturnsOnlyRequestedIDs|RecordSeenContentsAccumulatesExposureCounts)' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementUsesAccumulatedSeenPenalty -count=1`
 
 剩余缺口：
 
@@ -1488,3 +1491,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Preserve interest candidate scores and ranks through merge | Codex |
 | 2026-06-15 | 1.0.0   | Preserve candidate cache source scores and ranks | Codex |
 | 2026-06-15 | 1.0.0   | Preserve hot score in enhanced hot recall candidates | Codex |
+| 2026-06-15 | 1.0.0   | Record accumulated seen counts for repeated exposure penalty | Codex |
