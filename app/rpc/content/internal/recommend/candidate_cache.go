@@ -2,6 +2,7 @@ package recommend
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -96,6 +97,12 @@ func LoadCandidateCache(
 
 const candidateCacheScoreScale = 1_000_000
 const candidateCacheSourceSuffix = ":source"
+const candidateCacheDetailSuffix = ":detail"
+
+type candidateCacheDetail struct {
+	Scores map[string]float64 `json:"scores,omitempty"`
+	Ranks  map[string]int     `json:"ranks,omitempty"`
+}
 
 func saveCandidateCacheSources(
 	ctx context.Context,
@@ -105,7 +112,9 @@ func saveCandidateCacheSources(
 	candidates []Candidate,
 ) error {
 	sourceKey := buildCandidateCacheSourceKey(key)
+	detailKey := buildCandidateCacheDetailKey(key)
 	wrote := false
+	wroteDetail := false
 	for _, candidate := range candidates {
 		if candidate.ContentID <= 0 {
 			continue
@@ -113,6 +122,13 @@ func saveCandidateCacheSources(
 
 		source := PrimarySource(candidate)
 		if source == "" {
+			detailWritten, err := saveCandidateCacheDetail(ctx, rds, detailKey, candidate)
+			if err != nil {
+				return err
+			}
+			if detailWritten {
+				wroteDetail = true
+			}
 			continue
 		}
 		if err := rds.HsetCtx(
@@ -124,11 +140,51 @@ func saveCandidateCacheSources(
 			return err
 		}
 		wrote = true
+		detailWritten, err := saveCandidateCacheDetail(ctx, rds, detailKey, candidate)
+		if err != nil {
+			return err
+		}
+		if detailWritten {
+			wroteDetail = true
+		}
 	}
 	if !wrote {
+		if !wroteDetail {
+			return nil
+		}
+		if err := rds.ExpireCtx(ctx, detailKey, cfg.CandidateTTL); err != nil {
+			return err
+		}
 		return nil
 	}
-	return rds.ExpireCtx(ctx, sourceKey, cfg.CandidateTTL)
+	if err := rds.ExpireCtx(ctx, sourceKey, cfg.CandidateTTL); err != nil {
+		return err
+	}
+	if wroteDetail {
+		return rds.ExpireCtx(ctx, detailKey, cfg.CandidateTTL)
+	}
+	return nil
+}
+
+func saveCandidateCacheDetail(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	detailKey string,
+	candidate Candidate,
+) (bool, error) {
+	detail, ok := buildCandidateCacheDetail(candidate)
+	if !ok {
+		return false, nil
+	}
+	if err := rds.HsetCtx(
+		ctx,
+		detailKey,
+		strconv.FormatInt(candidate.ContentID, 10),
+		detail,
+	); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func attachCandidateCacheSources(
@@ -141,16 +197,47 @@ func attachCandidateCacheSources(
 	if err != nil {
 		return err
 	}
-	if len(rawSources) == 0 {
-		return nil
+	rawDetails, err := rds.HgetallCtx(ctx, buildCandidateCacheDetailKey(key))
+	if err != nil {
+		return err
 	}
 
 	for i := range candidates {
-		source := normalizeSource(rawSources[strconv.FormatInt(candidates[i].ContentID, 10)])
+		contentID := strconv.FormatInt(candidates[i].ContentID, 10)
+		if detail, ok := parseCandidateCacheDetail(rawDetails[contentID]); ok {
+			if len(detail.Scores) > 0 {
+				candidates[i].SourceScores = make(map[Source]float64, len(detail.Scores))
+				for rawSource, score := range detail.Scores {
+					source := normalizeSource(rawSource)
+					if source == "" || score <= 0 {
+						continue
+					}
+					candidates[i].SourceScores[source] = score
+				}
+			}
+			if len(detail.Ranks) > 0 {
+				candidates[i].SourceRanks = make(map[Source]int, len(detail.Ranks))
+				for rawSource, rank := range detail.Ranks {
+					source := normalizeSource(rawSource)
+					if source == "" || rank <= 0 {
+						continue
+					}
+					candidates[i].SourceRanks[source] = rank
+				}
+			}
+			if len(candidates[i].SourceScores) > 0 || len(candidates[i].SourceRanks) > 0 {
+				continue
+			}
+		}
+
+		source := normalizeSource(rawSources[contentID])
 		if source == "" {
 			continue
 		}
 		candidates[i].SourceScores = map[Source]float64{
+			source: 1,
+		}
+		candidates[i].SourceRanks = map[Source]int{
 			source: 1,
 		}
 	}
@@ -159,6 +246,55 @@ func attachCandidateCacheSources(
 
 func buildCandidateCacheSourceKey(key string) string {
 	return key + candidateCacheSourceSuffix
+}
+
+func buildCandidateCacheDetailKey(key string) string {
+	return key + candidateCacheDetailSuffix
+}
+
+func buildCandidateCacheDetail(candidate Candidate) (string, bool) {
+	detail := candidateCacheDetail{}
+	if len(candidate.SourceScores) > 0 {
+		detail.Scores = make(map[string]float64, len(candidate.SourceScores))
+		for source, score := range candidate.SourceScores {
+			normalized := normalizeSource(string(source))
+			if normalized == "" || score <= 0 {
+				continue
+			}
+			detail.Scores[string(normalized)] = score
+		}
+	}
+	if len(candidate.SourceRanks) > 0 {
+		detail.Ranks = make(map[string]int, len(candidate.SourceRanks))
+		for source, rank := range candidate.SourceRanks {
+			normalized := normalizeSource(string(source))
+			if normalized == "" || rank <= 0 {
+				continue
+			}
+			detail.Ranks[string(normalized)] = rank
+		}
+	}
+	if len(detail.Scores) == 0 && len(detail.Ranks) == 0 {
+		return "", false
+	}
+	raw, err := json.Marshal(detail)
+	if err != nil {
+		return "", false
+	}
+	return string(raw), true
+}
+
+func parseCandidateCacheDetail(raw string) (candidateCacheDetail, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return candidateCacheDetail{}, false
+	}
+
+	var detail candidateCacheDetail
+	if err := json.Unmarshal([]byte(raw), &detail); err != nil {
+		return candidateCacheDetail{}, false
+	}
+	return detail, true
 }
 
 func normalizeCacheSegment(value string, fallback string) string {

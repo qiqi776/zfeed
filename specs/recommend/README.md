@@ -1291,6 +1291,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `ApplyProfileEvent` 已要求 `event_id` 非空后才更新画像，缺失幂等键的异常事件会被忽略，避免重复或不可追踪事件污染 `rec:user:profile:{user_id}`。
 - 推荐召回编排已在兴趣召回为空且热榜有候选时，把 `recall.interest.weight` 自动回流到 hot 输入权重，满足“少量行为用户兴趣召回不足时转给热榜”的冷启动策略；兴趣有候选或热榜为空时保持原权重不变。
 - 兴趣召回已新增候选版输出，`SourceScores` 和 `SourceRanks` 会随兴趣命中一起进入候选合并层，避免后续 merge 只能按 ID 顺序回填 rank 分，保留了 tag index 的真实贡献。
+- 推荐候选缓存已新增 `feed:rec:candidate:{bucket}:{variant}:{config_hash}:detail` 并行 Hash，缓存命中后会恢复多路 `SourceScores` 和 `SourceRanks`；旧的 `:source` 主来源缓存仍兼容读取，避免短 TTL 老缓存命中时丢失曝光来源。
 
 已验证：
 
@@ -1405,6 +1406,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run 'Test(RebalanceEmptyRecallWeightTransfersInterestMissToHot|RecallRecommendCandidatesTransfersInterestMissWeightToHot)' -count=1`
 - `go test ./app/rpc/content/internal/recommend -run 'Test(MergeUsesInputCandidateSourceScoresAndRanks|RecallInterestCandidatesPreservesScoresAndRanks|RecallInterestUsesTagIndexScores)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecallRecommendCandidates(PreservesInterestSourceScores|TransfersInterestMissWeightToHot)|TestRebalanceEmptyRecallWeightTransfersInterestMissToHot' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'TestCandidateCache(PreservesSourceScoresAndRanks|LoadsLegacyPrimarySourceHash|PreservesPrimarySources|SaveAndLoad)' -count=1`
 
 剩余缺口：
 
@@ -1481,3 +1483,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Ignore recommendation profile events without event ids | Codex |
 | 2026-06-15 | 1.0.0   | Transfer empty interest recall weight to hot recall | Codex |
 | 2026-06-15 | 1.0.0   | Preserve interest candidate scores and ranks through merge | Codex |
+| 2026-06-15 | 1.0.0   | Preserve candidate cache source scores and ranks | Codex |

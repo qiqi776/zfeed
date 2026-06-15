@@ -111,6 +111,90 @@ func TestCandidateCachePreservesPrimarySources(t *testing.T) {
 	}
 }
 
+func TestCandidateCachePreservesSourceScoresAndRanks(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	defer store.Close()
+
+	key := BuildCandidateCacheKey(42, "control", "hashabc")
+	cfg := contentconfig.RecommendConfig{CandidateTTL: 120}
+	candidates := []Candidate{
+		{
+			ContentID: 1001,
+			Score:     0.8,
+			SourceScores: map[Source]float64{
+				SourceHot:      0.2,
+				SourceInterest: 0.9,
+			},
+			SourceRanks: map[Source]int{
+				SourceHot:      3,
+				SourceInterest: 1,
+			},
+		},
+	}
+
+	if err := SaveCandidateCache(context.Background(), client, cfg, key, candidates); err != nil {
+		t.Fatalf("SaveCandidateCache returned error: %v", err)
+	}
+
+	got, ok, err := LoadCandidateCache(context.Background(), client, key, 10)
+	if err != nil {
+		t.Fatalf("LoadCandidateCache returned error: %v", err)
+	}
+	if !ok {
+		t.Fatal("LoadCandidateCache ok = false, want true")
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(candidates) = %d, want 1", len(got))
+	}
+	if got[0].SourceScores[SourceInterest] != 0.9 {
+		t.Fatalf("interest source score = %v, want 0.9", got[0].SourceScores[SourceInterest])
+	}
+	if got[0].SourceRanks[SourceInterest] != 1 {
+		t.Fatalf("interest source rank = %v, want 1", got[0].SourceRanks[SourceInterest])
+	}
+	if got[0].SourceScores[SourceHot] != 0.2 {
+		t.Fatalf("hot source score = %v, want 0.2", got[0].SourceScores[SourceHot])
+	}
+	if got[0].SourceRanks[SourceHot] != 3 {
+		t.Fatalf("hot source rank = %v, want 3", got[0].SourceRanks[SourceHot])
+	}
+}
+
+func TestCandidateCacheLoadsLegacyPrimarySourceHash(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	defer store.Close()
+
+	key := BuildCandidateCacheKey(42, "control", "hashabc")
+	if _, err := client.ZaddCtx(context.Background(), key, 800000, "1001"); err != nil {
+		t.Fatalf("zadd candidate cache: %v", err)
+	}
+	if err := client.HsetCtx(
+		context.Background(),
+		buildCandidateCacheSourceKey(key),
+		"1001",
+		string(SourceInterest),
+	); err != nil {
+		t.Fatalf("hset legacy source: %v", err)
+	}
+
+	got, ok, err := LoadCandidateCache(context.Background(), client, key, 10)
+	if err != nil {
+		t.Fatalf("LoadCandidateCache returned error: %v", err)
+	}
+	if !ok {
+		t.Fatal("LoadCandidateCache ok = false, want true")
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(candidates) = %d, want 1", len(got))
+	}
+	if got[0].SourceScores[SourceInterest] != 1 {
+		t.Fatalf("interest source score = %v, want legacy fallback 1", got[0].SourceScores[SourceInterest])
+	}
+	if got[0].SourceRanks[SourceInterest] != 1 {
+		t.Fatalf("interest source rank = %v, want legacy fallback 1", got[0].SourceRanks[SourceInterest])
+	}
+}
+
 func TestLoadCandidateCacheMiss(t *testing.T) {
 	store, client := newRecommendRedis(t)
 	defer store.Close()
