@@ -142,6 +142,14 @@ func (l *RecommendFeedLogic) RecommendFeed(in *contentpb.RecommendFeedReq) (*con
 			if err != nil {
 				recordRecommendFallbackMetric(recommendFallbackReasonEnhancementError)
 				l.Errorf("recommend enhancement failed, user_id=%d, err=%v", in.GetUserId(), err)
+				if !runtime.cfg.FallbackToHot {
+					recordRecommendRequestMetric(
+						recommendModePersonalized,
+						runtime.variantID,
+						recommendResultError,
+					)
+					return nil, err
+				}
 			}
 		}
 	}

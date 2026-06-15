@@ -894,6 +894,92 @@ func TestRecommendEnhancementRecordsRecallErrorMetric(t *testing.T) {
 	}
 }
 
+func TestRecommendFallbackToHotDisabledReturnsEnhancementError(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8461, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8461", coverURL: "cover-8461"},
+	})
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "8461")
+	store.Set(redisconsts.RecommendNewContentKey, "not-a-zset")
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: contentconfig.RecommendConfig{
+				Enabled:       true,
+				FallbackToHot: false,
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: false,
+					Weight:  1,
+					Limit:   10,
+				},
+				NewContent: contentconfig.RecommendNewContentConfig{
+					Enabled: true,
+					Weight:  1,
+					Limit:   10,
+				},
+			},
+		},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err == nil {
+		t.Fatalf("RecommendFeed returned nil error with resp=%+v, want enhancement error when fallback_to_hot is disabled", resp)
+	}
+	if resp != nil {
+		t.Fatalf("RecommendFeed response = %+v, want nil on enhancement error", resp)
+	}
+}
+
+func TestRecommendFallbackToHotEnabledKeepsHotFallbackOnEnhancementError(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	db := newFollowFeedTestDB(t)
+
+	seedFollowFeedRows(t, db, []followFeedSeed{
+		{contentID: 8462, authorID: 2001, contentType: contentpb.ContentType_ARTICLE, title: "hot-8462", coverURL: "cover-8462"},
+	})
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "8462")
+	store.Set(redisconsts.RecommendNewContentKey, "not-a-zset")
+
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: contentconfig.RecommendConfig{
+				Enabled:       true,
+				FallbackToHot: true,
+				Hot: contentconfig.RecommendHotConfig{
+					Enabled: false,
+					Weight:  1,
+					Limit:   10,
+				},
+				NewContent: contentconfig.RecommendNewContentConfig{
+					Enabled: true,
+					Weight:  1,
+					Limit:   10,
+				},
+			},
+		},
+		MysqlDb: db,
+		Redis:   redisClient,
+	})
+
+	resp, err := logic.RecommendFeed(&contentpb.RecommendFeedReq{
+		Cursor:   "",
+		PageSize: 1,
+	})
+	if err != nil {
+		t.Fatalf("RecommendFeed returned error: %v", err)
+	}
+	if got := recommendContentIDs(resp.GetItems()); len(got) != 1 || got[0] != 8462 {
+		t.Fatalf("ids = %v, want hot fallback [8462]", got)
+	}
+}
+
 func TestRecommendEnhancementRecordsEmptyRecallFallback(t *testing.T) {
 	store, redisClient := newFollowFeedRedis(t)
 	db := newFollowFeedTestDB(t)
