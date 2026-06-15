@@ -1233,6 +1233,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 已新增 `zfeed_rec_metric_daily` MySQL 表和 `DailyAggregator` 聚合写入组件，可按 `metric_date + variant_id + source` 累加 exposure、click、dwell、like、favorite、comment 和停留时长。
 - `content-rpc` 已新增 `zfeed-rec-track` consumer，消费推荐埋点 JSON 后调用 `DailyAggregator` 写入日聚合表；consumer 配置已加入 `content.yaml`。
 - `zfeed-rec-track` consumer 已在日聚合前复用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`，同一 `event_id` 重放依赖既有 profile 事件去重避免重复加权，后续 interaction outbox 或 Canal 只要投递同结构事件即可异步更新画像。
+- `zfeed-rec-track` consumer 已兼容 interaction-rpc `zfeed-like` 原始事件，能将 `timestamp` 归一化为秒级 `occurred_at`，并把 `cancel_like` 映射为推荐画像使用的 `unlike`。
 - `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 - `ApplyProfileEvent` 已按 `_updated_at` 对既有 tag 权重执行 `exp(-hours_since_update/168)` 时间衰减，再叠加本次行为权重。
 
@@ -1288,11 +1289,13 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestEmitRecommendTrack(SkipsShortDwellProfileUpdate|UpdatesUserProfileAfterSuccessfulEmit/dwell)' -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerAppliesProfileEvent -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestApplyProfileEventDecaysExistingWeight -count=1`
+- `go test ./app/rpc/content/internal/mq/consumer -run 'TestRecommendTrackConsumer(NormalizesInteractionLikeEvent|MapsCancelLikeToUnlike)' -count=1`
+- `go test ./app/rpc/content/internal/mq/consumer -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike，`front-api` 点赞、取消点赞、收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；绕过 `front-api` 的 interaction-rpc 直写、补偿重放或 outbox/Canal 事件源仍待补齐。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike，`front-api` 点赞、取消点赞、收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like` 原始事件已兼容，收藏、评论的 outbox/Canal 事件源仍待补齐。
 
 ## Change Log
 
@@ -1327,3 +1330,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Add unlike recommendation track and profile decrement support | Codex |
 | 2026-06-15 | 1.0.0   | Gate dwell profile updates at ten seconds | Codex |
 | 2026-06-15 | 1.0.0   | Apply time decay to recommendation user profile weights | Codex |
+| 2026-06-15 | 1.0.0   | Normalize interaction like raw events in recommendation track consumer | Codex |

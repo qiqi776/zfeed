@@ -27,6 +27,16 @@ func (a *fakeDailyAggregator) Aggregate(_ context.Context, event track.Event) er
 	return a.err
 }
 
+type fakeProfileUpdater struct {
+	events []track.Event
+	err    error
+}
+
+func (u *fakeProfileUpdater) Apply(_ context.Context, event track.Event) error {
+	u.events = append(u.events, event)
+	return u.err
+}
+
 func TestRecommendTrackConsumerAggregatesTrackEvent(t *testing.T) {
 	aggregator := &fakeDailyAggregator{}
 	consumer := newRecommendTrackConsumerForTest(context.Background(), aggregator)
@@ -55,6 +65,58 @@ func TestRecommendTrackConsumerAggregatesTrackEvent(t *testing.T) {
 	}
 	if aggregator.events[0] != event {
 		t.Fatalf("aggregated event = %+v, want %+v", aggregator.events[0], event)
+	}
+}
+
+func TestRecommendTrackConsumerNormalizesInteractionLikeEvent(t *testing.T) {
+	aggregator := &fakeDailyAggregator{}
+	updater := &fakeProfileUpdater{}
+	consumer := newRecommendTrackConsumerWithProfileForTest(context.Background(), aggregator, updater)
+	raw := `{"event_id":"like_1001_2001_1781480000000000000","event_type":"like","user_id":1001,"content_id":2001,"content_user_id":3001,"scene":"ARTICLE","timestamp":1781480000000000000}`
+
+	if err := consumer.Consume(context.Background(), "", raw); err != nil {
+		t.Fatalf("Consume returned error: %v", err)
+	}
+
+	want := track.Event{
+		EventID:    "like_1001_2001_1781480000000000000",
+		EventType:  track.EventTypeLike,
+		UserID:     1001,
+		ContentID:  2001,
+		Source:     "interaction",
+		OccurredAt: 1781480000,
+	}
+	if len(updater.events) != 1 || updater.events[0] != want {
+		t.Fatalf("profile events = %+v, want [%+v]", updater.events, want)
+	}
+	if len(aggregator.events) != 1 || aggregator.events[0] != want {
+		t.Fatalf("aggregated events = %+v, want [%+v]", aggregator.events, want)
+	}
+}
+
+func TestRecommendTrackConsumerMapsCancelLikeToUnlike(t *testing.T) {
+	aggregator := &fakeDailyAggregator{}
+	updater := &fakeProfileUpdater{}
+	consumer := newRecommendTrackConsumerWithProfileForTest(context.Background(), aggregator, updater)
+	raw := `{"event_id":"cancel_like_1001_2001_1781480000000000000","event_type":"cancel_like","user_id":1001,"content_id":2001,"content_user_id":3001,"scene":"ARTICLE","timestamp":1781480000000000000}`
+
+	if err := consumer.Consume(context.Background(), "", raw); err != nil {
+		t.Fatalf("Consume returned error: %v", err)
+	}
+
+	want := track.Event{
+		EventID:    "cancel_like_1001_2001_1781480000000000000",
+		EventType:  track.EventTypeUnlike,
+		UserID:     1001,
+		ContentID:  2001,
+		Source:     "interaction",
+		OccurredAt: 1781480000,
+	}
+	if len(updater.events) != 1 || updater.events[0] != want {
+		t.Fatalf("profile events = %+v, want [%+v]", updater.events, want)
+	}
+	if len(aggregator.events) != 1 || aggregator.events[0] != want {
+		t.Fatalf("aggregated events = %+v, want [%+v]", aggregator.events, want)
 	}
 }
 

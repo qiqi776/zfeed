@@ -14,6 +14,12 @@ import (
 	"zfeed/app/rpc/content/internal/svc"
 )
 
+const (
+	recommendTrackSourceInteraction = "interaction"
+
+	interactionEventTypeCancelLike = "cancel_like"
+)
+
 type dailyAggregator interface {
 	Aggregate(ctx context.Context, event track.Event) error
 }
@@ -60,8 +66,8 @@ func newRecommendTrackConsumerWithProfileForTest(
 }
 
 func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) error {
-	var event track.Event
-	if err := json.Unmarshal([]byte(val), &event); err != nil {
+	event, err := parseRecommendTrackEvent(val)
+	if err != nil {
 		logc.Errorf(ctx, "parse recommend track event failed, err=%v", err)
 		return err
 	}
@@ -81,6 +87,39 @@ func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) err
 		return err
 	}
 	return nil
+}
+
+type recommendTrackEnvelope struct {
+	track.Event
+	Timestamp int64 `json:"timestamp"`
+}
+
+func parseRecommendTrackEvent(val string) (track.Event, error) {
+	var raw recommendTrackEnvelope
+	if err := json.Unmarshal([]byte(val), &raw); err != nil {
+		return track.Event{}, err
+	}
+
+	event := raw.Event
+	if event.Source != "" || event.OccurredAt > 0 || raw.Timestamp <= 0 {
+		return event, nil
+	}
+
+	switch event.EventType {
+	case track.EventTypeLike:
+		event.Source = recommendTrackSourceInteraction
+		event.OccurredAt = unixNanoToSeconds(raw.Timestamp)
+	case interactionEventTypeCancelLike:
+		event.EventType = track.EventTypeUnlike
+		event.Source = recommendTrackSourceInteraction
+		event.OccurredAt = unixNanoToSeconds(raw.Timestamp)
+	}
+
+	return event, nil
+}
+
+func unixNanoToSeconds(timestamp int64) int64 {
+	return timestamp / 1_000_000_000
 }
 
 type redisProfileUpdater struct {
