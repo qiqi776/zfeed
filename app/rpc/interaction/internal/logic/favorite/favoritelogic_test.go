@@ -2,6 +2,7 @@ package favoritelogic
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	"zfeed/app/rpc/interaction/internal/do"
 	"zfeed/app/rpc/interaction/internal/model"
+	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 )
@@ -98,14 +100,26 @@ func (r *favoriteStubCommentRepo) HasChildren(int64) (bool, error) { return fals
 func (r *favoriteStubCommentRepo) IncReplyCount(int64) error       { return nil }
 func (r *favoriteStubCommentRepo) DecReplyCount(int64) error       { return nil }
 
+type fakeUserActionProducer struct {
+	events []event.UserActionEvent
+	err    error
+}
+
+func (p *fakeUserActionProducer) SendUserAction(_ context.Context, action event.UserActionEvent) error {
+	p.events = append(p.events, action)
+	return p.err
+}
+
 func TestFavoriteAndRemoveFavorite_UpdateDBAndCache(t *testing.T) {
 	db := newFavoriteTestDB(t)
 	store, client := newFavoriteTestRedis(t)
 	defer store.Close()
 
+	userActionProducer := &fakeUserActionProducer{}
 	logicCtx := &svc.ServiceContext{
-		MysqlDb: db,
-		Redis:   client,
+		MysqlDb:            db,
+		Redis:              client,
+		UserActionProducer: userActionProducer,
 	}
 	queryLogic := NewQueryFavoriteInfoLogic(context.Background(), logicCtx)
 
@@ -194,6 +208,16 @@ func TestFavoriteAndRemoveFavorite_UpdateDBAndCache(t *testing.T) {
 	if value, err := store.Get(relKey); err != nil || value != "1" {
 		t.Fatalf("relation cache after favorite = (%q, %v), want (\"1\", nil)", value, err)
 	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events after favorite = %+v, want one event", userActionProducer.events)
+	}
+	if got := userActionProducer.events[0]; got.Action != event.UserActionFavorite ||
+		got.UserID != userID ||
+		got.TargetID != contentID ||
+		got.ContentUserID != contentUserID ||
+		got.Scene != interaction.Scene_ARTICLE.String() {
+		t.Fatalf("favorite user action = %+v", got)
+	}
 
 	_, err = removeLogic.RemoveFavorite(&interaction.RemoveFavoriteReq{
 		UserId:    userID,
@@ -248,6 +272,53 @@ func TestFavoriteAndRemoveFavorite_UpdateDBAndCache(t *testing.T) {
 	}
 	if value, err := store.Get(relKey); err != nil || value != "0" {
 		t.Fatalf("relation cache after remove = (%q, %v), want (\"0\", nil)", value, err)
+	}
+	if len(userActionProducer.events) != 2 {
+		t.Fatalf("user action events after remove = %+v, want two events", userActionProducer.events)
+	}
+	if got := userActionProducer.events[1]; got.Action != event.UserActionUnfavorite ||
+		got.UserID != userID ||
+		got.TargetID != contentID ||
+		got.ContentUserID != contentUserID ||
+		got.Scene != interaction.Scene_ARTICLE.String() {
+		t.Fatalf("remove favorite user action = %+v", got)
+	}
+}
+
+func TestFavoriteIgnoresUserActionFailure(t *testing.T) {
+	db := newFavoriteTestDB(t)
+	_, client := newFavoriteTestRedis(t)
+
+	userActionProducer := &fakeUserActionProducer{err: errors.New("kafka unavailable")}
+	logic := &FavoriteLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			MysqlDb:            db,
+			Redis:              client,
+			UserActionProducer: userActionProducer,
+		},
+		Logger:            logx.WithContext(context.Background()),
+		favoriteRepo:      repositories.NewFavoriteRepository(context.Background(), db),
+		favoriteEventRepo: repositories.NewFavoriteEventRepository(context.Background(), db),
+		contentRepo: &favoriteStubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) { return 2001, nil },
+		},
+		commentRepo: &favoriteStubCommentRepo{},
+	}
+
+	resp, err := logic.Favorite(&interaction.FavoriteReq{
+		UserId:    1001,
+		ContentId: 9101,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err != nil {
+		t.Fatalf("Favorite returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Favorite returned nil response")
+	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events = %+v, want one attempted event", userActionProducer.events)
 	}
 }
 

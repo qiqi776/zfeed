@@ -9,6 +9,7 @@ import (
 	"zfeed/app/rpc/interaction/interaction"
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	"zfeed/app/rpc/interaction/internal/model"
+	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
@@ -55,6 +56,7 @@ func (l *RemoveFavoriteLogic) RemoveFavorite(in *interaction.RemoveFavoriteReq) 
 		return nil, errorx.NewNotFound("内容不存在")
 	}
 
+	var removed bool
 	if err := l.svcCtx.MysqlDb.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
 		favoriteRepo := l.favoriteRepo.WithTx(tx)
 		favoriteEventRepo := l.favoriteEventRepo.WithTx(tx)
@@ -71,6 +73,7 @@ func (l *RemoveFavoriteLogic) RemoveFavorite(in *interaction.RemoveFavoriteReq) 
 		if _, err := favoriteRepo.DeleteByUserAndTarget(in.GetUserId(), int32(in.GetScene()), in.GetContentId()); err != nil {
 			return err
 		}
+		removed = true
 
 		now := time.Now()
 		return favoriteEventRepo.Create(&model.ZfeedFavoriteEvent{
@@ -93,6 +96,19 @@ func (l *RemoveFavoriteLogic) RemoveFavorite(in *interaction.RemoveFavoriteReq) 
 	relKey := rediskey.BuildFavoriteRelKey(scene, userIDStr, contentIDStr)
 	if _, delErr := l.svcCtx.Redis.DelCtx(l.ctx, relKey); delErr != nil {
 		l.Errorf("delete favorite relation cache failed: %v", delErr)
+	}
+
+	if removed {
+		emitUserAction(
+			l.ctx,
+			l.Logger,
+			l.svcCtx.UserActionProducer,
+			event.UserActionUnfavorite,
+			in.GetUserId(),
+			in.GetContentId(),
+			contentUserID,
+			in.GetScene(),
+		)
 	}
 
 	if shouldUpdateFavoriteFeed(in.GetScene()) {

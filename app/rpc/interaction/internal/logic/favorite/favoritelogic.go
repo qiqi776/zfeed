@@ -11,6 +11,7 @@ import (
 	luautils "zfeed/app/rpc/interaction/internal/common/utils/lua"
 	"zfeed/app/rpc/interaction/internal/do"
 	"zfeed/app/rpc/interaction/internal/model"
+	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
@@ -58,6 +59,7 @@ func (l *FavoriteLogic) Favorite(in *interaction.FavoriteReq) (*interaction.Favo
 	}
 
 	var rowID int64
+	var changed bool
 	err = l.svcCtx.MysqlDb.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
 		favoriteRepo := l.favoriteRepo.WithTx(tx)
 		favoriteEventRepo := l.favoriteEventRepo.WithTx(tx)
@@ -91,6 +93,7 @@ func (l *FavoriteLogic) Favorite(in *interaction.FavoriteReq) (*interaction.Favo
 		if row != nil {
 			rowID = row.ID
 		}
+		changed = true
 
 		return favoriteEventRepo.Create(&model.ZfeedFavoriteEvent{
 			EventID:       fmt.Sprintf("favorite_%d_%d_%d", in.GetUserId(), in.GetContentId(), now.UnixNano()),
@@ -113,6 +116,19 @@ func (l *FavoriteLogic) Favorite(in *interaction.FavoriteReq) (*interaction.Favo
 	relKey := rediskey.BuildFavoriteRelKey(scene, userIDStr, contentIDStr)
 	if _, delErr := l.svcCtx.Redis.DelCtx(l.ctx, relKey); delErr != nil {
 		l.Errorf("delete favorite relation cache failed: %v", delErr)
+	}
+
+	if changed {
+		emitUserAction(
+			l.ctx,
+			l.Logger,
+			l.svcCtx.UserActionProducer,
+			event.UserActionFavorite,
+			in.GetUserId(),
+			in.GetContentId(),
+			contentUserID,
+			in.GetScene(),
+		)
 	}
 
 	if !shouldUpdateFavoriteFeed(in.GetScene()) || rowID <= 0 {
