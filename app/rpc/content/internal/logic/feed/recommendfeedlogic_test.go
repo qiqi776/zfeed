@@ -851,6 +851,67 @@ func TestRecallRecommendCandidatesTransfersInterestMissWeightToHot(t *testing.T)
 	}
 }
 
+func TestRecallRecommendCandidatesPreservesInterestSourceScores(t *testing.T) {
+	store, redisClient := newFollowFeedRedis(t)
+	store.ZAdd(redisconsts.HotFeedKey, 9001, "7001")
+	store.HSet(redisconsts.BuildRecommendUserProfileKey(1001), "go", "1")
+	store.ZAdd(redisconsts.BuildRecommendTagIndexKey("go"), 100, "2001")
+	store.ZAdd(redisconsts.BuildRecommendTagIndexKey("go"), 50, "2002")
+
+	userID := int64(1001)
+	cfg := contentconfig.RecommendConfig{
+		CandidateLimit: 10,
+		Hot: contentconfig.RecommendHotConfig{
+			Enabled: true,
+			Weight:  0.55,
+			Limit:   10,
+		},
+		Interest: contentconfig.RecommendInterestConfig{
+			Enabled: true,
+			Weight:  0.25,
+			MinTags: 1,
+			TopTags: 1,
+			Limit:   10,
+		},
+	}
+	logic := NewRecommendFeedLogic(context.Background(), &svc.ServiceContext{
+		Config: contentconfig.Config{
+			Recommend: cfg,
+		},
+		Redis: redisClient,
+	})
+
+	inputs, _, err := logic.recallRecommendCandidates(
+		&contentpb.RecommendFeedReq{UserId: &userID},
+		1,
+		cfg,
+		recommendVariantControl,
+	)
+	if err != nil {
+		t.Fatalf("recallRecommendCandidates returned error: %v", err)
+	}
+
+	merged := recommend.Merge(inputs, 10)
+	if len(merged) != 3 {
+		t.Fatalf("len(merged) = %d, want 3", len(merged))
+	}
+	if merged[0].ContentID != 7001 {
+		t.Fatalf("first content id = %d, want hot 7001", merged[0].ContentID)
+	}
+	if merged[1].ContentID != 2001 || merged[2].ContentID != 2002 {
+		t.Fatalf("interest ids = [%d %d], want [2001 2002]", merged[1].ContentID, merged[2].ContentID)
+	}
+	if merged[1].InterestScore != 1 {
+		t.Fatalf("first interest score = %v, want 1", merged[1].InterestScore)
+	}
+	if merged[2].InterestScore != 0.5 {
+		t.Fatalf("second interest score = %v, want 0.5", merged[2].InterestScore)
+	}
+	if merged[1].SourceRanks[recommend.SourceInterest] != 1 || merged[2].SourceRanks[recommend.SourceInterest] != 2 {
+		t.Fatalf("source ranks = %#v/%#v, want 1/2", merged[1].SourceRanks, merged[2].SourceRanks)
+	}
+}
+
 func TestRebalanceEmptyRecallWeightTransfersInterestMissToHot(t *testing.T) {
 	tests := []struct {
 		name          string

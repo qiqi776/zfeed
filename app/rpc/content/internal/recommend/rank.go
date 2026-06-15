@@ -82,6 +82,10 @@ func InterestScore(userTags, contentTags map[string]float64) float64 {
 }
 
 func rankIDs(scoreByID map[int64]float64, limit int) []int64 {
+	return IDs(rankedCandidates(scoreByID, limit))
+}
+
+func rankedCandidates(scoreByID map[int64]float64, limit int) []Candidate {
 	if limit <= 0 {
 		limit = defaultInterestLimit
 	}
@@ -101,5 +105,5 @@ func rankIDs(scoreByID map[int64]float64, limit int) []int64 {
 	if len(candidates) > limit {
 		candidates = candidates[:limit]
 	}
-	return IDs(candidates)
+	return candidates
 }

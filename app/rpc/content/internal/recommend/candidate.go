@@ -30,9 +30,10 @@ type Candidate struct {
 }
 
 type MergeInput struct {
-	Source Source
-	Weight float64
-	IDs    []int64
+	Source     Source
+	Weight     float64
+	IDs        []int64
+	Candidates []Candidate
 }
 
 func PrimarySource(candidate Candidate) Source {
@@ -58,34 +59,38 @@ func Merge(inputs []MergeInput, limit int) []Candidate {
 
 	byID := make(map[int64]*Candidate)
 	for _, input := range inputs {
-		if len(input.IDs) == 0 {
+		candidates := mergeInputCandidates(input)
+		if len(candidates) == 0 {
 			continue
 		}
 		weight := input.Weight
 		if weight <= 0 {
 			weight = 1
 		}
-		for rank, id := range input.IDs {
-			if id <= 0 {
+		for rank, inputCandidate := range candidates {
+			if inputCandidate.ContentID <= 0 {
 				continue
 			}
 
-			candidate := byID[id]
+			candidate := byID[inputCandidate.ContentID]
 			if candidate == nil {
 				candidate = &Candidate{
-					ContentID:    id,
+					ContentID:    inputCandidate.ContentID,
 					SourceScores: make(map[Source]float64),
 					SourceRanks:  make(map[Source]int),
 				}
-				byID[id] = candidate
+				byID[inputCandidate.ContentID] = candidate
 			}
 
-			sourceScore := rankScore(rank)
+			sourceScore := sourceScoreFromCandidate(inputCandidate, input.Source, rank)
 			if sourceScore > candidate.SourceScores[input.Source] {
 				candidate.SourceScores[input.Source] = sourceScore
 			}
 			applySourceScore(candidate, input.Source, sourceScore)
-			candidate.SourceRanks[input.Source] = minPositive(candidate.SourceRanks[input.Source], rank+1)
+			candidate.SourceRanks[input.Source] = minPositive(
+				candidate.SourceRanks[input.Source],
+				sourceRankFromCandidate(inputCandidate, input.Source, rank),
+			)
 			candidate.Score += weight * sourceScore
 		}
 	}
@@ -104,6 +109,36 @@ func Merge(inputs []MergeInput, limit int) []Candidate {
 		return result[:limit]
 	}
 	return result
+}
+
+func mergeInputCandidates(input MergeInput) []Candidate {
+	if len(input.Candidates) > 0 {
+		return input.Candidates
+	}
+
+	candidates := make([]Candidate, 0, len(input.IDs))
+	for _, id := range input.IDs {
+		candidates = append(candidates, Candidate{ContentID: id})
+	}
+	return candidates
+}
+
+func sourceScoreFromCandidate(candidate Candidate, source Source, rank int) float64 {
+	if candidate.SourceScores != nil {
+		if score := candidate.SourceScores[source]; score > 0 {
+			return score
+		}
+	}
+	return rankScore(rank)
+}
+
+func sourceRankFromCandidate(candidate Candidate, source Source, rank int) int {
+	if candidate.SourceRanks != nil {
+		if sourceRank := candidate.SourceRanks[source]; sourceRank > 0 {
+			return sourceRank
+		}
+	}
+	return rank + 1
 }
 
 func applySourceScore(candidate *Candidate, source Source, score float64) {

@@ -45,6 +45,43 @@ func TestMergeDedupsAndWeightsSources(t *testing.T) {
 	}
 }
 
+func TestMergeUsesInputCandidateSourceScoresAndRanks(t *testing.T) {
+	got := Merge([]MergeInput{
+		{
+			Source: SourceInterest,
+			Weight: 0.25,
+			Candidates: []Candidate{
+				{
+					ContentID: 2001,
+					SourceScores: map[Source]float64{
+						SourceInterest: 0.9,
+					},
+					SourceRanks: map[Source]int{
+						SourceInterest: 7,
+					},
+				},
+			},
+		},
+	}, 10)
+
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	candidate := got[0]
+	if candidate.SourceScores[SourceInterest] != 0.9 {
+		t.Fatalf("interest source score = %v, want 0.9", candidate.SourceScores[SourceInterest])
+	}
+	if candidate.SourceRanks[SourceInterest] != 7 {
+		t.Fatalf("interest source rank = %v, want 7", candidate.SourceRanks[SourceInterest])
+	}
+	if candidate.InterestScore != 0.9 {
+		t.Fatalf("interest score = %v, want 0.9", candidate.InterestScore)
+	}
+	if candidate.Score < 0.224 || candidate.Score > 0.226 {
+		t.Fatalf("merge score = %v, want 0.225", candidate.Score)
+	}
+}
+
 func TestMergeLimit(t *testing.T) {
 	got := Merge([]MergeInput{
 		{

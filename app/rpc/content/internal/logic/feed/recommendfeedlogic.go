@@ -554,12 +554,17 @@ func (l *RecommendFeedLogic) recallRecommendCandidates(
 		})
 	}
 	if cfg.Interest.Enabled && in.GetUserId() > 0 {
-		interestIDs, err := recommend.RecallInterest(l.ctx, l.svcCtx.Redis, in.GetUserId(), cfg.Interest)
+		interestCandidates, err := recommend.RecallInterestCandidates(
+			l.ctx,
+			l.svcCtx.Redis,
+			in.GetUserId(),
+			cfg.Interest,
+		)
 		if err != nil {
 			recordRecommendProfileMetric(recommendProfileResultError)
 			return nil, "", err
 		}
-		if len(interestIDs) == 0 {
+		if len(interestCandidates) == 0 {
 			recordRecommendProfileMetric(recommendProfileResultMiss)
 		} else {
 			recordRecommendProfileMetric(recommendProfileResultHit)
@@ -567,12 +572,12 @@ func (l *RecommendFeedLogic) recallRecommendCandidates(
 		recordRecommendRecallItemsMetric(
 			recommendRecallSourceInterest,
 			variantID,
-			len(interestIDs),
+			len(interestCandidates),
 		)
 		inputs = append(inputs, recommend.MergeInput{
-			Source: recommend.SourceInterest,
-			Weight: cfg.Interest.Weight,
-			IDs:    interestIDs,
+			Source:     recommend.SourceInterest,
+			Weight:     cfg.Interest.Weight,
+			Candidates: interestCandidates,
 		})
 	} else if cfg.Interest.Enabled {
 		recordRecommendProfileMetric(recommendProfileResultSkipped)

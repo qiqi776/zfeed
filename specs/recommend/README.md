@@ -1290,6 +1290,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `ApplyProfileEvent` 已区分正向行为和负反馈，只有正权重事件会刷新 `_last_active_at`；`unlike/unfavorite` 仍更新标签权重和计数，但不会让仅有负反馈的用户绕过“最近 30 天正向行为”冷启动判断。
 - `ApplyProfileEvent` 已要求 `event_id` 非空后才更新画像，缺失幂等键的异常事件会被忽略，避免重复或不可追踪事件污染 `rec:user:profile:{user_id}`。
 - 推荐召回编排已在兴趣召回为空且热榜有候选时，把 `recall.interest.weight` 自动回流到 hot 输入权重，满足“少量行为用户兴趣召回不足时转给热榜”的冷启动策略；兴趣有候选或热榜为空时保持原权重不变。
+- 兴趣召回已新增候选版输出，`SourceScores` 和 `SourceRanks` 会随兴趣命中一起进入候选合并层，避免后续 merge 只能按 ID 顺序回填 rank 分，保留了 tag index 的真实贡献。
 
 已验证：
 
@@ -1402,6 +1403,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'Test(RebalanceEmptyRecallWeightTransfersInterestMissToHot|RecallRecommendCandidatesTransfersInterestMissWeightToHot)' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test(MergeUsesInputCandidateSourceScoresAndRanks|RecallInterestCandidatesPreservesScoresAndRanks|RecallInterestUsesTagIndexScores)' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run 'TestRecallRecommendCandidates(PreservesInterestSourceScores|TransfersInterestMissWeightToHot)|TestRebalanceEmptyRecallWeightTransfersInterestMissToHot' -count=1`
 
 剩余缺口：
 
@@ -1477,3 +1480,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Keep negative feedback from refreshing recommendation profile activity | Codex |
 | 2026-06-15 | 1.0.0   | Ignore recommendation profile events without event ids | Codex |
 | 2026-06-15 | 1.0.0   | Transfer empty interest recall weight to hot recall | Codex |
+| 2026-06-15 | 1.0.0   | Preserve interest candidate scores and ranks through merge | Codex |
