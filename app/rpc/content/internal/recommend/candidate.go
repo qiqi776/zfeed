@@ -2,7 +2,10 @@ package recommend
 
 import (
 	"sort"
+	"strconv"
 	"strings"
+
+	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 )
 
 type Source string
@@ -160,6 +163,49 @@ func applySourceScore(candidate *Candidate, source Source, score float64) {
 			candidate.InterestScore = score
 		}
 	}
+}
+
+func HotCandidatesFromPairs(pairs []gzredis.FloatPair) []Candidate {
+	candidates := make([]Candidate, 0, len(pairs))
+	maxScore := maxHotPairScore(pairs)
+	for rank, pair := range pairs {
+		id, err := strconv.ParseInt(pair.Key, 10, 64)
+		if err != nil || id <= 0 {
+			continue
+		}
+		score := normalizeHotPairScore(pair.Score, maxScore)
+		if score <= 0 {
+			continue
+		}
+		candidates = append(candidates, Candidate{
+			ContentID: id,
+			HotScore:  score,
+			SourceScores: map[Source]float64{
+				SourceHot: score,
+			},
+			SourceRanks: map[Source]int{
+				SourceHot: rank + 1,
+			},
+		})
+	}
+	return candidates
+}
+
+func maxHotPairScore(pairs []gzredis.FloatPair) float64 {
+	var maxScore float64
+	for _, pair := range pairs {
+		if pair.Score > maxScore {
+			maxScore = pair.Score
+		}
+	}
+	return maxScore
+}
+
+func normalizeHotPairScore(score, maxScore float64) float64 {
+	if score <= 0 || maxScore <= 0 {
+		return 0
+	}
+	return score / maxScore
 }
 
 func ApplyFeatures(candidates []Candidate, features map[int64]Candidate) []Candidate {

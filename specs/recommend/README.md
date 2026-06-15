@@ -1408,6 +1408,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/recommend -run 'Test(MergeUsesInputCandidateSourceScoresAndRanks|RecallInterestCandidatesPreservesScoresAndRanks|RecallInterestUsesTagIndexScores)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecallRecommendCandidates(PreservesInterestSourceScores|TransfersInterestMissWeightToHot)|TestRebalanceEmptyRecallWeightTransfersInterestMissToHot' -count=1`
 - `go test ./app/rpc/content/internal/recommend -run 'TestCandidateCache(PreservesSourceScoresAndRanks|LoadsLegacyPrimarySourceHash|PreservesPrimarySources|SaveAndLoad)' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run TestHotCandidatesFromPairsNormalizesScoreAndRanks -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'Test(RecallRecommendCandidatesPreservesHotScores|RebalanceEmptyRecallWeightTransfersInterestMissToHot|RecallRecommendCandidatesTransfersInterestMissWeightToHot)' -count=1`
 
 剩余缺口：

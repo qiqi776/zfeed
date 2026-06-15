@@ -3,6 +3,7 @@ package recommend
 import (
 	"testing"
 
+	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 	contentconfig "zfeed/app/rpc/content/internal/config"
 )
 
@@ -123,6 +124,33 @@ func TestCandidateScoreFeaturesPreserveMergeScore(t *testing.T) {
 
 	if candidate.Score != 1 {
 		t.Fatalf("score changed after setting feature scores: %f", candidate.Score)
+	}
+}
+
+func TestHotCandidatesFromPairsNormalizesScoreAndRanks(t *testing.T) {
+	got := HotCandidatesFromPairs([]gzredis.FloatPair{
+		{Key: "8302", Score: 100},
+		{Key: "8301", Score: 80},
+		{Key: "invalid", Score: 60},
+	})
+
+	if len(got) != 2 {
+		t.Fatalf("len(got) = %d, want 2", len(got))
+	}
+	if got[0].ContentID != 8302 || got[1].ContentID != 8301 {
+		t.Fatalf("ids = [%d %d], want [8302 8301]", got[0].ContentID, got[1].ContentID)
+	}
+	if got[0].HotScore != 1 {
+		t.Fatalf("first hot score = %v, want 1", got[0].HotScore)
+	}
+	if got[1].HotScore != 0.8 {
+		t.Fatalf("second hot score = %v, want 0.8", got[1].HotScore)
+	}
+	if got[0].SourceScores[SourceHot] != 1 || got[1].SourceScores[SourceHot] != 0.8 {
+		t.Fatalf("hot source scores = %#v %#v", got[0].SourceScores, got[1].SourceScores)
+	}
+	if got[0].SourceRanks[SourceHot] != 1 || got[1].SourceRanks[SourceHot] != 2 {
+		t.Fatalf("hot source ranks = %#v %#v", got[0].SourceRanks, got[1].SourceRanks)
 	}
 }
 

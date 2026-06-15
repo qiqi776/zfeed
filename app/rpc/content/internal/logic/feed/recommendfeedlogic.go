@@ -9,7 +9,6 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
-	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 
 	contentpb "zfeed/app/rpc/content/content"
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
@@ -641,7 +640,7 @@ func (l *RecommendFeedLogic) recallHotCandidates(limit int) (hotRecallResult, er
 		return hotRecallResult{}, err
 	}
 	return hotRecallResult{
-		candidates: hotCandidatesFromPairs(pairs),
+		candidates: recommend.HotCandidatesFromPairs(pairs),
 		snapshotID: snapshotID,
 	}, nil
 }
@@ -665,49 +664,6 @@ func (l *RecommendFeedLogic) resolveHotRecallKey() (string, string, error) {
 	}
 
 	return redisconsts.HotFeedKey, "", nil
-}
-
-func hotCandidatesFromPairs(pairs []gzredis.FloatPair) []recommend.Candidate {
-	candidates := make([]recommend.Candidate, 0, len(pairs))
-	maxScore := maxHotPairScore(pairs)
-	for rank, pair := range pairs {
-		id, err := strconv.ParseInt(pair.Key, 10, 64)
-		if err != nil || id <= 0 {
-			continue
-		}
-		score := normalizeHotPairScore(pair.Score, maxScore)
-		if score <= 0 {
-			continue
-		}
-		candidates = append(candidates, recommend.Candidate{
-			ContentID: id,
-			HotScore:  score,
-			SourceScores: map[recommend.Source]float64{
-				recommend.SourceHot: score,
-			},
-			SourceRanks: map[recommend.Source]int{
-				recommend.SourceHot: rank + 1,
-			},
-		})
-	}
-	return candidates
-}
-
-func maxHotPairScore(pairs []gzredis.FloatPair) float64 {
-	var maxScore float64
-	for _, pair := range pairs {
-		if pair.Score > maxScore {
-			maxScore = pair.Score
-		}
-	}
-	return maxScore
-}
-
-func normalizeHotPairScore(score, maxScore float64) float64 {
-	if score <= 0 || maxScore <= 0 {
-		return 0
-	}
-	return score / maxScore
 }
 
 func recordRerankAdjustments(variantID string, adjustments map[string]int) {
