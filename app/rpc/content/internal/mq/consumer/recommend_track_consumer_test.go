@@ -173,6 +173,33 @@ func TestRecommendTrackConsumerMapsRemoveFavoriteToUnfavorite(t *testing.T) {
 	}
 }
 
+func TestRecommendTrackConsumerNormalizesUserActionEvent(t *testing.T) {
+	aggregator := &fakeDailyAggregator{}
+	updater := &fakeProfileUpdater{}
+	consumer := newRecommendTrackConsumerWithProfileForTest(context.Background(), aggregator, updater)
+	raw := `{"event_id":"ua_1001_2001_1781480000","action":"favorite","user_id":1001,` +
+		`"target_type":"content","target_id":2001,"source":"interaction","occurred_at":1781480000}`
+
+	if err := consumer.Consume(context.Background(), "", raw); err != nil {
+		t.Fatalf("Consume returned error: %v", err)
+	}
+
+	want := track.Event{
+		EventID:    "ua_1001_2001_1781480000",
+		EventType:  track.EventTypeFavorite,
+		UserID:     1001,
+		ContentID:  2001,
+		Source:     "interaction",
+		OccurredAt: 1781480000,
+	}
+	if len(updater.events) != 1 || updater.events[0] != want {
+		t.Fatalf("profile events = %+v, want [%+v]", updater.events, want)
+	}
+	if len(aggregator.events) != 1 || aggregator.events[0] != want {
+		t.Fatalf("aggregated events = %+v, want [%+v]", aggregator.events, want)
+	}
+}
+
 func TestRecommendTrackConsumerNormalizesCommentRow(t *testing.T) {
 	aggregator := &fakeDailyAggregator{}
 	updater := &fakeProfileUpdater{}

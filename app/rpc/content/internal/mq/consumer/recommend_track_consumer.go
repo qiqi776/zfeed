@@ -99,6 +99,8 @@ type recommendTrackEnvelope struct {
 	track.Event
 	Timestamp int64  `json:"timestamp"`
 	ID        int64  `json:"id"`
+	Action    string `json:"action"`
+	TargetID  int64  `json:"target_id"`
 	Comment   string `json:"comment"`
 	Status    int32  `json:"status"`
 	IsDeleted int32  `json:"is_deleted"`
@@ -112,7 +114,11 @@ func parseRecommendTrackEvent(val string) (track.Event, error) {
 	}
 
 	event := raw.Event
-	if event.Source != "" || event.OccurredAt > 0 {
+	if userActionEvent, ok := normalizeUserActionEvent(raw); ok {
+		return userActionEvent, nil
+	}
+
+	if event.EventType != "" && (event.Source != "" || event.OccurredAt > 0) {
 		return event, nil
 	}
 
@@ -138,6 +144,53 @@ func parseRecommendTrackEvent(val string) (track.Event, error) {
 	}
 
 	return event, nil
+}
+
+func normalizeUserActionEvent(raw recommendTrackEnvelope) (track.Event, bool) {
+	action := normalizeUserActionType(raw.Action)
+	event := raw.Event
+	if action == "" || event.EventID == "" || event.UserID <= 0 {
+		return track.Event{}, false
+	}
+
+	contentID := event.ContentID
+	if contentID <= 0 {
+		contentID = raw.TargetID
+	}
+	if contentID <= 0 {
+		return track.Event{}, false
+	}
+
+	event.EventType = action
+	event.ContentID = contentID
+	if event.Source == "" {
+		event.Source = recommendTrackSourceInteraction
+	}
+	if event.OccurredAt <= 0 {
+		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
+	}
+	return event, true
+}
+
+func normalizeUserActionType(action string) string {
+	switch strings.TrimSpace(action) {
+	case track.EventTypeLike:
+		return track.EventTypeLike
+	case interactionEventTypeCancelLike:
+		return track.EventTypeUnlike
+	case track.EventTypeFavorite:
+		return track.EventTypeFavorite
+	case interactionEventTypeRemoveFavorite:
+		return track.EventTypeUnfavorite
+	case track.EventTypeComment:
+		return track.EventTypeComment
+	case track.EventTypeUnlike:
+		return track.EventTypeUnlike
+	case track.EventTypeUnfavorite:
+		return track.EventTypeUnfavorite
+	default:
+		return ""
+	}
 }
 
 func normalizeCommentRow(raw recommendTrackEnvelope) (track.Event, bool) {
