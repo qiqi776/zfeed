@@ -75,6 +75,12 @@ func newRecommendTrackConsumerWithProfileForTest(
 func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) error {
 	event, isUserAction, err := parseRecommendTrackEventWithMeta(val)
 	if err != nil {
+		recordRecommendTrackConsumeMetric(
+			recommendTrackConsumeUnknownLabel,
+			recommendTrackConsumeVariantControl,
+			recommendTrackConsumeUnknownLabel,
+			recommendTrackConsumeResultParseError,
+		)
 		if isUserAction {
 			recordRecommendUserActionConsumeMetric(
 				recommendUserActionConsumeEventUnknown,
@@ -87,6 +93,12 @@ func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) err
 
 	if c != nil && c.profileUpdater != nil {
 		if err := c.profileUpdater.Apply(ctx, event); err != nil {
+			recordRecommendTrackConsumeMetric(
+				event.EventType,
+				event.VariantID,
+				event.Source,
+				recommendTrackConsumeResultProfileError,
+			)
 			if isUserAction {
 				recordRecommendUserActionConsumeMetric(
 					event.EventType,
@@ -99,12 +111,24 @@ func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) err
 	}
 
 	if c == nil || c.aggregator == nil {
+		recordRecommendTrackConsumeMetric(
+			event.EventType,
+			event.VariantID,
+			event.Source,
+			recommendTrackConsumeResultSuccess,
+		)
 		if isUserAction {
 			recordRecommendUserActionConsumeMetric(event.EventType, recommendUserActionConsumeResultSuccess)
 		}
 		return nil
 	}
 	if err := c.aggregator.Aggregate(ctx, event); err != nil {
+		recordRecommendTrackConsumeMetric(
+			event.EventType,
+			event.VariantID,
+			event.Source,
+			recommendTrackConsumeResultAggregateError,
+		)
 		if isUserAction {
 			recordRecommendUserActionConsumeMetric(
 				event.EventType,
@@ -114,6 +138,12 @@ func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) err
 		logc.Errorf(ctx, "aggregate recommend track event failed, event_id=%s, err=%v", event.EventID, err)
 		return err
 	}
+	recordRecommendTrackConsumeMetric(
+		event.EventType,
+		event.VariantID,
+		event.Source,
+		recommendTrackConsumeResultSuccess,
+	)
 	if isUserAction {
 		recordRecommendUserActionConsumeMetric(event.EventType, recommendUserActionConsumeResultSuccess)
 	}
