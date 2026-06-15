@@ -24,6 +24,7 @@ const (
 	MinProfileDwellMs int64 = 10_000
 
 	profileDecayWindowHours = 168
+	maxProfileTags          = 50
 )
 
 type ProfileEvent struct {
@@ -80,6 +81,9 @@ func ApplyProfileEvent(ctx context.Context, rds *redis.Redis, cfg contentconfig.
 		}
 	}
 	if err := rds.HsetCtx(ctx, profileKey, "_updated_at", strconv.FormatInt(now.Unix(), 10)); err != nil {
+		return err
+	}
+	if err := trimProfileTags(ctx, rds, profileKey, maxProfileTags); err != nil {
 		return err
 	}
 	return rds.ExpireCtx(ctx, profileKey, cfg.Interest.ProfileTTL)
@@ -172,4 +176,34 @@ func loadProfileDecayFactor(ctx context.Context, rds *redis.Redis, profileKey st
 		return 1, nil
 	}
 	return math.Exp(-elapsedHours / profileDecayWindowHours), nil
+}
+
+func trimProfileTags(ctx context.Context, rds *redis.Redis, profileKey string, limit int) error {
+	if rds == nil || profileKey == "" || limit <= 0 {
+		return nil
+	}
+
+	raw, err := rds.HgetallCtx(ctx, profileKey)
+	if err != nil {
+		return err
+	}
+	weights := parseWeights(raw)
+	if len(weights) <= limit {
+		return nil
+	}
+
+	kept := topWeights(weights, limit)
+	fields := make([]string, 0, len(weights)-len(kept))
+	for tag := range weights {
+		if _, ok := kept[tag]; ok {
+			continue
+		}
+		fields = append(fields, tag)
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+
+	_, err = rds.HdelCtx(ctx, profileKey, fields...)
+	return err
 }

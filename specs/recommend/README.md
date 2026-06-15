@@ -1283,6 +1283,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `FallbackToHot=false` 已接入增强链路错误分支：当推荐增强发生召回、缓存、排序等错误时会直接返回错误并记录 personalized error 请求指标，不再静默回退热榜；`FallbackToHot=true` 仍保持热榜兜底，便于灰度策略双向验证。
 - 兴趣召回读取画像时已只保留正权重 tag 参与 `MinTags` 冷启动门槛和 TopTags 排序，`unlike/unfavorite` 等负反馈不会把冷启动用户误判为可兴趣召回。
 - 2026-06-15 收尾同步点：推荐增强主链路、user-action 迁移观测、tag index 周期刷新、`empty_recall` 兜底记录、`FallbackToHot` 错误策略和兴趣召回正权重冷启动门槛均已完成并验证；后续以线上运行观察和数据校验为主。
+- `ApplyProfileEvent` 已在画像更新后按权重保留 Top 50 标签，避免长期互动用户的 `rec:user:profile:{user_id}` 标签字段无限增长，同时保留 `_updated_at` 等元数据字段。
 
 已验证：
 
@@ -1386,6 +1387,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementRecordsEmptyRecallFallback -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run 'TestRecommendFallbackToHot(DisabledReturnsEnhancementError|EnabledKeepsHotFallbackOnEnhancementError)' -count=1`
 - `go test ./app/rpc/content/internal/recommend -run TestLoadUserProfileRequiresEnoughPositiveTags -count=1`
+- `go test ./app/rpc/content/internal/recommend -run TestApplyProfileEventTrimsProfileTagsToTopWeights -count=1`
+- `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -count=1`
 
 剩余缺口：
@@ -1455,3 +1458,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Wire `FallbackToHot` into enhanced recommendation error handling | Codex |
 | 2026-06-15 | 1.0.0   | Require positive profile tags for interest recall cold-start gate | Codex |
 | 2026-06-15 | 1.0.0   | 同步推荐迁移收尾进度和剩余观测项 | Codex |
+| 2026-06-15 | 1.0.0   | Trim recommendation profile tags to top weights after updates | Codex |

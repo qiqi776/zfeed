@@ -2,6 +2,7 @@ package recommend
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 	"testing"
@@ -79,6 +80,55 @@ func TestLoadUserProfileRequiresEnoughPositiveTags(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Fatalf("LoadUserProfile = %#v, want cold-start empty profile with fewer than 2 positive tags", got)
+	}
+}
+
+func TestApplyProfileEventTrimsProfileTagsToTopWeights(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	cfg := contentconfig.RecommendConfig{}
+	contentID := int64(2002)
+	tags := make(map[string]float64, 60)
+	for i := 0; i < 60; i++ {
+		tags[fmt.Sprintf("tag:%02d", i)] = float64(i + 1)
+	}
+	if err := WriteContentTags(
+		context.Background(),
+		client,
+		cfg,
+		contentID,
+		tags,
+		1,
+	); err != nil {
+		t.Fatalf("WriteContentTags returned error: %v", err)
+	}
+
+	if err := ApplyProfileEvent(context.Background(), client, cfg, ProfileEvent{
+		EventID:   "evt-trim-1",
+		EventType: ActionLike,
+		UserID:    1001,
+		ContentID: contentID,
+	}); err != nil {
+		t.Fatalf("ApplyProfileEvent returned error: %v", err)
+	}
+
+	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+	raw, err := client.HgetallCtx(context.Background(), profileKey)
+	if err != nil {
+		t.Fatalf("read profile hash: %v", err)
+	}
+
+	tagWeights := parseWeights(raw)
+	if len(tagWeights) != 50 {
+		t.Fatalf("profile tag count = %d, want 50", len(tagWeights))
+	}
+	if _, ok := tagWeights["tag:00"]; ok {
+		t.Fatal("profile kept lowest-weight tag tag:00, want it trimmed")
+	}
+	if _, ok := tagWeights["tag:59"]; !ok {
+		t.Fatal("profile trimmed highest-weight tag tag:59, want it kept")
+	}
+	if store.HGet(profileKey, "_updated_at") == "" {
+		t.Fatal("profile missing _updated_at after trim")
 	}
 }
 
