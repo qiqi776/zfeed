@@ -37,6 +37,57 @@ func (u *fakeProfileUpdater) Apply(_ context.Context, event track.Event) error {
 	return u.err
 }
 
+func TestRecommendUserActionConsumeMetricLabelsExcludeHighCardinalityIDs(t *testing.T) {
+	for _, label := range recommendUserActionConsumeMetricLabels {
+		switch label {
+		case "user_id", "content_id", "target_id", "event_id":
+			t.Fatalf("user-action consume metric must not include high-cardinality label %q", label)
+		}
+	}
+}
+
+func TestRecommendUserActionConsumeMetricNormalizersClampUnknownValues(t *testing.T) {
+	tests := []struct {
+		name string
+		fn   func(string) string
+		in   string
+		want string
+	}{
+		{
+			name: "event type allowed",
+			fn:   normalizeRecommendUserActionConsumeEventTypeLabel,
+			in:   " Favorite ",
+			want: track.EventTypeFavorite,
+		},
+		{
+			name: "event type unknown",
+			fn:   normalizeRecommendUserActionConsumeEventTypeLabel,
+			in:   "user_1001",
+			want: recommendUserActionConsumeEventUnknown,
+		},
+		{
+			name: "result allowed",
+			fn:   normalizeRecommendUserActionConsumeResultLabel,
+			in:   " Profile-Error ",
+			want: recommendUserActionConsumeResultProfileError,
+		},
+		{
+			name: "result unknown",
+			fn:   normalizeRecommendUserActionConsumeResultLabel,
+			in:   "content_2001",
+			want: recommendUserActionConsumeEventUnknown,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.fn(tt.in); got != tt.want {
+				t.Fatalf("normalizer(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRecommendTrackConsumerAggregatesTrackEvent(t *testing.T) {
 	aggregator := &fakeDailyAggregator{}
 	consumer := newRecommendTrackConsumerForTest(context.Background(), aggregator)
@@ -197,6 +248,94 @@ func TestRecommendTrackConsumerNormalizesUserActionEvent(t *testing.T) {
 	}
 	if len(aggregator.events) != 1 || aggregator.events[0] != want {
 		t.Fatalf("aggregated events = %+v, want [%+v]", aggregator.events, want)
+	}
+}
+
+func TestRecommendTrackConsumerRecordsUserActionConsumeMetrics(t *testing.T) {
+	tests := []struct {
+		name       string
+		aggregator *fakeDailyAggregator
+		updater    *fakeProfileUpdater
+		raw        string
+		wantType   string
+		wantResult string
+		wantErr    bool
+	}{
+		{
+			name:       "success",
+			aggregator: &fakeDailyAggregator{},
+			updater:    &fakeProfileUpdater{},
+			raw: `{"event_id":"ua_1001_2001_1781480000","action":"favorite","user_id":1001,` +
+				`"target_type":"content","target_id":2001,"source":"interaction","occurred_at":1781480000}`,
+			wantType:   track.EventTypeFavorite,
+			wantResult: recommendUserActionConsumeResultSuccess,
+		},
+		{
+			name:       "profile error",
+			aggregator: &fakeDailyAggregator{},
+			updater:    &fakeProfileUpdater{err: errors.New("redis down")},
+			raw: `{"event_id":"ua_1001_2001_1781480001","action":"like","user_id":1001,` +
+				`"target_type":"content","target_id":2001,"source":"interaction","occurred_at":1781480001}`,
+			wantType:   track.EventTypeLike,
+			wantResult: recommendUserActionConsumeResultProfileError,
+			wantErr:    true,
+		},
+		{
+			name:       "aggregate error",
+			aggregator: &fakeDailyAggregator{err: errors.New("mysql down")},
+			updater:    &fakeProfileUpdater{},
+			raw: `{"event_id":"ua_1001_2001_1781480002","action":"comment","user_id":1001,` +
+				`"target_type":"content","target_id":2001,"source":"interaction","occurred_at":1781480002}`,
+			wantType:   track.EventTypeComment,
+			wantResult: recommendUserActionConsumeResultAggregateError,
+			wantErr:    true,
+		},
+		{
+			name:       "parse error",
+			aggregator: &fakeDailyAggregator{},
+			updater:    &fakeProfileUpdater{},
+			raw: `{"event_id":"ua_1001_2001_1781480003","action":"share","user_id":1001,` +
+				`"target_type":"content","target_id":2001,"source":"interaction","occurred_at":1781480003}`,
+			wantType:   recommendUserActionConsumeEventUnknown,
+			wantResult: recommendUserActionConsumeResultParseError,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldRecord := recordRecommendUserActionConsumeMetric
+			defer func() {
+				recordRecommendUserActionConsumeMetric = oldRecord
+			}()
+
+			records := []struct {
+				eventType string
+				result    string
+			}{}
+			recordRecommendUserActionConsumeMetric = func(eventType, result string) {
+				records = append(records, struct {
+					eventType string
+					result    string
+				}{eventType: eventType, result: result})
+			}
+
+			consumer := newRecommendTrackConsumerWithProfileForTest(context.Background(), tt.aggregator, tt.updater)
+			err := consumer.Consume(context.Background(), "", tt.raw)
+			if tt.wantErr && err == nil {
+				t.Fatal("Consume returned nil error, want error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("Consume returned error: %v", err)
+			}
+
+			if len(records) != 1 {
+				t.Fatalf("metric records = %+v, want one record", records)
+			}
+			if records[0].eventType != tt.wantType || records[0].result != tt.wantResult {
+				t.Fatalf("metric record = %+v, want %s/%s", records[0], tt.wantType, tt.wantResult)
+			}
+		})
 	}
 }
 

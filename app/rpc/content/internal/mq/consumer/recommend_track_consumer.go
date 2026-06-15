@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -72,25 +73,49 @@ func newRecommendTrackConsumerWithProfileForTest(
 }
 
 func (c *RecommendTrackConsumer) Consume(ctx context.Context, _, val string) error {
-	event, err := parseRecommendTrackEvent(val)
+	event, isUserAction, err := parseRecommendTrackEventWithMeta(val)
 	if err != nil {
+		if isUserAction {
+			recordRecommendUserActionConsumeMetric(
+				recommendUserActionConsumeEventUnknown,
+				recommendUserActionConsumeResultParseError,
+			)
+		}
 		logc.Errorf(ctx, "parse recommend track event failed, err=%v", err)
 		return err
 	}
 
 	if c != nil && c.profileUpdater != nil {
 		if err := c.profileUpdater.Apply(ctx, event); err != nil {
+			if isUserAction {
+				recordRecommendUserActionConsumeMetric(
+					event.EventType,
+					recommendUserActionConsumeResultProfileError,
+				)
+			}
 			logc.Errorf(ctx, "apply recommend profile event failed, event_id=%s, err=%v", event.EventID, err)
 			return err
 		}
 	}
 
 	if c == nil || c.aggregator == nil {
+		if isUserAction {
+			recordRecommendUserActionConsumeMetric(event.EventType, recommendUserActionConsumeResultSuccess)
+		}
 		return nil
 	}
 	if err := c.aggregator.Aggregate(ctx, event); err != nil {
+		if isUserAction {
+			recordRecommendUserActionConsumeMetric(
+				event.EventType,
+				recommendUserActionConsumeResultAggregateError,
+			)
+		}
 		logc.Errorf(ctx, "aggregate recommend track event failed, event_id=%s, err=%v", event.EventID, err)
 		return err
+	}
+	if isUserAction {
+		recordRecommendUserActionConsumeMetric(event.EventType, recommendUserActionConsumeResultSuccess)
 	}
 	return nil
 }
@@ -108,22 +133,31 @@ type recommendTrackEnvelope struct {
 }
 
 func parseRecommendTrackEvent(val string) (track.Event, error) {
+	event, _, err := parseRecommendTrackEventWithMeta(val)
+	return event, err
+}
+
+func parseRecommendTrackEventWithMeta(val string) (track.Event, bool, error) {
 	var raw recommendTrackEnvelope
 	if err := json.Unmarshal([]byte(val), &raw); err != nil {
-		return track.Event{}, err
+		return track.Event{}, false, err
 	}
 
 	event := raw.Event
+	isUserAction := strings.TrimSpace(raw.Action) != ""
 	if userActionEvent, ok := normalizeUserActionEvent(raw); ok {
-		return userActionEvent, nil
+		return userActionEvent, true, nil
+	}
+	if isUserAction {
+		return track.Event{}, true, fmt.Errorf("invalid user action event")
 	}
 
 	if event.EventType != "" && (event.Source != "" || event.OccurredAt > 0) {
-		return event, nil
+		return event, false, nil
 	}
 
 	if commentEvent, ok := normalizeCommentRow(raw); ok {
-		return commentEvent, nil
+		return commentEvent, false, nil
 	}
 
 	switch event.EventType {
@@ -143,7 +177,7 @@ func parseRecommendTrackEvent(val string) (track.Event, error) {
 		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
 	}
 
-	return event, nil
+	return event, false, nil
 }
 
 func normalizeUserActionEvent(raw recommendTrackEnvelope) (track.Event, bool) {
