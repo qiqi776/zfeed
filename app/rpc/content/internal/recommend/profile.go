@@ -2,6 +2,7 @@ package recommend
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"time"
 
@@ -20,6 +21,8 @@ const (
 	ActionUnlike   = "unlike"
 
 	MinProfileDwellMs int64 = 10_000
+
+	profileDecayWindowHours = 168
 )
 
 type ProfileEvent struct {
@@ -59,18 +62,23 @@ func ApplyProfileEvent(ctx context.Context, rds *redis.Redis, cfg contentconfig.
 	}
 
 	profileKey := redisconsts.BuildRecommendUserProfileKey(event.UserID)
+	now := time.Now()
+	decayFactor, err := loadProfileDecayFactor(ctx, rds, profileKey, now)
+	if err != nil {
+		return err
+	}
 	for tag, weight := range tags {
 		currentRaw, err := rds.HgetCtx(ctx, profileKey, tag)
 		if err != nil && !isRedisNil(err) {
 			return err
 		}
 		current, _ := strconv.ParseFloat(currentRaw, 64)
-		next := current + delta*weight
+		next := current*decayFactor + delta*weight
 		if err := rds.HsetCtx(ctx, profileKey, tag, strconv.FormatFloat(next, 'f', 6, 64)); err != nil {
 			return err
 		}
 	}
-	if err := rds.HsetCtx(ctx, profileKey, "_updated_at", strconv.FormatInt(time.Now().Unix(), 10)); err != nil {
+	if err := rds.HsetCtx(ctx, profileKey, "_updated_at", strconv.FormatInt(now.Unix(), 10)); err != nil {
 		return err
 	}
 	return rds.ExpireCtx(ctx, profileKey, cfg.Interest.ProfileTTL)
@@ -128,4 +136,25 @@ func actionWeight(eventType string) float64 {
 	default:
 		return 0
 	}
+}
+
+func loadProfileDecayFactor(ctx context.Context, rds *redis.Redis, profileKey string, now time.Time) (float64, error) {
+	updatedAtRaw, err := rds.HgetCtx(ctx, profileKey, "_updated_at")
+	if err != nil {
+		if isRedisNil(err) {
+			return 1, nil
+		}
+		return 0, err
+	}
+
+	updatedAt, err := strconv.ParseInt(updatedAtRaw, 10, 64)
+	if err != nil || updatedAt <= 0 {
+		return 1, nil
+	}
+
+	elapsedHours := float64(now.Unix()-updatedAt) / 3600
+	if elapsedHours <= 0 {
+		return 1, nil
+	}
+	return math.Exp(-elapsedHours / profileDecayWindowHours), nil
 }
