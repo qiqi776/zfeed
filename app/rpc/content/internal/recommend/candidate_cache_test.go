@@ -60,6 +60,57 @@ func TestCandidateCacheSaveAndLoad(t *testing.T) {
 	}
 }
 
+func TestCandidateCachePreservesPrimarySources(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	defer store.Close()
+
+	key := BuildCandidateCacheKey(42, "control", "hashabc")
+	cfg := contentconfig.RecommendConfig{CandidateTTL: 120}
+	candidates := []Candidate{
+		{
+			ContentID: 1001,
+			Score:     0.8,
+			SourceScores: map[Source]float64{
+				SourceHot:        0.2,
+				SourceNewContent: 0.9,
+			},
+		},
+		{
+			ContentID: 1002,
+			Score:     1.2,
+			SourceScores: map[Source]float64{
+				SourceInterest: 0.7,
+			},
+		},
+	}
+
+	if err := SaveCandidateCache(context.Background(), client, cfg, key, candidates); err != nil {
+		t.Fatalf("SaveCandidateCache returned error: %v", err)
+	}
+
+	got, ok, err := LoadCandidateCache(context.Background(), client, key, 10)
+	if err != nil {
+		t.Fatalf("LoadCandidateCache returned error: %v", err)
+	}
+	if !ok {
+		t.Fatal("LoadCandidateCache ok = false, want true")
+	}
+	wantSources := map[int64]Source{
+		1001: SourceNewContent,
+		1002: SourceInterest,
+	}
+	for _, candidate := range got {
+		if PrimarySource(candidate) != wantSources[candidate.ContentID] {
+			t.Fatalf(
+				"candidate %d primary source = %q, want %q",
+				candidate.ContentID,
+				PrimarySource(candidate),
+				wantSources[candidate.ContentID],
+			)
+		}
+	}
+}
+
 func TestLoadCandidateCacheMiss(t *testing.T) {
 	store, client := newRecommendRedis(t)
 	defer store.Close()

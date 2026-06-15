@@ -2,6 +2,7 @@ package recommend
 
 import (
 	"sort"
+	"strings"
 )
 
 type Source string
@@ -32,6 +33,22 @@ type MergeInput struct {
 	Source Source
 	Weight float64
 	IDs    []int64
+}
+
+func PrimarySource(candidate Candidate) Source {
+	var primary Source
+	var bestScore float64
+	for source, score := range candidate.SourceScores {
+		source = normalizeSource(string(source))
+		if source == "" || score <= 0 {
+			continue
+		}
+		if primary == "" || score > bestScore || (score == bestScore && sourcePriority(source) > sourcePriority(primary)) {
+			primary = source
+			bestScore = score
+		}
+	}
+	return primary
 }
 
 func Merge(inputs []MergeInput, limit int) []Candidate {
@@ -148,4 +165,30 @@ func minPositive(current, next int) int {
 		return next
 	}
 	return current
+}
+
+func normalizeSource(value string) Source {
+	switch Source(strings.TrimSpace(strings.ToLower(value))) {
+	case SourceNewContent:
+		return SourceNewContent
+	case SourceInterest:
+		return SourceInterest
+	case SourceHot:
+		return SourceHot
+	default:
+		return ""
+	}
+}
+
+func sourcePriority(source Source) int {
+	switch source {
+	case SourceNewContent:
+		return 3
+	case SourceInterest:
+		return 2
+	case SourceHot:
+		return 1
+	default:
+		return 0
+	}
 }

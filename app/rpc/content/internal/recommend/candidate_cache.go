@@ -50,6 +50,9 @@ func SaveCandidateCache(
 	if _, err := rds.ZaddsCtx(ctx, key, pairs...); err != nil {
 		return err
 	}
+	if err := saveCandidateCacheSources(ctx, rds, cfg, key, candidates); err != nil {
+		return err
+	}
 	return rds.ExpireCtx(ctx, key, cfg.CandidateTTL)
 }
 
@@ -85,10 +88,78 @@ func LoadCandidateCache(
 	if len(candidates) == 0 {
 		return []Candidate{}, false, nil
 	}
+	if err := attachCandidateCacheSources(ctx, rds, key, candidates); err != nil {
+		return nil, false, err
+	}
 	return candidates, true, nil
 }
 
 const candidateCacheScoreScale = 1_000_000
+const candidateCacheSourceSuffix = ":source"
+
+func saveCandidateCacheSources(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	cfg contentconfig.RecommendConfig,
+	key string,
+	candidates []Candidate,
+) error {
+	sourceKey := buildCandidateCacheSourceKey(key)
+	wrote := false
+	for _, candidate := range candidates {
+		if candidate.ContentID <= 0 {
+			continue
+		}
+
+		source := PrimarySource(candidate)
+		if source == "" {
+			continue
+		}
+		if err := rds.HsetCtx(
+			ctx,
+			sourceKey,
+			strconv.FormatInt(candidate.ContentID, 10),
+			string(source),
+		); err != nil {
+			return err
+		}
+		wrote = true
+	}
+	if !wrote {
+		return nil
+	}
+	return rds.ExpireCtx(ctx, sourceKey, cfg.CandidateTTL)
+}
+
+func attachCandidateCacheSources(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	key string,
+	candidates []Candidate,
+) error {
+	rawSources, err := rds.HgetallCtx(ctx, buildCandidateCacheSourceKey(key))
+	if err != nil {
+		return err
+	}
+	if len(rawSources) == 0 {
+		return nil
+	}
+
+	for i := range candidates {
+		source := normalizeSource(rawSources[strconv.FormatInt(candidates[i].ContentID, 10)])
+		if source == "" {
+			continue
+		}
+		candidates[i].SourceScores = map[Source]float64{
+			source: 1,
+		}
+	}
+	return nil
+}
+
+func buildCandidateCacheSourceKey(key string) string {
+	return key + candidateCacheSourceSuffix
+}
 
 func normalizeCacheSegment(value string, fallback string) string {
 	value = strings.TrimSpace(value)

@@ -662,6 +662,7 @@ func (l *RecommendFeedLogic) emitExposureTrackEvents(
 	}
 
 	now := time.Now()
+	sourceByContentID := l.loadExposureSources(resp)
 	for pos, item := range resp.GetItems() {
 		if item == nil || item.GetContentId() <= 0 {
 			continue
@@ -674,7 +675,7 @@ func (l *RecommendFeedLogic) emitExposureTrackEvents(
 			ContentID:  item.GetContentId(),
 			SnapshotID: resp.GetSnapshotId(),
 			VariantID:  variantID,
-			Source:     "recommend",
+			Source:     exposureSourceLabel(sourceByContentID[item.GetContentId()]),
 			Position:   pos + 1,
 			OccurredAt: now.Unix(),
 		}
@@ -684,6 +685,51 @@ func (l *RecommendFeedLogic) emitExposureTrackEvents(
 			continue
 		}
 		recordRecommendTrackEmitMetric(track.EventTypeExposure, recommendResultSuccess)
+	}
+}
+
+func (l *RecommendFeedLogic) loadExposureSources(resp *contentpb.RecommendFeedRes) map[int64]recommend.Source {
+	if l == nil || l.svcCtx == nil || l.svcCtx.Redis == nil || resp == nil {
+		return map[int64]recommend.Source{}
+	}
+
+	snapshotID := strings.TrimSpace(resp.GetSnapshotId())
+	if !recommend.IsPersonalizedSnapshot(snapshotID) {
+		return map[int64]recommend.Source{}
+	}
+
+	contentIDs := make([]int64, 0, len(resp.GetItems()))
+	for _, item := range resp.GetItems() {
+		if item == nil || item.GetContentId() <= 0 {
+			continue
+		}
+		contentIDs = append(contentIDs, item.GetContentId())
+	}
+	if len(contentIDs) == 0 {
+		return map[int64]recommend.Source{}
+	}
+
+	sourceByContentID, err := recommend.LoadPersonalizedSnapshotSources(
+		l.ctx,
+		l.svcCtx.Redis,
+		snapshotID,
+		contentIDs,
+	)
+	if err != nil {
+		l.Errorf("load recommend snapshot sources failed, snapshot_id=%s, err=%v", snapshotID, err)
+		return map[int64]recommend.Source{}
+	}
+	return sourceByContentID
+}
+
+func exposureSourceLabel(source recommend.Source) string {
+	switch source {
+	case recommend.SourceHot,
+		recommend.SourceNewContent,
+		recommend.SourceInterest:
+		return string(source)
+	default:
+		return "recommend"
 	}
 }
 

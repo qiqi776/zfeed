@@ -956,6 +956,9 @@ func TestRecommendEnhancementEmitsExposureTrackEvents(t *testing.T) {
 	if event.SnapshotID != resp.GetSnapshotId() || event.VariantID != recommendVariantControl {
 		t.Fatalf("event snapshot/variant = %q/%q, want %q/control", event.SnapshotID, event.VariantID, resp.GetSnapshotId())
 	}
+	if event.Source != string(recommend.SourceNewContent) {
+		t.Fatalf("event source = %q, want %q", event.Source, recommend.SourceNewContent)
+	}
 	if event.Position != 1 || event.OccurredAt <= 0 || event.EventID == "" {
 		t.Fatalf("event metadata = %+v, want position/event_id/occurred_at", event)
 	}

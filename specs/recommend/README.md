@@ -1254,9 +1254,12 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 2026-06-15 观测同步点：user-action 迁移的生产侧 outbox 和消费侧 consumer 均已有低基数指标，后续以运行观察和数据校验为主。
 - Grafana overview 已新增 `User Action Outbox Dispatch` 和 `Recommendation User Action Consume` 面板，分别按 `action/result`、`event_type/result` 展示 user-action 生产和消费速率，避免把 `user_id`、`content_id`、`target_id` 放入 PromQL 聚合维度。
 - `content-rpc` 已新增 `zfeed_recommend_track_consume_total{event_type,variant,source,result}`，在 `zfeed-rec-track` / `zfeed-user-action` consumer 消费后记录曝光、点击、停留和互动事件的成功、解析失败、画像失败、聚合失败结果，Grafana 可直接按 `variant` 计算 CTR 和 IPM。
-- Grafana overview 已新增 `Recommendation CTR` 和 `Recommendation IPM` 面板，基于 `zfeed_recommend_track_consume_total` 展示实验效果；新内容曝光占比仍需曝光事件携带真实召回来源后再接入。
+- Grafana overview 已新增 `Recommendation CTR` 和 `Recommendation IPM` 面板，基于 `zfeed_recommend_track_consume_total` 展示实验效果。
 - `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 - `ApplyProfileEvent` 已按 `_updated_at` 对既有 tag 权重执行 `exp(-hours_since_update/168)` 时间衰减，再叠加本次行为权重。
+- 个性化 snapshot 已新增内容级召回来源归因，`feed:rec:user:snapsource:{snapshot_id}` 会按 `content_id` 保存主召回来源。服务端曝光事件优先写 `hot/new_content/interest`，老 snapshot 或缺失来源时回落为 `recommend`。
+- 推荐候选缓存已补并行来源 Hash，`feed:rec:candidate:{bucket}:{variant}:{config_hash}:source` 与候选 ZSET 使用同一 TTL。缓存命中后会恢复候选主召回来源，避免新内容曝光占比在缓存路径被低估。
+- Grafana overview 已新增 `Recommendation New Content Exposure Share` 面板，基于 `zfeed_recommend_track_consume_total{event_type="exposure",source="new_content",result="success"}` 除以成功曝光总量，按 `variant` 展示新内容曝光占比。
 
 已验证：
 
@@ -1341,11 +1344,14 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./deploy/grafana/dashboards -run TestZFeedOverviewIncludesUserActionMigrationPanels -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -run 'TestRecommendTrack(ConsumeMetric|ConsumerRecordsTrackConsumeMetrics)' -count=1`
 - `go test ./deploy/grafana/dashboards -run 'TestZFeedOverviewIncludes(ExperimentEffect|UserActionMigration)Panels' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'TestPersonalizedSnapshotStoresContentSources|TestLoadPersonalizedSnapshotMetaReadsStoredVariantAndConfigHash|TestCandidateCachePreservesPrimarySources|TestCandidateCacheSaveAndLoad|TestLoadCandidateCacheMiss' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementEmitsExposureTrackEvents -count=1`
+- `go test ./deploy/grafana/dashboards -run TestZFeedOverviewIncludesExperimentEffectPanels -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 同步互动埋点禁用开关已默认启用，Grafana overview 也能看到 user-action 生产和消费速率以及实验 CTR/IPM。后续需要观察迁移后的 `zfeed-user-action` 消费、画像增量和日聚合数据，并让曝光事件携带真实召回来源以计算新内容曝光占比，再清理 front-api 兼容投递路径。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 同步互动埋点禁用开关已默认启用，Grafana overview 也能看到 user-action 生产和消费速率、实验 CTR/IPM 以及新内容曝光占比。后续需要继续观察迁移后的 `zfeed-user-action` 消费、画像增量和日聚合数据，再清理 front-api 兼容投递路径。
 
 ## Change Log
 
@@ -1398,3 +1404,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Sync recommendation migration closeout progress checkpoint | Codex |
 | 2026-06-15 | 1.0.0   | Add Grafana panels for user-action migration observability | Codex |
 | 2026-06-15 | 1.0.0   | Add recommendation track consume metrics for CTR and IPM dashboards | Codex |
+| 2026-06-15 | 1.0.0   | Add exposure source attribution and new-content exposure share dashboard | Codex |

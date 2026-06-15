@@ -21,6 +21,7 @@ const (
 	RecommendCandidatePrefix      = "feed:rec:candidate"
 	RecommendUserSnapshotPrefix   = "feed:rec:user:snap"
 	RecommendUserSnapshotMeta     = "feed:rec:user:snapmeta"
+	RecommendUserSnapshotSource   = "feed:rec:user:snapsource"
 	RecommendNewCleanupLockPrefix = "feed:rec:new:lock:cleanup"
 
 	UserPublishPrefix      = "feed:user:publish"
@@ -82,6 +83,10 @@ func BuildRecommendUserSnapshotKey(snapshotID string) string {
 
 func BuildRecommendUserSnapshotMetaKey(snapshotID string) string {
 	return fmt.Sprintf("%s:%s", RecommendUserSnapshotMeta, snapshotID)
+}
+
+func BuildRecommendUserSnapshotSourceKey(snapshotID string) string {
+	return fmt.Sprintf("%s:%s", RecommendUserSnapshotSource, snapshotID)
 }
 
 func BuildRecommendNewCleanupLockKey(bucket string) string {

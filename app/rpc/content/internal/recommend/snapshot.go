@@ -77,6 +77,9 @@ func SavePersonalizedSnapshotWithMeta(
 	if err := rds.ExpireCtx(ctx, snapshotKey, cfg.SnapshotTTL); err != nil {
 		return "", err
 	}
+	if err := savePersonalizedSnapshotSources(ctx, rds, cfg, snapshotID, candidates); err != nil {
+		return "", err
+	}
 
 	metaKey := redisconsts.BuildRecommendUserSnapshotMetaKey(snapshotID)
 	if err := rds.HsetCtx(ctx, metaKey, "user_bucket", fmt.Sprintf("%04d", userBucket(userID))); err != nil {
@@ -100,6 +103,40 @@ func SavePersonalizedSnapshotWithMeta(
 	return snapshotID, nil
 }
 
+func savePersonalizedSnapshotSources(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	cfg contentconfig.RecommendConfig,
+	snapshotID string,
+	candidates []Candidate,
+) error {
+	sourceKey := redisconsts.BuildRecommendUserSnapshotSourceKey(snapshotID)
+	wrote := false
+	for _, candidate := range candidates {
+		if candidate.ContentID <= 0 {
+			continue
+		}
+
+		source := PrimarySource(candidate)
+		if source == "" {
+			continue
+		}
+		if err := rds.HsetCtx(
+			ctx,
+			sourceKey,
+			strconv.FormatInt(candidate.ContentID, 10),
+			string(source),
+		); err != nil {
+			return err
+		}
+		wrote = true
+	}
+	if !wrote {
+		return nil
+	}
+	return rds.ExpireCtx(ctx, sourceKey, cfg.SnapshotTTL)
+}
+
 func LoadPersonalizedSnapshotMeta(
 	ctx context.Context,
 	rds *gzredis.Redis,
@@ -121,6 +158,40 @@ func LoadPersonalizedSnapshotMeta(
 		VariantID:  raw["variant_id"],
 		ConfigHash: raw["config_hash"],
 	}), true, nil
+}
+
+func LoadPersonalizedSnapshotSources(
+	ctx context.Context,
+	rds *gzredis.Redis,
+	snapshotID string,
+	contentIDs []int64,
+) (map[int64]Source, error) {
+	if rds == nil || !IsPersonalizedSnapshot(snapshotID) || len(contentIDs) == 0 {
+		return map[int64]Source{}, nil
+	}
+
+	sourceKey := redisconsts.BuildRecommendUserSnapshotSourceKey(snapshotID)
+	result := make(map[int64]Source, len(contentIDs))
+	rawSources, err := rds.HgetallCtx(ctx, sourceKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(rawSources) == 0 {
+		return result, nil
+	}
+
+	for _, contentID := range contentIDs {
+		if contentID <= 0 {
+			continue
+		}
+
+		source := normalizeSource(rawSources[strconv.FormatInt(contentID, 10)])
+		if source == "" {
+			continue
+		}
+		result[contentID] = source
+	}
+	return result, nil
 }
 
 func normalizeSnapshotMeta(meta SnapshotMeta) SnapshotMeta {

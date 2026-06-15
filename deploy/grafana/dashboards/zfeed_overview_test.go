@@ -46,6 +46,10 @@ func TestZFeedOverviewIncludesExperimentEffectPanels(t *testing.T) {
 		`1000 * sum by (variant) (rate(zfeed_recommend_track_consume_total{event_type=~"like|favorite|comment",result="success"}[5m])) / clamp_min(sum by (variant) (rate(zfeed_recommend_track_consume_total{event_type="exposure",result="success"}[5m])), 0.000001)`,
 		"{{variant}}",
 	)
+	assertPanelTarget(t, dashboard, "Recommendation New Content Exposure Share",
+		`sum by (variant) (rate(zfeed_recommend_track_consume_total{event_type="exposure",source="new_content",result="success"}[5m])) / clamp_min(sum by (variant) (rate(zfeed_recommend_track_consume_total{event_type="exposure",result="success"}[5m])), 0.000001)`,
+		"{{variant}}",
+	)
 }
 
 func loadOverviewDashboard(t *testing.T) overviewDashboard {
