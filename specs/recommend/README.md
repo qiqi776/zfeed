@@ -1279,6 +1279,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `content-rpc` 已新增 `rec.tag.refresh` XXL-Job，按公开已发布内容分页读取最近内容，复用 `hotrank.Formula` 计算互动热度衰减分，并叠加发布时间 freshness 衰减分作为 base score，再由 `recommend.RefreshContentTagIndex` 按已有 `rec:content:tags:{content_id}` 权重刷新 `rec:tag:index:{tag}` 分数并续 `TagIndexTTL`。
 - `recommend.RefreshContentTagIndex` 已把标签索引刷新封装在 recommend 包内，cron 只负责调度、分页和加锁，避免把兴趣召回打分策略散落到任务层。
 - `rec.tag.refresh` 已覆盖无互动新内容场景：即使 like/comment/favorite 均为 0，也会按发布时间 freshness 衰减刷新 tag index，防止发布时写入的高时间戳分数长期残留。
+- 推荐增强链路已在三路召回合并为空时记录 `empty_recall` 兜底原因，再回退到热榜路径，避免空召回静默降级影响迁移观测。
 
 已验证：
 
@@ -1379,6 +1380,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/cron/rec_tag_refresh -count=1`
 - `go test ./app/rpc/content/internal/recommend -count=1`
 - `go test ./app/rpc/content/internal/cron/rec_tag_refresh ./app/rpc/content/internal/cron/rec_new_cleanup -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementRecordsEmptyRecallFallback -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -count=1`
 
 剩余缺口：
 
@@ -1443,3 +1446,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Add recommendation migration Prometheus alerts | Codex |
 | 2026-06-15 | 1.0.0   | Add periodic recommendation tag index refresh job | Codex |
 | 2026-06-15 | 1.0.0   | 补充推荐标签索引无互动内容 freshness 衰减刷新记录 | Codex |
+| 2026-06-15 | 1.0.0   | Record empty recall fallback observability for enhanced recommendation path | Codex |

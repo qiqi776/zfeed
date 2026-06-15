@@ -384,6 +384,7 @@ func (l *RecommendFeedLogic) recommendWithNewContent(
 		time.Since(coarseRankStarted),
 	)
 	if len(merged) == 0 {
+		recordRecommendFallbackMetric(recommendFallbackReasonEmptyRecall)
 		return &contentpb.RecommendFeedRes{
 			Items:      []*contentpb.ContentItem{},
 			NextCursor: 0,
