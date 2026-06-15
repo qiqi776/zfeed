@@ -36,18 +36,16 @@ type ProfileEvent struct {
 }
 
 func ApplyProfileEvent(ctx context.Context, rds *redis.Redis, cfg contentconfig.RecommendConfig, event ProfileEvent) error {
-	if rds == nil || event.UserID <= 0 || event.ContentID <= 0 {
+	if rds == nil || event.UserID <= 0 || event.ContentID <= 0 || event.EventID == "" {
 		return nil
 	}
 	cfg = NormalizeConfig(cfg)
-	if event.EventID != "" {
-		ok, err := rds.SetnxExCtx(ctx, "rec:profile:event:"+event.EventID, "1", 24*3600)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return nil
-		}
+	ok, err := rds.SetnxExCtx(ctx, "rec:profile:event:"+event.EventID, "1", 24*3600)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
 	}
 
 	tags, err := LoadContentTags(ctx, rds, event.ContentID)

@@ -83,6 +83,35 @@ func TestLoadUserProfileRequiresEnoughPositiveTags(t *testing.T) {
 	}
 }
 
+func TestApplyProfileEventRequiresEventID(t *testing.T) {
+	store, client := newRecommendRedis(t)
+	cfg := contentconfig.RecommendConfig{}
+	contentID := int64(2005)
+	if err := WriteContentTags(
+		context.Background(),
+		client,
+		cfg,
+		contentID,
+		map[string]float64{"go": 1},
+		1,
+	); err != nil {
+		t.Fatalf("WriteContentTags returned error: %v", err)
+	}
+
+	if err := ApplyProfileEvent(context.Background(), client, cfg, ProfileEvent{
+		EventType: ActionLike,
+		UserID:    1001,
+		ContentID: contentID,
+	}); err != nil {
+		t.Fatalf("ApplyProfileEvent returned error: %v", err)
+	}
+
+	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+	if store.Exists(profileKey) {
+		t.Fatal("profile key exists after empty event id, want event ignored")
+	}
+}
+
 func TestLoadUserProfileTreatsStaleActiveTimeAsColdStart(t *testing.T) {
 	store, client := newRecommendRedis(t)
 	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
