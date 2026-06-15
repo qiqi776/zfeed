@@ -94,6 +94,20 @@ func TestEmitRecommendTrackEmitsClientEvents(t *testing.T) {
 			},
 			wantType: track.EventTypeComment,
 		},
+		{
+			name: "unfavorite",
+			req: &contentpb.EmitRecommendTrackReq{
+				UserId:     1001,
+				EventType:  track.EventTypeUnfavorite,
+				ContentId:  2001,
+				SnapshotId: "rec:0001:b:hash:1",
+				VariantId:  "b",
+				Source:     "recommend",
+				Position:   7,
+				OccurredAt: 123461,
+			},
+			wantType: track.EventTypeUnfavorite,
+		},
 	}
 
 	for _, tt := range tests {
@@ -175,6 +189,7 @@ func TestEmitRecommendTrackUpdatesUserProfileAfterSuccessfulEmit(t *testing.T) {
 		{name: "favorite", eventType: track.EventTypeFavorite, wantGo: 3},
 		{name: "comment", eventType: track.EventTypeComment, wantGo: 2},
 		{name: "unlike", eventType: "unlike", wantGo: -0.8},
+		{name: "unfavorite", eventType: track.EventTypeUnfavorite, wantGo: -1.5},
 	}
 
 	for _, tt := range tests {

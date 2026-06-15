@@ -20,7 +20,8 @@ import (
 const (
 	recommendTrackSourceInteraction = "interaction"
 
-	interactionEventTypeCancelLike = "cancel_like"
+	interactionEventTypeCancelLike     = "cancel_like"
+	interactionEventTypeRemoveFavorite = "remove_favorite"
 
 	interactionCommentStatusNormal int32 = 10
 )
@@ -128,6 +129,10 @@ func parseRecommendTrackEvent(val string) (track.Event, error) {
 		event.Source = recommendTrackSourceInteraction
 		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
 	case track.EventTypeFavorite:
+		event.Source = recommendTrackSourceInteraction
+		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
+	case interactionEventTypeRemoveFavorite:
+		event.EventType = track.EventTypeUnfavorite
 		event.Source = recommendTrackSourceInteraction
 		event.OccurredAt = interactionEventUnixSeconds(event.EventID, raw.Timestamp)
 	}

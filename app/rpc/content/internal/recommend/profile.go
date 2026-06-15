@@ -13,12 +13,13 @@ import (
 )
 
 const (
-	ActionLike     = "like"
-	ActionFavorite = "favorite"
-	ActionComment  = "comment"
-	ActionClick    = "click"
-	ActionDwell    = "dwell"
-	ActionUnlike   = "unlike"
+	ActionLike       = "like"
+	ActionFavorite   = "favorite"
+	ActionComment    = "comment"
+	ActionClick      = "click"
+	ActionDwell      = "dwell"
+	ActionUnlike     = "unlike"
+	ActionUnfavorite = "unfavorite"
 
 	MinProfileDwellMs int64 = 10_000
 
@@ -107,7 +108,8 @@ func ProfileActionForTrackEvent(eventType string, dwellMs int64) (string, bool) 
 		ActionLike,
 		ActionFavorite,
 		ActionComment,
-		ActionUnlike:
+		ActionUnlike,
+		ActionUnfavorite:
 		return eventType, true
 	case ActionDwell:
 		if dwellMs < MinProfileDwellMs {
@@ -133,6 +135,8 @@ func actionWeight(eventType string) float64 {
 		return 0.8
 	case ActionUnlike:
 		return -0.8
+	case ActionUnfavorite:
+		return -1.5
 	default:
 		return 0
 	}

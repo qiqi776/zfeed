@@ -9,13 +9,14 @@ import (
 )
 
 const (
-	EventTypeExposure = "exposure"
-	EventTypeClick    = "click"
-	EventTypeDwell    = "dwell"
-	EventTypeLike     = "like"
-	EventTypeFavorite = "favorite"
-	EventTypeComment  = "comment"
-	EventTypeUnlike   = "unlike"
+	EventTypeExposure   = "exposure"
+	EventTypeClick      = "click"
+	EventTypeDwell      = "dwell"
+	EventTypeLike       = "like"
+	EventTypeFavorite   = "favorite"
+	EventTypeComment    = "comment"
+	EventTypeUnlike     = "unlike"
+	EventTypeUnfavorite = "unfavorite"
 )
 
 type Event struct {
@@ -40,7 +41,8 @@ func IsClientEventType(eventType string) bool {
 		EventTypeLike,
 		EventTypeFavorite,
 		EventTypeComment,
-		EventTypeUnlike:
+		EventTypeUnlike,
+		EventTypeUnfavorite:
 		return true
 	default:
 		return false

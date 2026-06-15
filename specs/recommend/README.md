@@ -613,6 +613,7 @@ comment    +2.0
 click      +0.5
 dwell>10s  +0.8
 unlike      -0.8
+unfavorite  -1.5
 ```
 
 时间衰减：
@@ -628,7 +629,7 @@ new_weight = old_weight * exp(-hours_since_update / 168) + event_weight * conten
 ```go
 type UserActionEvent struct {
     EventID     string `json:"event_id"`
-    EventType   string `json:"event_type"` // like, favorite, comment, click, dwell, unlike
+    EventType   string `json:"event_type"` // like, favorite, comment, click, dwell, unlike, unfavorite
     UserID      int64  `json:"user_id"`
     ContentID   int64  `json:"content_id"`
     Scene       string `json:"scene"` // ARTICLE, VIDEO
@@ -951,7 +952,7 @@ func ResolveVariant(userID int64, exp Experiment) Variant {
 
 - `exposure`: Feed 卡片曝光，推荐结果返回时先记服务端曝光；客户端真实曝光后可补前端曝光。
 - `click`: 点击进入详情。
-- `like/favorite/comment/follow`: 互动。
+- `like/favorite/comment/unfavorite/follow`: 互动。
 - `dwell`: 浏览停留时长。
 
 Kafka topic：
@@ -1228,13 +1229,14 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 推荐增强链路已补 `zfeed_recommend_error_total{stage,variant}` 观测，按 candidate_cache、recall、feature_load、seen_load、snapshot_save、snapshot_read、build_items 和 seen_write 定位阶段错误。
 - 个性化 snapshot 翻页已读取 `feed:rec:user:snapmeta:{snapshot_id}` 的 variant 和 config_hash，旧 snapshot 翻页继续按生成时的实验版本记录请求与曝光，不受新 runtime 配置覆盖。
 - click/dwell 客户端埋点上报成功后，会同步调用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`；画像更新失败只记录 `zfeed_recommend_error_total{stage="profile_update",variant}` 和日志，不影响埋点上报响应。
-- 推荐客户端埋点白名单已扩展到 `like`、`favorite`、`comment`、`unlike`，这些事件写入 `zfeed-rec-track` 成功后会复用同一画像更新路径，按既有权重增量更新用户兴趣标签。
-- `front-api` 点赞、取消点赞、收藏、评论写路径已在对应 interaction RPC 成功后复用 `FeedService.EmitRecommendTrack` 发出 `like`、`unlike`、`favorite`、`comment` 事件，source 固定为 `interaction`；埋点发射失败只记录日志，不影响原写操作响应。
+- 推荐客户端埋点白名单已扩展到 `like`、`favorite`、`comment`、`unlike`、`unfavorite`，这些事件写入 `zfeed-rec-track` 成功后会复用同一画像更新路径，按既有权重增量更新用户兴趣标签。
+- `front-api` 点赞、取消点赞、收藏、取消收藏、评论写路径已在对应 interaction RPC 成功后复用 `FeedService.EmitRecommendTrack` 发出 `like`、`unlike`、`favorite`、`unfavorite`、`comment` 事件，source 固定为 `interaction`；埋点发射失败只记录日志，不影响原写操作响应。
 - 已新增 `zfeed_rec_metric_daily` MySQL 表和 `DailyAggregator` 聚合写入组件，可按 `metric_date + variant_id + source` 累加 exposure、click、dwell、like、favorite、comment 和停留时长。
 - `content-rpc` 已新增 `zfeed-rec-track` consumer，消费推荐埋点 JSON 后调用 `DailyAggregator` 写入日聚合表；consumer 配置已加入 `content.yaml`。
 - `zfeed-rec-track` consumer 已在日聚合前复用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`，同一 `event_id` 重放依赖既有 profile 事件去重避免重复加权，后续 interaction outbox 或 Canal 只要投递同结构事件即可异步更新画像。
 - `zfeed-rec-track` consumer 已兼容 interaction-rpc `zfeed-like` 原始事件，能将 `timestamp` 归一化为秒级 `occurred_at`，并把 `cancel_like` 映射为推荐画像使用的 `unlike`。
 - `zfeed-rec-track` consumer 已兼容 `zfeed_favorite_event` 的新增收藏原始事件，能从 `event_id` 末段 UnixNano 推导秒级 `occurred_at`，并以 `Source=interaction` 写入画像和日聚合。
+- `zfeed-rec-track` consumer 已兼容 `zfeed_favorite_event` 的取消收藏原始事件，把 `remove_favorite` 映射为推荐画像使用的 `unfavorite`，按 -1.5 权重撤回部分收藏偏好。
 - `zfeed-rec-track` consumer 已兼容 `zfeed_comment` 正常未删除评论行，使用 `comment_{user_id}_{content_id}_{comment_id}` 派生幂等 `event_id`，并从 `created_at` 解析 `occurred_at`。
 - `dwell` 画像更新已按 `dwell_ms >= 10000` 过滤，短停留仍会写入埋点和日聚合，但不会给兴趣画像加权。
 - `ApplyProfileEvent` 已按 `_updated_at` 对既有 tag 权重执行 `exp(-hours_since_update/168)` 时间衰减，再叠加本次行为权重。
@@ -1295,11 +1297,15 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/mq/consumer -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerNormalizesFavoriteEventRow -count=1`
 - `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerNormalizesCommentRow -count=1`
+- `go test ./app/rpc/content/internal/recommend/track -run TestIsClientEventTypeAllowsInteractionEvents/unfavorite -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run 'TestEmitRecommendTrack(EmitsClientEvents|UpdatesUserProfileAfterSuccessfulEmit)/unfavorite' -count=1`
+- `go test ./app/front/internal/logic/interaction -run TestRemoveFavoriteEmitsRecommendTrackAfterSuccess -count=1`
+- `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerMapsRemoveFavoriteToUnfavorite -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike，`front-api` 点赞、取消点赞、收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite` 和 `comment` 原始事件已兼容，取消收藏事件是否需要负反馈仍待定义。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`front-api` 点赞、取消点赞、收藏、取消收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite` 和 `comment` 原始事件已兼容。后续如果继续生产化，可把分散事件源收敛为统一 `zfeed-user-action` outbox。
 
 ## Change Log
 
@@ -1337,3 +1343,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Normalize interaction like raw events in recommendation track consumer | Codex |
 | 2026-06-15 | 1.0.0   | Normalize favorite raw events in recommendation track consumer | Codex |
 | 2026-06-15 | 1.0.0   | Normalize comment raw rows in recommendation track consumer | Codex |
+| 2026-06-15 | 1.0.0   | Add unfavorite recommendation feedback support | Codex |

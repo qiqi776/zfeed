@@ -61,7 +61,8 @@ func (f *fakeLikeService) BatchIsLiked(
 }
 
 type fakeFavoriteService struct {
-	favoriteReq *interactionpb.FavoriteReq
+	favoriteReq       *interactionpb.FavoriteReq
+	removeFavoriteReq *interactionpb.RemoveFavoriteReq
 }
 
 func (f *fakeFavoriteService) Favorite(
@@ -74,10 +75,11 @@ func (f *fakeFavoriteService) Favorite(
 }
 
 func (f *fakeFavoriteService) RemoveFavorite(
-	context.Context,
-	*interactionpb.RemoveFavoriteReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.RemoveFavoriteReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.RemoveFavoriteRes, error) {
+	f.removeFavoriteReq = in
 	return &interactionpb.RemoveFavoriteRes{}, nil
 }
 
@@ -338,6 +340,45 @@ func TestFavoriteEmitsRecommendTrackAfterSuccess(t *testing.T) {
 	got := feedRPC.trackReq
 	if got.GetUserId() != 1001 ||
 		got.GetEventType() != "favorite" ||
+		got.GetContentId() != contentID ||
+		got.GetSource() != "interaction" {
+		t.Fatalf("recommend track request = %+v", got)
+	}
+}
+
+func TestRemoveFavoriteEmitsRecommendTrackAfterSuccess(t *testing.T) {
+	contentID := int64(2001)
+	scene := "ARTICLE"
+	favoriteRPC := &fakeFavoriteService{}
+	feedRPC := &fakeFeedService{}
+	logic := NewRemoveFavoriteLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{
+			FavoriteRpc: favoriteRPC,
+			FeedRpc:     feedRPC,
+		},
+	)
+
+	resp, err := logic.RemoveFavorite(&types.RemoveFavoriteReq{
+		ContentId: &contentID,
+		Scene:     &scene,
+	})
+	if err != nil {
+		t.Fatalf("RemoveFavorite returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("RemoveFavorite returned nil response")
+	}
+	if favoriteRPC.removeFavoriteReq == nil {
+		t.Fatal("FavoriteRpc.RemoveFavorite was not called")
+	}
+	if feedRPC.trackReq == nil {
+		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
+	}
+
+	got := feedRPC.trackReq
+	if got.GetUserId() != 1001 ||
+		got.GetEventType() != "unfavorite" ||
 		got.GetContentId() != contentID ||
 		got.GetSource() != "interaction" {
 		t.Fatalf("recommend track request = %+v", got)
