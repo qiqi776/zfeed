@@ -157,6 +157,12 @@ func ApplyRuntimeOverrides(cfg *contentconfig.RecommendConfig, raw map[string]st
 	if value, ok := parsePositiveInt(raw["diversity.max_same_type"]); ok {
 		cfg.Diversity.MaxSameType = value
 	}
+	if value, ok := parsePositiveInt(raw["diversity.new_content_top_n"]); ok {
+		cfg.Diversity.NewContentTopN = value
+	}
+	if value, ok := parsePositiveInt(raw["diversity.new_content_min_count"]); ok {
+		cfg.Diversity.NewContentMinCount = value
+	}
 }
 
 func parseBool(raw string) (bool, bool) {

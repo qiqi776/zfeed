@@ -122,11 +122,13 @@ type RecommendRankConfig struct {
 }
 
 type RecommendDiversityConfig struct {
-	Enabled       bool
-	AuthorWindow  int
-	MaxSameAuthor int
-	TypeWindow    int
-	MaxSameType   int
+	Enabled            bool
+	AuthorWindow       int
+	MaxSameAuthor      int
+	TypeWindow         int
+	MaxSameType        int
+	NewContentTopN     int
+	NewContentMinCount int
 }
 
 type RecommendExperimentConfig struct {

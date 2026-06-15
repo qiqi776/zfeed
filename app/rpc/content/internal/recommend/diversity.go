@@ -1,10 +1,15 @@
 package recommend
 
-import contentconfig "zfeed/app/rpc/content/internal/config"
+import (
+	"time"
+
+	contentconfig "zfeed/app/rpc/content/internal/config"
+)
 
 const (
 	DiversityRuleAuthorWindow = "author_window"
 	DiversityRuleTypeWindow   = "type_window"
+	DiversityRuleNewContent   = "new_content_quota"
 )
 
 func DiversityRerank(candidates []Candidate, cfg contentconfig.RecommendDiversityConfig) []Candidate {
@@ -52,6 +57,10 @@ func DiversityRerankWithAdjustments(
 		result = append(result, candidates[pick])
 	}
 
+	result, adjustments[DiversityRuleNewContent] = ensureNewContentQuota(result, cfg, time.Now())
+	if adjustments[DiversityRuleNewContent] == 0 {
+		delete(adjustments, DiversityRuleNewContent)
+	}
 	return result, adjustments
 }
 
@@ -121,4 +130,74 @@ func firstUnused(used []bool) int {
 		}
 	}
 	return -1
+}
+
+func ensureNewContentQuota(
+	candidates []Candidate,
+	cfg contentconfig.RecommendDiversityConfig,
+	now time.Time,
+) ([]Candidate, int) {
+	if len(candidates) <= 1 || cfg.NewContentTopN <= 0 || cfg.NewContentMinCount <= 0 {
+		return candidates, 0
+	}
+
+	topN := cfg.NewContentTopN
+	if topN > len(candidates) {
+		topN = len(candidates)
+	}
+	current := countTopNewContents(candidates[:topN], now)
+	if current >= cfg.NewContentMinCount {
+		return candidates, 0
+	}
+
+	result := append([]Candidate(nil), candidates...)
+	adjustments := 0
+	for pos := topN; pos < len(result) && current < cfg.NewContentMinCount; pos++ {
+		if !isNewContent(result[pos], now) {
+			continue
+		}
+		target := firstOldContentPosition(result[:topN], now)
+		if target < 0 {
+			break
+		}
+		candidate := result[pos]
+		copy(result[target+1:pos+1], result[target:pos])
+		result[target] = candidate
+		current++
+		adjustments++
+	}
+	return result, adjustments
+}
+
+func countTopNewContents(candidates []Candidate, now time.Time) int {
+	count := 0
+	for _, candidate := range candidates {
+		if isNewContent(candidate, now) {
+			count++
+		}
+	}
+	return count
+}
+
+func firstOldContentPosition(candidates []Candidate, now time.Time) int {
+	for i, candidate := range candidates {
+		if !isNewContent(candidate, now) {
+			return i
+		}
+	}
+	return -1
+}
+
+func isNewContent(candidate Candidate, now time.Time) bool {
+	if candidate.SourceScores[SourceNewContent] > 0 {
+		return true
+	}
+	if candidate.PublishedAt <= 0 {
+		return false
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	age := now.Unix() - candidate.PublishedAt
+	return age >= 0 && age < 24*3600
 }

@@ -2,6 +2,7 @@ package recommend
 
 import (
 	"testing"
+	"time"
 
 	gzredis "github.com/zeromicro/go-zero/core/stores/redis"
 	contentconfig "zfeed/app/rpc/content/internal/config"
@@ -207,6 +208,33 @@ func TestDiversityRerankWithAdjustmentsRecordsRules(t *testing.T) {
 	}
 }
 
+func TestDiversityRerankPromotesNewContentQuota(t *testing.T) {
+	now := time.Now().Unix()
+	old := time.Now().Add(-72 * time.Hour).Unix()
+	candidates := []Candidate{
+		{ContentID: 1001, PublishedAt: old},
+		{ContentID: 1002, PublishedAt: old},
+		{ContentID: 1003, PublishedAt: old},
+		{ContentID: 1004, PublishedAt: old},
+		{ContentID: 1005, PublishedAt: old},
+		{ContentID: 2001, PublishedAt: now - 3600},
+		{ContentID: 2002, PublishedAt: now - 2*3600},
+	}
+
+	got := DiversityRerank(candidates, contentconfig.RecommendDiversityConfig{
+		Enabled:            true,
+		NewContentTopN:     5,
+		NewContentMinCount: 2,
+	})
+
+	if len(got) != len(candidates) {
+		t.Fatalf("len(got) = %d, want %d", len(got), len(candidates))
+	}
+	if countNewContent(got[:5], time.Unix(now, 0)) < 2 {
+		t.Fatalf("top ids = %v, want at least two new contents in first 5", IDs(got[:5]))
+	}
+}
+
 func TestApplyFeaturesDropsMissingRows(t *testing.T) {
 	got := ApplyFeatures([]Candidate{
 		{ContentID: 1001},
@@ -221,4 +249,14 @@ func TestApplyFeaturesDropsMissingRows(t *testing.T) {
 	if got[0].AuthorID != 42 || got[0].ContentType != 10 || got[0].PublishedAt != 123 {
 		t.Fatalf("unexpected feature application: %+v", got[0])
 	}
+}
+
+func countNewContent(candidates []Candidate, now time.Time) int {
+	count := 0
+	for _, candidate := range candidates {
+		if now.Unix()-candidate.PublishedAt < 24*3600 {
+			count++
+		}
+	}
+	return count
 }

@@ -33,6 +33,7 @@ const (
 	recommendStageSnapshotSave      = "snapshot_save"
 	recommendRerankRuleAuthorWindow = "author_window"
 	recommendRerankRuleTypeWindow   = "type_window"
+	recommendRerankRuleNewContent   = "new_content_quota"
 
 	recommendErrorStageCandidateCache = "candidate_cache"
 	recommendErrorStageRecall         = "recall"
@@ -370,7 +371,8 @@ func normalizeRecommendSnapshotResultLabel(value string) string {
 func normalizeRecommendRerankRuleLabel(value string) string {
 	switch canonicalRecommendMetricLabel(value) {
 	case recommendRerankRuleAuthorWindow,
-		recommendRerankRuleTypeWindow:
+		recommendRerankRuleTypeWindow,
+		recommendRerankRuleNewContent:
 		return canonicalRecommendMetricLabel(value)
 	default:
 		return recommendMetricUnknownLabel

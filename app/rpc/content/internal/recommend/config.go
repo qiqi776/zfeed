@@ -30,6 +30,8 @@ const (
 	defaultMaxSameAuthor    = 1
 	defaultTypeWindow       = 6
 	defaultMaxSameType      = 4
+	defaultNewContentTopN   = 20
+	defaultNewContentMin    = 2
 )
 
 func NormalizeConfig(cfg contentconfig.RecommendConfig) contentconfig.RecommendConfig {
@@ -116,6 +118,12 @@ func NormalizeConfig(cfg contentconfig.RecommendConfig) contentconfig.RecommendC
 	}
 	if cfg.Diversity.MaxSameType <= 0 {
 		cfg.Diversity.MaxSameType = defaultMaxSameType
+	}
+	if cfg.Diversity.NewContentTopN <= 0 {
+		cfg.Diversity.NewContentTopN = defaultNewContentTopN
+	}
+	if cfg.Diversity.NewContentMinCount <= 0 {
+		cfg.Diversity.NewContentMinCount = defaultNewContentMin
 	}
 	return cfg
 }

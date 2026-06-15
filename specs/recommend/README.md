@@ -1294,6 +1294,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 兴趣召回已新增候选版输出，`SourceScores` 和 `SourceRanks` 会随兴趣命中一起进入候选合并层，避免后续 merge 只能按 ID 顺序回填 rank 分，保留了 tag index 的真实贡献。
 - 推荐候选缓存已新增 `feed:rec:candidate:{bucket}:{variant}:{config_hash}:detail` 并行 Hash，缓存命中后会恢复多路 `SourceScores` 和 `SourceRanks`；旧的 `:source` 主来源缓存仍兼容读取，避免短 TTL 老缓存命中时丢失曝光来源。
 - 热榜增强召回已直接读取 Redis ZSET score 生成候选 `HotScore` 和 `SourceScores["hot"]`，粗排阶段保留 `hot_score_norm` 对热榜候选的真实贡献，不再只按 rank 顺序回填热榜分。
+- 多样性重排已接入新内容保底规则，`NewContentTopN` / `NewContentMinCount` 支持 YAML、Redis 动态覆盖和实验覆盖；候选池存在新内容时会把新内容提升到前 N 条，调整量通过 `new_content_quota` 低基数规则记录。
 
 已验证：
 
@@ -1413,6 +1414,8 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run 'Test(RecallRecommendCandidatesPreservesHotScores|RebalanceEmptyRecallWeightTransfersInterestMissToHot|RecallRecommendCandidatesTransfersInterestMissWeightToHot)' -count=1`
 - `go test ./app/rpc/content/internal/recommend -run 'Test(RecordSeenContentsWritesRecentExposureSet|LoadSeenCountsReturnsOnlyRequestedIDs|RecordSeenContentsAccumulatesExposureCounts)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementUsesAccumulatedSeenPenalty -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test(DiversityRerankPromotesNewContentQuota|LoadRuntimeConfigMergesRedisOverrides|NormalizeConfigFillsRecommendDefaults|ApplyExperimentVariantOverridesRecommendConfig)' -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run TestRecommendMetricLabelNormalizersClampUnknownValues -count=1`
 
 剩余缺口：
 
@@ -1492,3 +1495,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Preserve candidate cache source scores and ranks | Codex |
 | 2026-06-15 | 1.0.0   | Preserve hot score in enhanced hot recall candidates | Codex |
 | 2026-06-15 | 1.0.0   | Record accumulated seen counts for repeated exposure penalty | Codex |
+| 2026-06-15 | 1.0.0   | Add new content quota to diversity rerank | Codex |

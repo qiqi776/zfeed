@@ -151,6 +151,8 @@ Recommend:
     MaxSameAuthor: 1
     TypeWindow: 6
     MaxSameType: 4
+    NewContentTopN: 20
+    NewContentMinCount: 2
   Experiment:
     ID: exp_rec_v1
     Enabled: false
@@ -171,3 +173,4 @@ Recommend:
         Overrides:
           recall.interest.weight: "0.35"
           rank.beta_interest: "0.40"
+          diversity.new_content_min_count: "3"

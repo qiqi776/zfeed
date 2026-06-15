@@ -37,6 +37,9 @@ func TestNormalizeConfigFillsRecommendDefaults(t *testing.T) {
 		got.Rank.SeenPenalty != 0.30 {
 		t.Fatalf("Rank defaults = %+v, want alpha/beta/gamma/delta/penalty 0.45/0.30/0.20/0.05/0.30", got.Rank)
 	}
+	if got.Diversity.NewContentTopN != 20 || got.Diversity.NewContentMinCount != 2 {
+		t.Fatalf("Diversity new content defaults = %+v, want top_n=20 min_count=2", got.Diversity)
+	}
 }
 
 func TestLoadRuntimeConfigMergesRedisOverrides(t *testing.T) {
@@ -103,6 +106,12 @@ func TestLoadRuntimeConfigMergesRedisOverrides(t *testing.T) {
 	if err := client.HsetCtx(context.Background(), RuntimeFlagKey, "diversity.max_same_type", "3"); err != nil {
 		t.Fatalf("hset max same type: %v", err)
 	}
+	if err := client.HsetCtx(context.Background(), RuntimeFlagKey, "diversity.new_content_top_n", "12"); err != nil {
+		t.Fatalf("hset new content top n: %v", err)
+	}
+	if err := client.HsetCtx(context.Background(), RuntimeFlagKey, "diversity.new_content_min_count", "4"); err != nil {
+		t.Fatalf("hset new content min count: %v", err)
+	}
 
 	got, err := LoadRuntimeConfig(context.Background(), client, contentconfig.RecommendConfig{
 		Enabled:       true,
@@ -162,6 +171,12 @@ func TestLoadRuntimeConfigMergesRedisOverrides(t *testing.T) {
 	}
 	if got.Diversity.MaxSameType != 3 {
 		t.Fatalf("Diversity.MaxSameType = %d, want 3", got.Diversity.MaxSameType)
+	}
+	if got.Diversity.NewContentTopN != 12 {
+		t.Fatalf("Diversity.NewContentTopN = %d, want 12", got.Diversity.NewContentTopN)
+	}
+	if got.Diversity.NewContentMinCount != 4 {
+		t.Fatalf("Diversity.NewContentMinCount = %d, want 4", got.Diversity.NewContentMinCount)
 	}
 }
 

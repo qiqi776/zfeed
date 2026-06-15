@@ -90,16 +90,18 @@ func TestApplyExperimentVariantOverridesRecommendConfig(t *testing.T) {
 			BetaInterest: 0.30,
 		},
 		Diversity: contentconfig.RecommendDiversityConfig{
-			AuthorWindow: 5,
+			AuthorWindow:       5,
+			NewContentMinCount: 2,
 		},
 	})
 	variant := ExperimentVariant{
 		ID: "b",
 		Overrides: map[string]string{
-			"recall.hot.weight":       "0.40",
-			"recall.interest.weight":  "0.35",
-			"rank.beta_interest":      "0.40",
-			"diversity.author_window": "7",
+			"recall.hot.weight":               "0.40",
+			"recall.interest.weight":          "0.35",
+			"rank.beta_interest":              "0.40",
+			"diversity.author_window":         "7",
+			"diversity.new_content_min_count": "3",
 		},
 	}
 
@@ -116,6 +118,9 @@ func TestApplyExperimentVariantOverridesRecommendConfig(t *testing.T) {
 	}
 	if got.Diversity.AuthorWindow != 7 {
 		t.Fatalf("Diversity.AuthorWindow = %d, want 7", got.Diversity.AuthorWindow)
+	}
+	if got.Diversity.NewContentMinCount != 3 {
+		t.Fatalf("Diversity.NewContentMinCount = %d, want 3", got.Diversity.NewContentMinCount)
 	}
 }
 

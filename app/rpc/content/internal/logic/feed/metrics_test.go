@@ -51,6 +51,7 @@ func TestRecommendMetricLabelNormalizersClampUnknownValues(t *testing.T) {
 		{name: "snapshot result allowed", fn: normalizeRecommendSnapshotResultLabel, in: " hit ", want: "hit"},
 		{name: "snapshot result unknown", fn: normalizeRecommendSnapshotResultLabel, in: "snap-123", want: recommendMetricUnknownLabel},
 		{name: "rerank rule allowed", fn: normalizeRecommendRerankRuleLabel, in: " Author-Window ", want: "author_window"},
+		{name: "rerank new content rule allowed", fn: normalizeRecommendRerankRuleLabel, in: " New-Content-Quota ", want: "new_content_quota"},
 		{name: "rerank rule unknown", fn: normalizeRecommendRerankRuleLabel, in: "user_123", want: recommendMetricUnknownLabel},
 		{name: "error stage allowed", fn: normalizeRecommendErrorStageLabel, in: " Candidate-Cache ", want: "candidate_cache"},
 		{name: "error stage profile update allowed", fn: normalizeRecommendErrorStageLabel, in: " Profile-Update ", want: "profile_update"},
@@ -78,7 +79,7 @@ func TestRecommendMetricRecordHelpersAcceptUnknownValues(t *testing.T) {
 	recordRecommendRecallItems("content-123", "exp-user-123456", -1)
 	recordRecommendFallback("user_123")
 	recordRecommendSnapshot("snap-123", "snap-123")
-	recordRecommendRerankAdjust("user_123", "exp-user-123456", -1)
+	recordRecommendRerankAdjust("new_content_quota", "exp-user-123456", -1)
 	recordRecommendError("user_123", "exp-user-123456")
 	recordRecommendProfile("user_123")
 	recordRecommendTrackEmit("user_123", "snap-123")
