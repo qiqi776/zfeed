@@ -88,6 +88,12 @@ func profileEventType(eventType string) (string, bool) {
 		return recommend.ActionClick, true
 	case track.EventTypeDwell:
 		return recommend.ActionDwell, true
+	case track.EventTypeLike:
+		return recommend.ActionLike, true
+	case track.EventTypeFavorite:
+		return recommend.ActionFavorite, true
+	case track.EventTypeComment:
+		return recommend.ActionComment, true
 	default:
 		return "", false
 	}

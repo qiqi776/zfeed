@@ -12,6 +12,9 @@ const (
 	EventTypeExposure = "exposure"
 	EventTypeClick    = "click"
 	EventTypeDwell    = "dwell"
+	EventTypeLike     = "like"
+	EventTypeFavorite = "favorite"
+	EventTypeComment  = "comment"
 )
 
 type Event struct {
@@ -31,7 +34,11 @@ type Event struct {
 
 func IsClientEventType(eventType string) bool {
 	switch eventType {
-	case EventTypeClick, EventTypeDwell:
+	case EventTypeClick,
+		EventTypeDwell,
+		EventTypeLike,
+		EventTypeFavorite,
+		EventTypeComment:
 		return true
 	default:
 		return false

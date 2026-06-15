@@ -16,7 +16,7 @@ import (
 	"zfeed/app/rpc/content/internal/svc"
 )
 
-func TestEmitRecommendTrackEmitsClickAndDwellEvents(t *testing.T) {
+func TestEmitRecommendTrackEmitsClientEvents(t *testing.T) {
 	tests := []struct {
 		name        string
 		req         *contentpb.EmitRecommendTrackReq
@@ -51,6 +51,48 @@ func TestEmitRecommendTrackEmitsClickAndDwellEvents(t *testing.T) {
 			},
 			wantType:    track.EventTypeDwell,
 			wantDwellMs: 12_000,
+		},
+		{
+			name: "like",
+			req: &contentpb.EmitRecommendTrackReq{
+				UserId:     1001,
+				EventType:  track.EventTypeLike,
+				ContentId:  2001,
+				SnapshotId: "rec:0001:b:hash:1",
+				VariantId:  "b",
+				Source:     "recommend",
+				Position:   4,
+				OccurredAt: 123458,
+			},
+			wantType: track.EventTypeLike,
+		},
+		{
+			name: "favorite",
+			req: &contentpb.EmitRecommendTrackReq{
+				UserId:     1001,
+				EventType:  track.EventTypeFavorite,
+				ContentId:  2001,
+				SnapshotId: "rec:0001:b:hash:1",
+				VariantId:  "b",
+				Source:     "recommend",
+				Position:   5,
+				OccurredAt: 123459,
+			},
+			wantType: track.EventTypeFavorite,
+		},
+		{
+			name: "comment",
+			req: &contentpb.EmitRecommendTrackReq{
+				UserId:     1001,
+				EventType:  track.EventTypeComment,
+				ContentId:  2001,
+				SnapshotId: "rec:0001:b:hash:1",
+				VariantId:  "b",
+				Source:     "recommend",
+				Position:   6,
+				OccurredAt: 123460,
+			},
+			wantType: track.EventTypeComment,
 		},
 	}
 
@@ -122,52 +164,73 @@ func TestEmitRecommendTrackRejectsInvalidEvent(t *testing.T) {
 }
 
 func TestEmitRecommendTrackUpdatesUserProfileAfterSuccessfulEmit(t *testing.T) {
-	store := miniredis.RunT(t)
-	redisClient := gzredis.MustNewRedis(gzredis.RedisConf{
-		Host: store.Addr(),
-		Type: "node",
-	})
-	cfg := contentconfig.RecommendConfig{}
-	contentID := int64(2001)
-	if err := recommend.WriteContentTags(
-		context.Background(),
-		redisClient,
-		cfg,
-		contentID,
-		map[string]float64{"go": 1, "redis": 0.5},
-		1,
-	); err != nil {
-		t.Fatalf("WriteContentTags returned error: %v", err)
+	tests := []struct {
+		name      string
+		eventType string
+		wantGo    float64
+	}{
+		{name: "click", eventType: track.EventTypeClick, wantGo: 0.5},
+		{name: "dwell", eventType: track.EventTypeDwell, wantGo: 0.8},
+		{name: "like", eventType: track.EventTypeLike, wantGo: 1},
+		{name: "favorite", eventType: track.EventTypeFavorite, wantGo: 3},
+		{name: "comment", eventType: track.EventTypeComment, wantGo: 2},
 	}
 
-	logic := NewRecommendTrackLogic(context.Background(), &svc.ServiceContext{
-		Config: contentconfig.Config{
-			Recommend: cfg,
-		},
-		Redis:                  redisClient,
-		RecommendTrackProducer: &fakeRecommendTrackProducer{},
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := miniredis.RunT(t)
+			redisClient := gzredis.MustNewRedis(gzredis.RedisConf{
+				Host: store.Addr(),
+				Type: "node",
+			})
+			cfg := contentconfig.RecommendConfig{}
+			contentID := int64(2001)
+			if err := recommend.WriteContentTags(
+				context.Background(),
+				redisClient,
+				cfg,
+				contentID,
+				map[string]float64{"go": 1, "redis": 0.5},
+				1,
+			); err != nil {
+				t.Fatalf("WriteContentTags returned error: %v", err)
+			}
 
-	if _, err := logic.EmitRecommendTrack(&contentpb.EmitRecommendTrackReq{
-		UserId:     1001,
-		EventType:  track.EventTypeClick,
-		ContentId:  contentID,
-		SnapshotId: "rec:0001:b:hash:1",
-		VariantId:  "b",
-		Source:     "recommend",
-		Position:   3,
-		OccurredAt: 123456,
-	}); err != nil {
-		t.Fatalf("EmitRecommendTrack returned error: %v", err)
-	}
+			logic := NewRecommendTrackLogic(context.Background(), &svc.ServiceContext{
+				Config: contentconfig.Config{
+					Recommend: cfg,
+				},
+				Redis:                  redisClient,
+				RecommendTrackProducer: &fakeRecommendTrackProducer{},
+			})
 
-	profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
-	gotRaw := store.HGet(profileKey, "go")
-	got, err := strconv.ParseFloat(gotRaw, 64)
-	if err != nil {
-		t.Fatalf("parse profile tag: %v", err)
-	}
-	if got != 0.5 {
-		t.Fatalf("profile go weight = %v, want 0.5", got)
+			req := &contentpb.EmitRecommendTrackReq{
+				UserId:     1001,
+				EventType:  tt.eventType,
+				ContentId:  contentID,
+				SnapshotId: "rec:0001:b:hash:1",
+				VariantId:  "b",
+				Source:     "recommend",
+				Position:   3,
+				OccurredAt: 123456,
+			}
+			if tt.eventType == track.EventTypeDwell {
+				req.DwellMs = 12_000
+			}
+
+			if _, err := logic.EmitRecommendTrack(req); err != nil {
+				t.Fatalf("EmitRecommendTrack returned error: %v", err)
+			}
+
+			profileKey := redisconsts.BuildRecommendUserProfileKey(1001)
+			gotRaw := store.HGet(profileKey, "go")
+			got, err := strconv.ParseFloat(gotRaw, 64)
+			if err != nil {
+				t.Fatalf("parse profile tag: %v", err)
+			}
+			if got != tt.wantGo {
+				t.Fatalf("profile go weight = %v, want %v", got, tt.wantGo)
+			}
+		})
 	}
 }

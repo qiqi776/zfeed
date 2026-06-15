@@ -7,6 +7,30 @@ import (
 	"testing"
 )
 
+func TestIsClientEventTypeAllowsInteractionEvents(t *testing.T) {
+	tests := []struct {
+		name      string
+		eventType string
+		want      bool
+	}{
+		{name: "click", eventType: EventTypeClick, want: true},
+		{name: "dwell", eventType: EventTypeDwell, want: true},
+		{name: "like", eventType: EventTypeLike, want: true},
+		{name: "favorite", eventType: EventTypeFavorite, want: true},
+		{name: "comment", eventType: EventTypeComment, want: true},
+		{name: "exposure is server side", eventType: EventTypeExposure, want: false},
+		{name: "unknown", eventType: "share", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsClientEventType(tt.eventType); got != tt.want {
+				t.Fatalf("IsClientEventType(%q) = %v, want %v", tt.eventType, got, tt.want)
+			}
+		})
+	}
+}
+
 type fakeMessagePusher struct {
 	payloads []string
 	err      error
