@@ -52,5 +52,6 @@ func (l *LikeLogic) Like(req *types.LikeReq) (resp *types.LikeRes, err error) {
 	if err != nil {
 		return nil, err
 	}
+	emitRecommendTrack(l.ctx, l.svcCtx, "like", userID, *req.ContentId)
 	return &types.LikeRes{}, nil
 }

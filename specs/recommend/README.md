@@ -1229,6 +1229,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 个性化 snapshot 翻页已读取 `feed:rec:user:snapmeta:{snapshot_id}` 的 variant 和 config_hash，旧 snapshot 翻页继续按生成时的实验版本记录请求与曝光，不受新 runtime 配置覆盖。
 - click/dwell 客户端埋点上报成功后，会同步调用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`；画像更新失败只记录 `zfeed_recommend_error_total{stage="profile_update",variant}` 和日志，不影响埋点上报响应。
 - 推荐客户端埋点白名单已扩展到 `like`、`favorite`、`comment`，这些事件写入 `zfeed-rec-track` 成功后会复用同一画像更新路径，按既有权重增量更新用户兴趣标签。
+- `front-api` 点赞、收藏、评论写路径已在对应 interaction RPC 成功后复用 `FeedService.EmitRecommendTrack` 发出 `like`、`favorite`、`comment` 事件，source 固定为 `interaction`；埋点发射失败只记录日志，不影响原写操作响应。
 - 已新增 `zfeed_rec_metric_daily` MySQL 表和 `DailyAggregator` 聚合写入组件，可按 `metric_date + variant_id + source` 累加 exposure、click、dwell、like、favorite、comment 和停留时长。
 - `content-rpc` 已新增 `zfeed-rec-track` consumer，消费推荐埋点 JSON 后调用 `DailyAggregator` 写入日聚合表；consumer 配置已加入 `content.yaml`。
 
@@ -1273,11 +1274,12 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/mq/consumer -count=1`
 - `go test ./app/rpc/content/internal/config -count=1`
 - `go test ./app/rpc/content ./app/rpc/content/internal/svc ./app/rpc/content/internal/mq/consumer -count=1`
+- `go test ./app/front/internal/logic/interaction -run 'Test(Favorite|Comment)EmitsRecommendTrackAfterSuccess' -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment；interaction outbox、Canal 消费或定时 worker 尚未接入，真实互动写路径还不会自动投递推荐画像事件。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment，`front-api` 点赞、收藏、评论写路径已自动投递推荐互动事件；绕过 `front-api` 的 interaction-rpc 直写、补偿重放或异步 outbox/Canal/worker 仍待接入推荐画像事件。
 
 ## Change Log
 
@@ -1306,3 +1308,5 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Allow like/favorite/comment recommend track events to update user profile | Codex |
 | 2026-06-15 | 1.0.0   | Add recommendation daily metric table and aggregator | Codex |
 | 2026-06-15 | 1.0.0   | Consume recommendation track events into daily metric aggregator | Codex |
+| 2026-06-15 | 1.0.0   | Emit like recommendation track event from front-api like path | Codex |
+| 2026-06-15 | 1.0.0   | Emit favorite and comment recommendation track events from front-api interaction paths | Codex |

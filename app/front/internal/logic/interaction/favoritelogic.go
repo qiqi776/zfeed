@@ -52,6 +52,7 @@ func (l *FavoriteLogic) Favorite(req *types.FavoriteReq) (resp *types.FavoriteRe
 	if err != nil {
 		return nil, err
 	}
+	emitRecommendTrack(l.ctx, l.svcCtx, "favorite", userID, *req.ContentId)
 
 	return &types.FavoriteRes{}, nil
 }
