@@ -10,6 +10,7 @@ import (
 	"zfeed/app/rpc/interaction/interaction"
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	"zfeed/app/rpc/interaction/internal/do"
+	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
@@ -65,7 +66,13 @@ func (l *CommentLogic) Comment(in *interaction.CommentReq) (*interaction.Comment
 	var normalizedRootID int64
 	err = l.svcCtx.MysqlDb.WithContext(l.ctx).Transaction(func(tx *gorm.DB) error {
 		commentRepo := l.commentRepo.WithTx(tx)
-		parentID, rootID, replyToUserID, err := l.resolveThread(commentRepo, in.GetContentId(), in.GetParentId(), in.GetRootId(), in.GetReplyToUserId())
+		parentID, rootID, replyToUserID, err := l.resolveThread(
+			commentRepo,
+			in.GetContentId(),
+			in.GetParentId(),
+			in.GetRootId(),
+			in.GetReplyToUserId(),
+		)
 		if err != nil {
 			return err
 		}
@@ -105,11 +112,27 @@ func (l *CommentLogic) Comment(in *interaction.CommentReq) (*interaction.Comment
 	}
 
 	l.updateCommentCacheAfterCreate(commentID, in.GetContentId(), in.GetScene(), normalizedParentID, normalizedRootID)
+	emitUserAction(
+		l.ctx,
+		l.Logger,
+		l.svcCtx.UserActionProducer,
+		event.UserActionComment,
+		in.GetUserId(),
+		in.GetContentId(),
+		contentUserID,
+		in.GetScene(),
+	)
 
 	return &interaction.CommentRes{CommentId: commentID}, nil
 }
 
-func (l *CommentLogic) updateCommentCacheAfterCreate(commentID, contentID int64, scene interaction.Scene, parentID, rootID int64) {
+func (l *CommentLogic) updateCommentCacheAfterCreate(
+	commentID int64,
+	contentID int64,
+	scene interaction.Scene,
+	parentID int64,
+	rootID int64,
+) {
 	if l.svcCtx.Redis == nil || commentID <= 0 {
 		return
 	}
@@ -151,7 +174,13 @@ func (l *CommentLogic) updateCommentCacheAfterCreate(commentID, contentID int64,
 	invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, keys...)
 }
 
-func (l *CommentLogic) resolveThread(commentRepo repositories.CommentRepository, contentID, parentID, rootID, replyToUserID int64) (int64, int64, int64, error) {
+func (l *CommentLogic) resolveThread(
+	commentRepo repositories.CommentRepository,
+	contentID int64,
+	parentID int64,
+	rootID int64,
+	replyToUserID int64,
+) (int64, int64, int64, error) {
 	if parentID <= 0 && rootID <= 0 && replyToUserID <= 0 {
 		return 0, 0, 0, nil
 	}

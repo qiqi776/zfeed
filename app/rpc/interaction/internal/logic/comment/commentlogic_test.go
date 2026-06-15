@@ -3,12 +3,16 @@ package commentlogic
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"zfeed/app/rpc/interaction/interaction"
+	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/app/rpc/interaction/internal/testutil/mysqltest"
@@ -19,6 +23,121 @@ const (
 	commentLogicTestMinID int64 = 911000
 	commentLogicTestMaxID int64 = 911999
 )
+
+type commentTestContent struct {
+	ID        int64 `gorm:"column:id;primaryKey;autoIncrement"`
+	UserID    int64 `gorm:"column:user_id"`
+	IsDeleted int32 `gorm:"column:is_deleted"`
+}
+
+func (commentTestContent) TableName() string {
+	return "zfeed_content"
+}
+
+type commentTestComment struct {
+	ID            int64     `gorm:"column:id;primaryKey;autoIncrement"`
+	ContentID     int64     `gorm:"column:content_id"`
+	ContentUserID int64     `gorm:"column:content_user_id"`
+	UserID        int64     `gorm:"column:user_id"`
+	ReplyToUserID int64     `gorm:"column:reply_to_user_id"`
+	ParentID      int64     `gorm:"column:parent_id"`
+	RootID        int64     `gorm:"column:root_id"`
+	Comment       string    `gorm:"column:comment"`
+	Status        int32     `gorm:"column:status"`
+	Version       int32     `gorm:"column:version"`
+	ReplyCount    int64     `gorm:"column:reply_count"`
+	IsDeleted     int32     `gorm:"column:is_deleted"`
+	CreatedBy     int64     `gorm:"column:created_by"`
+	UpdatedBy     int64     `gorm:"column:updated_by"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+	UpdatedAt     time.Time `gorm:"column:updated_at"`
+}
+
+func (commentTestComment) TableName() string {
+	return "zfeed_comment"
+}
+
+type fakeCommentUserActionProducer struct {
+	events []event.UserActionEvent
+	err    error
+}
+
+func (p *fakeCommentUserActionProducer) SendUserAction(_ context.Context, action event.UserActionEvent) error {
+	p.events = append(p.events, action)
+	return p.err
+}
+
+func TestCommentEmitsUserActionAfterSuccessfulCreate(t *testing.T) {
+	db := newCommentUserActionTestDB(t)
+
+	const (
+		userID        int64 = 1001
+		contentID     int64 = 9001
+		contentUserID int64 = 2001
+	)
+	seedCommentTestContent(t, db, contentID, contentUserID)
+
+	userActionProducer := &fakeCommentUserActionProducer{}
+	resp, err := NewCommentLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb:            db,
+		UserActionProducer: userActionProducer,
+	}).Comment(&interaction.CommentReq{
+		UserId:        userID,
+		ContentId:     contentID,
+		ContentUserId: contentUserID,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       "user action comment",
+	})
+	if err != nil {
+		t.Fatalf("Comment returned error: %v", err)
+	}
+	if resp.GetCommentId() <= 0 {
+		t.Fatalf("comment_id = %d, want positive", resp.GetCommentId())
+	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events = %+v, want one event", userActionProducer.events)
+	}
+	if got := userActionProducer.events[0]; got.Action != event.UserActionComment ||
+		got.UserID != userID ||
+		got.TargetID != contentID ||
+		got.ContentID != contentID ||
+		got.ContentUserID != contentUserID ||
+		got.Scene != interaction.Scene_ARTICLE.String() {
+		t.Fatalf("comment user action = %+v", got)
+	}
+}
+
+func TestCommentIgnoresUserActionFailure(t *testing.T) {
+	db := newCommentUserActionTestDB(t)
+
+	const (
+		userID        int64 = 1002
+		contentID     int64 = 9002
+		contentUserID int64 = 2002
+	)
+	seedCommentTestContent(t, db, contentID, contentUserID)
+
+	userActionProducer := &fakeCommentUserActionProducer{err: errors.New("kafka unavailable")}
+	resp, err := NewCommentLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb:            db,
+		UserActionProducer: userActionProducer,
+	}).Comment(&interaction.CommentReq{
+		UserId:        userID,
+		ContentId:     contentID,
+		ContentUserId: contentUserID,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       "best effort user action",
+	})
+	if err != nil {
+		t.Fatalf("Comment returned error: %v", err)
+	}
+	if resp.GetCommentId() <= 0 {
+		t.Fatalf("comment_id = %d, want positive", resp.GetCommentId())
+	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events = %+v, want one attempted event", userActionProducer.events)
+	}
+}
 
 func TestCommentFlowCreateAndQuery(t *testing.T) {
 	db, cleanup := openCommentLogicTestDB(t)
@@ -552,6 +671,31 @@ func seedContentRow(t *testing.T, db *gorm.DB, contentID, userID int64) {
 		userID,
 		userID,
 	).Error; err != nil {
+		t.Fatalf("seed content row: %v", err)
+	}
+}
+
+func newCommentUserActionTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	dsn := "file:" + strings.ReplaceAll(t.Name(), "/", "_") + "?mode=memory&cache=shared"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&commentTestContent{}, &commentTestComment{}); err != nil {
+		t.Fatalf("auto migrate comment user action tables: %v", err)
+	}
+	return db
+}
+
+func seedCommentTestContent(t *testing.T, db *gorm.DB, contentID, userID int64) {
+	t.Helper()
+
+	if err := db.Create(&commentTestContent{
+		ID:     contentID,
+		UserID: userID,
+	}).Error; err != nil {
 		t.Fatalf("seed content row: %v", err)
 	}
 }
