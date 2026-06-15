@@ -9,6 +9,7 @@ import (
 	"zfeed/app/rpc/interaction/interaction"
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	luautils "zfeed/app/rpc/interaction/internal/common/utils/lua"
+	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/pkg/errorx"
@@ -60,6 +61,16 @@ func (l *UnlikeLogic) Unlike(in *interaction.UnlikeReq) (*interaction.UnlikeRes,
 			l.rollbackUnlikeCacheState(in.GetUserId(), in.GetScene(), in.GetContentId(), true)
 			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("持久化取消点赞事件失败"))
 		}
+		emitUserAction(
+			l.ctx,
+			l.Logger,
+			l.svcCtx.UserActionProducer,
+			event.UserActionUnlike,
+			in.GetUserId(),
+			in.GetContentId(),
+			contentUserID,
+			in.GetScene(),
+		)
 	}
 
 	return &interaction.UnlikeRes{}, nil
@@ -113,7 +124,19 @@ func (l *UnlikeLogic) rollbackUnlikeCacheState(userID int64, scene interaction.S
 		return
 	}
 
-	if err := cacheLikeState(l.ctx, l.svcCtx.Redis, likeCacheKey(userID), likeTargetKey(scene, contentID), isLiked); err != nil {
-		l.Errorf("rollback unlike cache failed, user_id=%d, scene=%s, content_id=%d, err=%v", userID, scene.String(), contentID, err)
+	if err := cacheLikeState(
+		l.ctx,
+		l.svcCtx.Redis,
+		likeCacheKey(userID),
+		likeTargetKey(scene, contentID),
+		isLiked,
+	); err != nil {
+		l.Errorf(
+			"rollback unlike cache failed, user_id=%d, scene=%s, content_id=%d, err=%v",
+			userID,
+			scene.String(),
+			contentID,
+			err,
+		)
 	}
 }

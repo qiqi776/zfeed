@@ -14,6 +14,7 @@ import (
 
 	"zfeed/app/rpc/interaction/interaction"
 	"zfeed/app/rpc/interaction/internal/do"
+	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
 )
@@ -113,7 +114,11 @@ type stubLikeProducer struct {
 	sendCancelErr error
 }
 
-func (p *stubLikeProducer) SendLikeEvent(ctx context.Context, userID, contentID, contentUserID int64, scene string) error {
+func (p *stubLikeProducer) SendLikeEvent(
+	ctx context.Context,
+	userID, contentID, contentUserID int64,
+	scene string,
+) error {
 	if p.sendLikeErr != nil {
 		return p.sendLikeErr
 	}
@@ -132,6 +137,37 @@ func (p *stubLikeProducer) SendLikeEvent(ctx context.Context, userID, contentID,
 
 func (p *stubLikeProducer) SendCancelLikeEvent(context.Context, int64, int64, int64, string) error {
 	return p.sendCancelErr
+}
+
+type stubUserActionProducer struct {
+	events []event.UserActionEvent
+	err    error
+}
+
+func (p *stubUserActionProducer) SendUserAction(_ context.Context, action event.UserActionEvent) error {
+	p.events = append(p.events, action)
+	return p.err
+}
+
+func seedLikeCache(
+	t *testing.T,
+	client *gzredis.Redis,
+	userID int64,
+	scene interaction.Scene,
+	contentID int64,
+	isLiked bool,
+) {
+	t.Helper()
+
+	if err := cacheLikeState(
+		context.Background(),
+		client,
+		likeCacheKey(userID),
+		likeTargetKey(scene, contentID),
+		isLiked,
+	); err != nil {
+		t.Fatalf("seed like cache: %v", err)
+	}
 }
 
 func TestLikeThenUnlikeStillWorksAfterManyWrites(t *testing.T) {
@@ -238,9 +274,7 @@ func TestProcessUnlikeSkipsDBWhenCacheShowsAlreadyUnliked(t *testing.T) {
 	t.Parallel()
 
 	client := newLikeLogicTestRedis(t)
-	if err := cacheLikeState(context.Background(), client, likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001), false); err != nil {
-		t.Fatalf("seed unlike cache: %v", err)
-	}
+	seedLikeCache(t, client, 1001, interaction.Scene_ARTICLE, 9001, false)
 
 	logic := &UnlikeLogic{
 		ctx:    context.Background(),
@@ -374,7 +408,11 @@ func TestLikeRollsBackCacheWhenEventPersistenceFails(t *testing.T) {
 		t.Fatal("Like returned nil error, want persistence failure")
 	}
 
-	values, err := redisClient.HmgetCtx(context.Background(), likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001))
+	values, err := redisClient.HmgetCtx(
+		context.Background(),
+		likeCacheKey(1001),
+		likeTargetKey(interaction.Scene_ARTICLE, 9001),
+	)
 	if err != nil {
 		t.Fatalf("read like cache: %v", err)
 	}
@@ -383,13 +421,94 @@ func TestLikeRollsBackCacheWhenEventPersistenceFails(t *testing.T) {
 	}
 }
 
+func TestLikeEmitsUserActionAfterSuccessfulChange(t *testing.T) {
+	t.Parallel()
+
+	redisClient := newLikeLogicTestRedis(t)
+	userActionProducer := &stubUserActionProducer{}
+
+	logic := &LikeLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			Redis:              redisClient,
+			LikeProducer:       &stubLikeProducer{},
+			UserActionProducer: userActionProducer,
+		},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				return 2001, nil
+			},
+		},
+		commentRepo: &stubCommentRepo{},
+	}
+
+	resp, err := logic.Like(&interaction.LikeReq{
+		UserId:    1001,
+		ContentId: 9001,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err != nil {
+		t.Fatalf("Like returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Like returned nil response")
+	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events = %+v, want one event", userActionProducer.events)
+	}
+	if got := userActionProducer.events[0]; got.Action != event.UserActionLike ||
+		got.UserID != 1001 ||
+		got.TargetID != 9001 ||
+		got.ContentUserID != 2001 ||
+		got.Scene != interaction.Scene_ARTICLE.String() {
+		t.Fatalf("like user action = %+v", got)
+	}
+}
+
+func TestLikeIgnoresUserActionFailure(t *testing.T) {
+	t.Parallel()
+
+	redisClient := newLikeLogicTestRedis(t)
+	userActionProducer := &stubUserActionProducer{err: errors.New("kafka unavailable")}
+
+	logic := &LikeLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			Redis:              redisClient,
+			LikeProducer:       &stubLikeProducer{},
+			UserActionProducer: userActionProducer,
+		},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				return 2001, nil
+			},
+		},
+		commentRepo: &stubCommentRepo{},
+	}
+
+	resp, err := logic.Like(&interaction.LikeReq{
+		UserId:    1001,
+		ContentId: 9001,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err != nil {
+		t.Fatalf("Like returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Like returned nil response")
+	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events = %+v, want one attempted event", userActionProducer.events)
+	}
+}
+
 func TestUnlikeRollsBackCacheWhenEventPersistenceFails(t *testing.T) {
 	t.Parallel()
 
 	redisClient := newLikeLogicTestRedis(t)
-	if err := cacheLikeState(context.Background(), redisClient, likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001), true); err != nil {
-		t.Fatalf("seed like cache: %v", err)
-	}
+	seedLikeCache(t, redisClient, 1001, interaction.Scene_ARTICLE, 9001, true)
 
 	logic := &UnlikeLogic{
 		ctx: context.Background(),
@@ -416,12 +535,103 @@ func TestUnlikeRollsBackCacheWhenEventPersistenceFails(t *testing.T) {
 		t.Fatal("Unlike returned nil error, want persistence failure")
 	}
 
-	values, err := redisClient.HmgetCtx(context.Background(), likeCacheKey(1001), likeTargetKey(interaction.Scene_ARTICLE, 9001))
+	values, err := redisClient.HmgetCtx(
+		context.Background(),
+		likeCacheKey(1001),
+		likeTargetKey(interaction.Scene_ARTICLE, 9001),
+	)
 	if err != nil {
 		t.Fatalf("read like cache: %v", err)
 	}
 	if len(values) != 1 || values[0] != likeCacheValueLiked {
 		t.Fatalf("cache value after rollback = %v, want [%s]", values, likeCacheValueLiked)
+	}
+}
+
+func TestUnlikeEmitsUserActionAfterSuccessfulChange(t *testing.T) {
+	t.Parallel()
+
+	redisClient := newLikeLogicTestRedis(t)
+	seedLikeCache(t, redisClient, 1001, interaction.Scene_ARTICLE, 9001, true)
+	userActionProducer := &stubUserActionProducer{}
+
+	logic := &UnlikeLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			Redis:              redisClient,
+			LikeProducer:       &stubLikeProducer{},
+			UserActionProducer: userActionProducer,
+		},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				return 2001, nil
+			},
+		},
+		commentRepo: &stubCommentRepo{},
+		likeRepo:    &stubLikeRepo{},
+	}
+
+	resp, err := logic.Unlike(&interaction.UnlikeReq{
+		UserId:    1001,
+		ContentId: 9001,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err != nil {
+		t.Fatalf("Unlike returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Unlike returned nil response")
+	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events = %+v, want one event", userActionProducer.events)
+	}
+	if got := userActionProducer.events[0]; got.Action != event.UserActionUnlike ||
+		got.UserID != 1001 ||
+		got.TargetID != 9001 ||
+		got.ContentUserID != 2001 ||
+		got.Scene != interaction.Scene_ARTICLE.String() {
+		t.Fatalf("unlike user action = %+v", got)
+	}
+}
+
+func TestUnlikeIgnoresUserActionFailure(t *testing.T) {
+	t.Parallel()
+
+	redisClient := newLikeLogicTestRedis(t)
+	seedLikeCache(t, redisClient, 1001, interaction.Scene_ARTICLE, 9001, true)
+	userActionProducer := &stubUserActionProducer{err: errors.New("kafka unavailable")}
+
+	logic := &UnlikeLogic{
+		ctx: context.Background(),
+		svcCtx: &svc.ServiceContext{
+			Redis:              redisClient,
+			LikeProducer:       &stubLikeProducer{},
+			UserActionProducer: userActionProducer,
+		},
+		Logger: logx.WithContext(context.Background()),
+		contentRepo: &stubContentRepo{
+			getAuthorIDFunc: func(contentID int64) (int64, error) {
+				return 2001, nil
+			},
+		},
+		commentRepo: &stubCommentRepo{},
+		likeRepo:    &stubLikeRepo{},
+	}
+
+	resp, err := logic.Unlike(&interaction.UnlikeReq{
+		UserId:    1001,
+		ContentId: 9001,
+		Scene:     interaction.Scene_ARTICLE,
+	})
+	if err != nil {
+		t.Fatalf("Unlike returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Unlike returned nil response")
+	}
+	if len(userActionProducer.events) != 1 {
+		t.Fatalf("user action events = %+v, want one attempted event", userActionProducer.events)
 	}
 }
 
