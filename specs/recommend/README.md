@@ -1232,6 +1232,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `front-api` 点赞、收藏、评论写路径已在对应 interaction RPC 成功后复用 `FeedService.EmitRecommendTrack` 发出 `like`、`favorite`、`comment` 事件，source 固定为 `interaction`；埋点发射失败只记录日志，不影响原写操作响应。
 - 已新增 `zfeed_rec_metric_daily` MySQL 表和 `DailyAggregator` 聚合写入组件，可按 `metric_date + variant_id + source` 累加 exposure、click、dwell、like、favorite、comment 和停留时长。
 - `content-rpc` 已新增 `zfeed-rec-track` consumer，消费推荐埋点 JSON 后调用 `DailyAggregator` 写入日聚合表；consumer 配置已加入 `content.yaml`。
+- `zfeed-rec-track` consumer 已在日聚合前复用 `ApplyProfileEvent` 更新 `rec:user:profile:{user_id}`，同一 `event_id` 重放依赖既有 profile 事件去重避免重复加权，后续 interaction outbox 或 Canal 只要投递同结构事件即可异步更新画像。
 
 已验证：
 
@@ -1275,11 +1276,15 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/config -count=1`
 - `go test ./app/rpc/content ./app/rpc/content/internal/svc ./app/rpc/content/internal/mq/consumer -count=1`
 - `go test ./app/front/internal/logic/interaction -run 'Test(Favorite|Comment)EmitsRecommendTrackAfterSuccess' -count=1`
+- `go test ./app/rpc/content/internal/mq/consumer -run TestRecommendTrackConsumerAppliesProfileEvent -count=1`
+- `go test ./app/rpc/content/internal/mq/consumer -count=1`
+- `go test ./app/rpc/content/internal/logic/feed -run 'TestEmitRecommendTrack|TestRecommendMetric' -count=1`
+- `go test ./app/rpc/content/internal/recommend -run 'Test.*Profile|Test.*Tags' -count=1`
 
 剩余缺口：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment，`front-api` 点赞、收藏、评论写路径已自动投递推荐互动事件；绕过 `front-api` 的 interaction-rpc 直写、补偿重放或异步 outbox/Canal/worker 仍待接入推荐画像事件。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment，`front-api` 点赞、收藏、评论写路径已自动投递推荐互动事件，`zfeed-rec-track` consumer 也能异步更新画像；绕过 `front-api` 的 interaction-rpc 直写、补偿重放或 outbox/Canal 事件源仍待补齐。
 
 ## Change Log
 
@@ -1310,3 +1315,4 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Consume recommendation track events into daily metric aggregator | Codex |
 | 2026-06-15 | 1.0.0   | Emit like recommendation track event from front-api like path | Codex |
 | 2026-06-15 | 1.0.0   | Emit favorite and comment recommendation track events from front-api interaction paths | Codex |
+| 2026-06-15 | 1.0.0   | Apply user profile updates from recommendation track consumer | Codex |

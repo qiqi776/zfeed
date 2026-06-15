@@ -57,7 +57,7 @@ func (l *RecommendTrackLogic) applyProfileEvent(event track.Event) {
 		return
 	}
 
-	eventType, ok := profileEventType(event.EventType)
+	eventType, ok := recommend.ProfileActionForEventType(event.EventType)
 	if !ok {
 		return
 	}
@@ -80,23 +80,6 @@ func (l *RecommendTrackLogic) applyProfileEvent(event track.Event) {
 		event.ContentID,
 		err,
 	)
-}
-
-func profileEventType(eventType string) (string, bool) {
-	switch eventType {
-	case track.EventTypeClick:
-		return recommend.ActionClick, true
-	case track.EventTypeDwell:
-		return recommend.ActionDwell, true
-	case track.EventTypeLike:
-		return recommend.ActionLike, true
-	case track.EventTypeFavorite:
-		return recommend.ActionFavorite, true
-	case track.EventTypeComment:
-		return recommend.ActionComment, true
-	default:
-		return "", false
-	}
 }
 
 func (l *RecommendTrackLogic) buildTrackEvent(in *contentpb.EmitRecommendTrackReq) (track.Event, error) {

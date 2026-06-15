@@ -91,6 +91,19 @@ func LoadUserProfile(ctx context.Context, rds *redis.Redis, userID int64, cfg co
 	return topWeights(tags, cfg.TopTags), nil
 }
 
+func ProfileActionForEventType(eventType string) (string, bool) {
+	switch eventType {
+	case ActionClick,
+		ActionDwell,
+		ActionLike,
+		ActionFavorite,
+		ActionComment:
+		return eventType, true
+	default:
+		return "", false
+	}
+}
+
 func actionWeight(eventType string) float64 {
 	switch eventType {
 	case ActionLike:
