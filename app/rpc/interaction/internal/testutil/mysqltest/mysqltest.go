@@ -2,6 +2,7 @@ package mysqltest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	gomysql "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -365,7 +367,14 @@ WHERE table_schema = DATABASE()
 		return nil
 	}
 
-	return db.Exec(createDDL).Error
+	if err := db.Exec(createDDL).Error; err != nil {
+		if isDuplicateIndexError(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }
 
 func dropIndexIfExists(db *gorm.DB, tableName, indexName string) error {
@@ -407,7 +416,23 @@ WHERE table_schema = DATABASE()
 		return nil
 	}
 
-	return db.Exec(createDDL).Error
+	if err := db.Exec(createDDL).Error; err != nil {
+		if isDuplicateIndexError(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
+}
+
+func isDuplicateIndexError(err error) bool {
+	var mysqlErr *gomysql.MySQLError
+	if !errors.As(err, &mysqlErr) {
+		return false
+	}
+
+	return mysqlErr.Number == 1061
 }
 
 func ensureColumn(db *gorm.DB, tableName, columnName, alterDDL string) error {

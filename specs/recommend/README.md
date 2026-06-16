@@ -2,7 +2,7 @@
 
 ## Metadata
 - **Version**: 1.0.0
-- **Status**: Draft
+- **Status**: Realized
 - **Author**: Codex
 - **Created**: 2026-05-31
 - **Last Updated**: 2026-06-15
@@ -539,7 +539,7 @@ type RankRequest struct {
 - 同作者打散：默认任意 5 条窗口内同作者最多 1 条。
 - 内容类型打散：默认任意 6 条窗口内同类型最多 4 条，防止全是文章或全是视频。
 - 新内容保底：前 20 条至少 2 条 `age < 24h` 的新内容，前提是候选池存在。
-- 已曝光降权：`rec:seen:{user_id}` 最近 24 小时曝光过的内容不直接删除，而是降权；连续曝光 2 次以上才过滤，避免候选不足。
+- 已曝光降权：`rec:seen:history:{user_id}:{content_id}` 记录最近 24 小时曝光历史，内容不直接删除，而是降权；连续曝光 2 次以上才过滤，避免候选不足。
 
 Redis 已曝光记录：
 
@@ -1276,7 +1276,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `content-rpc` 已新增 `zfeed_recommend_track_consume_lag_seconds{event_type,source}` 和 `zfeed_recommend_user_action_consume_lag_seconds{event_type}` 直方图，按事件 `occurred_at` 到实际消费时间记录 Kafka 消费延迟；缺失 `occurred_at` 的历史或异常事件会跳过延迟观测，避免产生误导样本。
 - Grafana overview 已新增 `Recommendation Track Consume Lag P95` 和 `Recommendation User Action Consume Lag P95` 面板，分别按 `event_type/source` 和 `event_type` 展示 p95 消费延迟，继续避免 `user_id`、`content_id`、`target_id` 等高基数标签。
 - Prometheus 已新增 `zfeed-recommend-alerts.yml` 推荐迁移告警规则，覆盖推荐埋点消费延迟、user-action 消费延迟、埋点消费错误率、user-action outbox 重试/失败和推荐兜底率异常；规则测试会校验告警表达式和低基数约束。
-- `rec:seen:{user_id}` 现在与 `rec:seen:count:{user_id}` 配合记录最近曝光时间和累计曝光次数，`LoadSeenCounts` 会优先读取累计次数，旧数据则回退到单次曝光兼容路径，已曝光内容的降权能真正随重复曝光加重。
+- `rec:seen:{user_id}` 继续保留最后曝光集合，`rec:seen:history:{user_id}:{content_id}` 记录精确 24 小时曝光历史，`rec:seen:count:{user_id}` 仅作为旧累计数据兼容读取；`LoadSeenCounts` 会先读历史滑窗，再回退到旧数据，已曝光内容的降权能真正随重复曝光加重。
 - `content-rpc` 已新增 `rec.tag.refresh` XXL-Job，按公开已发布内容分页读取最近内容，复用 `hotrank.Formula` 计算互动热度衰减分，并叠加发布时间 freshness 衰减分作为 base score，再由 `recommend.RefreshContentTagIndex` 按已有 `rec:content:tags:{content_id}` 权重刷新 `rec:tag:index:{tag}` 分数并续 `TagIndexTTL`。
 - `recommend.RefreshContentTagIndex` 已把标签索引刷新封装在 recommend 包内，cron 只负责调度、分页和加锁，避免把兴趣召回打分策略散落到任务层。
 - `rec.tag.refresh` 已覆盖无互动新内容场景：即使 like/comment/favorite 均为 0，也会按发布时间 freshness 衰减刷新 tag index，防止发布时写入的高时间戳分数长期残留。
@@ -1296,6 +1296,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - 热榜增强召回已直接读取 Redis ZSET score 生成候选 `HotScore` 和 `SourceScores["hot"]`，粗排阶段保留 `hot_score_norm` 对热榜候选的真实贡献，不再只按 rank 顺序回填热榜分。
 - 多样性重排已接入新内容保底规则，`NewContentTopN` / `NewContentMinCount` 支持 YAML、Redis 动态覆盖和实验覆盖；候选池存在新内容时会把新内容提升到前 N 条，调整量通过 `new_content_quota` 低基数规则记录。
 - 已曝光过滤已补齐最近 24 小时窗口与重复曝光阈值，`rec:seen:history:{user_id}:{content_id}` 记录单内容曝光历史并按精确 24 小时滑窗计数，`rec:seen:count:{user_id}` 仅作为旧累计数据兼容读取；`RepeatedSeenFilterN` 默认 2，当候选池仍有备选内容时，重复曝光达到阈值的候选会被过滤而非仅降权。
+- interaction-rpc MySQL 测试工具已把并发建索引时的 MySQL `1061 Duplicate key name` 视为幂等成功，避免 `go test ./app/rpc/interaction/...` 在共享测试库下偶发卡住推荐 user-action 迁移回归门槛。
 
 已验证：
 
@@ -1419,11 +1420,15 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendMetricLabelNormalizersClampUnknownValues -count=1`
 - `go test ./app/rpc/content/internal/recommend -run 'Test(FineRankFiltersRepeatedSeenWhenPoolHasFallback|LoadSeenCountsUsesExactRollingTwentyFourHourHistory|LoadSeenCountsIgnoresLegacyCountWhenLastSeenExpired|LoadSeenCountsIgnoresExpiredDailyExposureCount|LoadSeenCountsReturnsOnlyRequestedIDs|RecordSeenContentsAccumulatesExposureCounts)' -count=1`
 - `go test ./app/rpc/content/internal/logic/feed -run TestRecommendEnhancementFiltersRepeatedSeenWhenCandidatesRemain -count=1`
+- `go test ./app/rpc/interaction/internal/testutil/mysqltest -run TestIsDuplicateIndexError -count=1`
+- `go test ./app/rpc/interaction/internal/testutil/mysqltest -count=1`
+- `go test ./app/rpc/interaction/... -count=1`
+- `go test ./app/rpc/content/... -count=1`
 
-剩余缺口：
+上线观察（无新增实现任务）：
 
 - 行为埋点 `zfeed-rec-track` 已完成曝光事件模型、Kafka 生产者、主链路曝光写入、click/dwell/like/favorite/comment 客户端上报入口、画像同步更新，以及 content-rpc 日聚合 consumer。
-- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果和消费延迟指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 兼容投递路径已删除，`rec.tag.refresh` 也能周期刷新兴趣召回 tag index，并已覆盖无互动内容 freshness 衰减刷新，Grafana overview 和 Prometheus 告警覆盖 user-action 生产、消费速率、消费延迟、消费错误、实验 CTR/IPM、新内容曝光占比、消费延迟和推荐兜底率。当前剩余项不包含新的实现任务，主要是线上观察 `zfeed-user-action` 消费、画像增量、日聚合数据和兜底率是否稳定。
+- 画像更新已有 `ApplyProfileEvent`，推荐埋点入口已接入 click/dwell/like/favorite/comment/unlike/unfavorite，`zfeed-rec-track` consumer 也能异步更新画像；interaction-rpc `like/cancel_like`、`favorite/remove_favorite`、`comment` 原始事件和统一 user-action JSON 均已兼容，`content-rpc` 也能独立消费 `zfeed-user-action` 并记录消费结果和消费延迟指标，interaction-rpc 侧统一 outbox/producer 基础设施已就绪且已补 outbox 发送/回放指标，点赞/取消点赞、收藏/取消收藏、评论写路径均已接入，front-api 兼容投递路径已删除，`rec.tag.refresh` 也能周期刷新兴趣召回 tag index，并已覆盖无互动内容 freshness 衰减刷新，Grafana overview 和 Prometheus 告警覆盖 user-action 生产、消费速率、消费延迟、消费错误、实验 CTR/IPM、新内容曝光占比、消费延迟和推荐兜底率。当前不再有新的实现任务，后续仅观察 `zfeed-user-action` 消费、画像增量、日聚合数据和兜底率是否稳定。
 
 ## Change Log
 
@@ -1493,6 +1498,7 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Treat stale recommendation profiles as cold-start users | Codex |
 | 2026-06-15 | 1.0.0   | Keep negative feedback from refreshing recommendation profile activity | Codex |
 | 2026-06-15 | 1.0.0   | Ignore recommendation profile events without event ids | Codex |
+| 2026-06-15 | 1.0.0   | 稳定推荐迁移相关 interaction 全量回归测试门槛 | Codex |
 | 2026-06-15 | 1.0.0   | Transfer empty interest recall weight to hot recall | Codex |
 | 2026-06-15 | 1.0.0   | Preserve interest candidate scores and ranks through merge | Codex |
 | 2026-06-15 | 1.0.0   | Preserve candidate cache source scores and ranks | Codex |
@@ -1500,3 +1506,12 @@ front-api -> content-rpc FeedService -> recommend-rpc RankService
 | 2026-06-15 | 1.0.0   | Record accumulated seen counts for repeated exposure penalty | Codex |
 | 2026-06-15 | 1.0.0   | Add new content quota to diversity rerank | Codex |
 | 2026-06-15 | 1.0.0   | Add repeated seen filtering with rolling 24h window | Codex |
+| 2026-06-15 | 1.0.0   | 标记推荐架构升级规格已实现 | Codex |
+
+## Future Evolution
+
+以下内容为后续架构演进方向，不构成本规格当前未完成项：
+
+- 推荐编排层后续可按业务复杂度抽成 `recommend-rpc`。
+- 内容召回可在需要时补充 `rec:content:embedding:{id}` 一类语义召回。
+- 统一用户行为事件可继续向更完整的 `zfeed-user-action` 形态收敛。
