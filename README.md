@@ -68,12 +68,10 @@ Prometheus 配置位于 [deploy/prometheus/prometheus.yml](./deploy/prometheus/p
 go test ./...
 ```
 
-完整 Docker 栈启动后，可以运行 e2e 测试。注意这些测试会写入和修改本地开发数据，仅建议在当前仓库自己的 Docker 栈上执行：
+完整 Docker 栈启动后，可以运行 `tests/e2e`。注意这些测试会写入和修改本地开发数据，仅建议在当前仓库自己的 Docker 栈上执行：
 
 ```bash
-GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestObservabilityE2E -count=1
-GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestCountChainE2E -count=1
-GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestRecommendHotSnapshotE2E -count=1
+GOCACHE=/tmp/go-build go test -tags=e2e ./tests/e2e -count=1
 ```
 
 ## 性能测试
@@ -99,7 +97,7 @@ app/rpc/            go-zero zrpc 服务：用户、内容、互动、计数、�
 build/              应用服务 Dockerfile
 deploy/             Docker Compose 栈，环境变量，nginx，MySQL，Prometheus，OTEL
 docs/               架构说明，端口清单，绘图辅助
-e2e/                Docker 栈端到端测试
+tests/              黑盒正确性测试：e2e、integration、共享 fixtures
 orm/                共享 GORM 初始化及指标插件
 pkg/                共享包：errorx, grpcx, hotrank, mobilex, xxljob
 scripts/            启动/停止脚本，SQL 初始化脚本，压测运行器

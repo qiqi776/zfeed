@@ -34,15 +34,19 @@ bash ./scripts/stop.sh
 
 ## E2E 验证
 
-完整栈启动后，可以显式执行 `e2e` 测试：
+完整栈启动后，可以显式执行 `tests/e2e` 测试：
 
 ```bash
-GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestObservabilityE2E -count=1
-GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestCountChainE2E -count=1
-GOCACHE=/tmp/go-build go test -tags=e2e ./e2e -run TestRecommendHotSnapshotE2E -count=1
+GOCACHE=/tmp/go-build go test -tags=e2e ./tests/e2e -count=1
 ```
 
 这些测试会修改本地开发数据，只适合在当前仓库自己的 Docker 栈上执行。
+
+如需定位单个链路，可以继续用 `-run` 过滤具体用例：
+
+```bash
+GOCACHE=/tmp/go-build go test -tags=e2e ./tests/e2e -run TestObservabilityE2E -count=1
+```
 
 ## 网关路由
 

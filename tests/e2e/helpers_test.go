@@ -143,7 +143,7 @@ func moduleRoot(t *testing.T) string {
 	if !ok {
 		t.Fatal("runtime.Caller failed")
 	}
-	return filepath.Dir(filepath.Dir(filename))
+	return filepath.Dir(filepath.Dir(filepath.Dir(filename)))
 }
 
 func envString(env map[string]string, key, fallback string) string {
