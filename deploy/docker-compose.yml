@@ -37,6 +37,40 @@ services:
     networks:
       - zfeed-net
 
+  admin-api:
+    image: ${ADMIN_API_IMAGE}
+    build:
+      context: ..
+      dockerfile: build/admin-api.Dockerfile
+    command: ["/app/bin/admin-api", "-f", "/app/app/admin-api/etc/admin-api.yaml"]
+    working_dir: /app
+    environment:
+      - ENV_FILE=/app/.env
+      - OTEL_DISABLED=${OTEL_DISABLED:-false}
+    env_file:
+      - ./.env
+    ports:
+      - "${ADMIN_API_PORT}:5001"
+      - "${ADMIN_PROM_PORT}:9291"
+    volumes:
+      - ./.env:/app/.env:ro
+      - ../logs:/var/log/zfeed
+    depends_on:
+      etcd:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      user-rpc:
+        condition: service_started
+      content-rpc:
+        condition: service_started
+      interaction-rpc:
+        condition: service_started
+    networks:
+      - zfeed-net
+
   etcd:
     image: ${ETCD_IMAGE}
     ports:
@@ -180,6 +214,7 @@ services:
     depends_on:
       opensearch:
         condition: service_healthy
+    restart: "no"
     networks:
       - zfeed-net
 
