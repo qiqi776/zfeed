@@ -16,7 +16,11 @@ readonly RESULTS_ROOT="${RESULTS_ROOT:-bench/results}"
 readonly BENCH_COUNT="${BENCH_COUNT:-10}"
 readonly GHZ_CONTENT_TARGET="${GHZ_CONTENT_TARGET:-127.0.0.1:5001}"
 readonly GHZ_INTERACTION_TARGET="${GHZ_INTERACTION_TARGET:-127.0.0.1:5002}"
+readonly GHZ_USER_TARGET="${GHZ_USER_TARGET:-127.0.0.1:5003}"
+readonly GHZ_COUNT_TARGET="${GHZ_COUNT_TARGET:-127.0.0.1:5004}"
 readonly GHZ_SEARCH_TARGET="${GHZ_SEARCH_TARGET:-127.0.0.1:5006}"
+readonly BENCH_ENV="${BENCH_ENV:-local}"
+readonly BENCH_IMAGE_TAG="${BENCH_IMAGE_TAG:-}"
 
 fct_usage() {
 	cat <<'EOF'
@@ -26,25 +30,35 @@ fct_usage() {
 命令：
   start-stack    启动本地压测与观测栈
   smoke          运行 k6 冒烟场景
+  read-heavy     运行 k6 读重场景
   load           运行 k6 混合负载场景
   stress         运行 k6 写重压场景
+  write-heavy    运行 k6 写重场景
   spike          运行 k6 脉冲流量场景
   soak           运行 k6 长稳压场景
   search         运行 k6 搜索场景
   hot-content    运行 k6 热点内容场景
-  go-bench       运行 feed/search/count/hotrank Go benchmark
+  data           生成压测 fixture：data <small|medium|large> [--reset|--append]
+  go-bench       运行 feed/feed-rank/content-detail/recommend-track/comment-cache/search/count/hotrank/orm observer Go benchmark
   ghz            运行 bench/ghz 中的 gRPC 定点压测
+  ghz-config     按当前 DATA_DIR 生成 ghz 请求配置：ghz-config <output-dir>
   pprof          从 PPROF_URL 抓取 pprof top 输出
+  report         生成结果报告：report <result-dir> [--baseline <result-dir>]
+  benchstat      对比 Go benchmark：benchstat <before.txt> <after.txt>
   ports          打印项目默认端口清单
 
 环境变量：
   BASE_URL       HTTP 压测目标，默认 http://127.0.0.1:18080
   DATA_DIR       k6 数据目录，默认 bench/data/small
   RESULTS_ROOT   结果归档根目录，默认 bench/results
+  BENCH_ENV      结果报告中的环境类型，默认 local
+  BENCH_IMAGE_TAG 结果报告中的服务镜像 tag，默认当前 git commit
   K6_BIN         k6 可执行文件，默认 k6
   GHZ_BIN        ghz 可执行文件，默认 ghz
   GHZ_CONTENT_TARGET      content-rpc ghz 目标，默认 127.0.0.1:5001
   GHZ_INTERACTION_TARGET  interaction-rpc ghz 目标，默认 127.0.0.1:5002
+  GHZ_USER_TARGET         user-rpc ghz 目标，默认 127.0.0.1:5003
+  GHZ_COUNT_TARGET        count-rpc ghz 目标，默认 127.0.0.1:5004
   GHZ_SEARCH_TARGET       search-rpc ghz 目标，默认 127.0.0.1:5006
   BENCH_COUNT    Go benchmark 重复次数，默认 10
   PPROF_URL      pprof 地址，例如 http://127.0.0.1:6060/debug/pprof/profile?seconds=30
@@ -92,6 +106,69 @@ fct_data_dir() {
 	esac
 }
 
+fct_go_version() {
+	if command -v "${GO_BIN}" >/dev/null 2>&1; then
+		"${GO_BIN}" version
+		return
+	fi
+	printf 'unavailable'
+}
+
+fct_gomaxprocs() {
+	if command -v nproc >/dev/null 2>&1; then
+		nproc
+		return
+	fi
+	getconf _NPROCESSORS_ONLN 2>/dev/null || printf 'unknown'
+}
+
+fct_machine_spec() {
+	local os_name
+	local arch_name
+	local cpu_count
+	local memory_total
+	os_name="$(uname -s 2>/dev/null || printf 'unknown')"
+	arch_name="$(uname -m 2>/dev/null || printf 'unknown')"
+	cpu_count="$(fct_gomaxprocs)"
+	memory_total="unknown"
+	if [[ -r /proc/meminfo ]]; then
+		local mem_kb
+		mem_kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo)"
+		if [[ -n "${mem_kb}" ]]; then
+			memory_total="$((mem_kb / 1024))MiB"
+		fi
+	fi
+	printf '%s %s cpu=%s mem=%s\n' "${os_name}" "${arch_name}" "${cpu_count}" "${memory_total}"
+}
+
+fct_data_scale() {
+	local data_dir
+	data_dir="$(fct_data_dir)"
+	if [[ -f "${data_dir}/summary.md" ]]; then
+		local scale
+		scale="$(awk -F '：' '/^- 数据规模：/ {print $2; exit}' "${data_dir}/summary.md" | xargs)"
+		if [[ -n "${scale}" ]]; then
+			printf '%s\n' "${scale}"
+			return
+		fi
+	fi
+	basename "${data_dir}"
+}
+
+fct_image_summary() {
+	local image_tag="${BENCH_IMAGE_TAG}"
+	if [[ -z "${image_tag}" ]]; then
+		image_tag="$(fct_commit)"
+	fi
+	printf 'front-api=%s,user-rpc=%s,content-rpc=%s,interaction-rpc=%s,count-rpc=%s,search-rpc=%s\n' \
+		"${image_tag}" \
+		"${image_tag}" \
+		"${image_tag}" \
+		"${image_tag}" \
+		"${image_tag}" \
+		"${image_tag}"
+}
+
 fct_prepare_result_dir() {
 	local result_dir="${1}"
 	local scenario="${2}"
@@ -110,15 +187,38 @@ fct_write_env_report() {
 - 提交：$(fct_commit)
 - 基础 URL：${BASE_URL}
 - 数据目录：$(fct_data_dir)
+- 数据规模：$(fct_data_scale)
+- 环境类型：${BENCH_ENV}
+- 镜像：$(fct_image_summary)
+- 机器规格：$(fct_machine_spec)
+- Go 版本：$(fct_go_version)
+- GOMAXPROCS：$(fct_gomaxprocs)
 - 开始时间：$(date -Is)
+- 结束时间：-
 - K6 可执行文件：${K6_BIN}
 - GHZ 可执行文件：${GHZ_BIN}
 - GHZ 内容目标：${GHZ_CONTENT_TARGET}
 - GHZ 互动目标：${GHZ_INTERACTION_TARGET}
+- GHZ 用户目标：${GHZ_USER_TARGET}
+- GHZ 计数目标：${GHZ_COUNT_TARGET}
 - GHZ 搜索目标：${GHZ_SEARCH_TARGET}
 - Go 可执行文件：${GO_BIN}
 - 压测次数：${BENCH_COUNT}
 EOF
+}
+
+fct_finish_env_report() {
+	local result_dir="${1}"
+	if [[ ! -f "${result_dir}/env.md" ]]; then
+		return 0
+	fi
+	local end_time
+	end_time="$(date -Is)"
+	if grep -q '^- 结束时间：' "${result_dir}/env.md"; then
+		sed -i "s|^- 结束时间：.*|- 结束时间：${end_time}|" "${result_dir}/env.md"
+		return
+	fi
+	printf -- '- 结束时间：%s\n' "${end_time}" >>"${result_dir}/env.md"
 }
 
 fct_write_result_readme() {
@@ -139,6 +239,7 @@ fct_write_result_readme() {
 - \`k6-output.txt\`：k6 原始终端输出，包含检查项、时延、吞吐和错误率。
 - \`go-bench.txt\`：Go benchmark 原始输出，仅 \`go-bench\` 场景生成。
 - \`*.txt\`：ghz 或 pprof 原始文本输出；ghz 按场景名生成，pprof 使用 \`pprof-top.txt\`。
+- \`report.md\`：自动生成的结果摘要和 PASS/WARN/FAIL 判定。
 
 如果某个文件不存在，通常表示当前场景不会产出该类型结果；新的脚本也会在真正发起请求前先做目标可达性检查，避免"服务未启动但已生成一份看起来像结果的目录"。
 EOF
@@ -271,6 +372,7 @@ fct_run_k6() {
 	env BASE_URL="${BASE_URL}" DATA_DIR="$(fct_data_dir)" "${K6_BIN}" run \
 		--summary-export "${result_dir}/k6-summary.json" \
 		"${scenario_file}" 2>&1 | tee "${result_dir}/k6-output.txt"
+	fct_generate_report "${result_dir}"
 }
 
 fct_run_go_bench() {
@@ -288,28 +390,49 @@ fct_run_go_bench() {
 		-benchmem \
 		-count="${BENCH_COUNT}" \
 		./app/rpc/content/internal/logic/feed \
+		./bench/go/feedrank \
+		./bench/go/contentdetail \
+		./bench/go/recommendtrack \
+		./bench/go/commentcache \
 		./app/rpc/search/search-rpc/internal/querynorm \
 		./app/rpc/count/internal/logic \
-		./pkg/hotrank 2>&1 | tee "${result_dir}/go-bench.txt"
+		./pkg/hotrank \
+		./bench/go/ormobserver 2>&1 | tee "${result_dir}/go-bench.txt"
+	fct_generate_report "${result_dir}"
 }
 
 fct_run_ghz() {
 	fct_require_bin "${GHZ_BIN}"
+	fct_require_bin "${GO_BIN}"
 
 	local config
+	local generated_config_dir
+	generated_config_dir="$(mktemp -d)"
+	if ! "${GO_BIN}" run ./bench/tools/benchghzgen \
+		--configs "${ROOT_DIR}/bench/ghz" \
+		--data "$(fct_data_dir)" \
+		--output "${generated_config_dir}" >/dev/null; then
+		rm -rf "${generated_config_dir}"
+		return 1
+	fi
+
 	local found_config=0
-	for config in "${ROOT_DIR}"/bench/ghz/*.json; do
+	for config in "${generated_config_dir}"/*.json; do
 		[[ -f "${config}" ]] || continue
 		found_config=1
 		local name
 		name="$(basename "${config}" .json)"
 		local target
 		target="$(fct_ghz_target_for "${name}")"
-		fct_check_tcp_target "${target}" "gRPC 压测目标 ${name}"
+		if ! fct_check_tcp_target "${target}" "gRPC 压测目标 ${name}"; then
+			rm -rf "${generated_config_dir}"
+			return 1
+		fi
 	done
 
 	if [[ "${found_config}" -eq 0 ]]; then
-		printf '未找到任何 ghz 配置文件：%s\n' "${ROOT_DIR}/bench/ghz/*.json" >&2
+		printf '未找到任何 ghz 配置文件：%s\n' "${generated_config_dir}/*.json" >&2
+		rm -rf "${generated_config_dir}"
 		return 2
 	fi
 
@@ -317,7 +440,12 @@ fct_run_ghz() {
 	result_dir="$(fct_result_dir "ghz")"
 	fct_prepare_result_dir "${result_dir}" "ghz"
 
-	for config in "${ROOT_DIR}"/bench/ghz/*.json; do
+	if ! cp "${generated_config_dir}"/*.json "${result_dir}/"; then
+		rm -rf "${generated_config_dir}"
+		return 1
+	fi
+
+	for config in "${generated_config_dir}"/*.json; do
 		[[ -f "${config}" ]] || continue
 		local name
 		name="$(basename "${config}" .json)"
@@ -325,8 +453,28 @@ fct_run_ghz() {
 		target="$(fct_ghz_target_for "${name}")"
 		printf '开始执行 ghz 场景：%s\n' "${name}" >&2
 		printf '目标地址：%s\n' "${target}" >&2
-		"${GHZ_BIN}" --config "${config}" "${target}" 2>&1 | tee "${result_dir}/${name}.txt"
+		if ! "${GHZ_BIN}" --config "${config}" "${target}" 2>&1 | tee "${result_dir}/${name}.txt"; then
+			rm -rf "${generated_config_dir}"
+			return 1
+		fi
 	done
+	if ! fct_generate_report "${result_dir}"; then
+		rm -rf "${generated_config_dir}"
+		return 1
+	fi
+	rm -rf "${generated_config_dir}"
+}
+
+fct_run_ghz_config() {
+	if [[ "$#" -ne 1 ]]; then
+		printf 'ghz-config 命令需要 output-dir 参数。\n' >&2
+		return 2
+	fi
+	fct_require_bin "${GO_BIN}"
+	"${GO_BIN}" run ./bench/tools/benchghzgen \
+		--configs "${ROOT_DIR}/bench/ghz" \
+		--data "$(fct_data_dir)" \
+		--output "$1"
 }
 
 fct_run_pprof() {
@@ -345,6 +493,7 @@ fct_run_pprof() {
 	printf '开始抓取 pprof：%s\n' "${pprof_url}" >&2
 	printf '结果目录：%s\n' "${result_dir}" >&2
 	"${GO_BIN}" tool pprof -top "${pprof_url}" 2>&1 | tee "${result_dir}/pprof-top.txt"
+	fct_generate_report "${result_dir}"
 }
 
 fct_ghz_target_for() {
@@ -353,8 +502,20 @@ fct_ghz_target_for() {
 	feed-*)
 		printf '%s\n' "${GHZ_CONTENT_TARGET}"
 		;;
+	content-*)
+		printf '%s\n' "${GHZ_CONTENT_TARGET}"
+		;;
 	like-*)
 		printf '%s\n' "${GHZ_INTERACTION_TARGET}"
+		;;
+	comment-* | follow-*)
+		printf '%s\n' "${GHZ_INTERACTION_TARGET}"
+		;;
+	user-*)
+		printf '%s\n' "${GHZ_USER_TARGET}"
+		;;
+	count-*)
+		printf '%s\n' "${GHZ_COUNT_TARGET}"
 		;;
 	search-*)
 		printf '%s\n' "${GHZ_SEARCH_TARGET}"
@@ -365,15 +526,45 @@ fct_ghz_target_for() {
 	esac
 }
 
+fct_generate_report() {
+	local result_dir="${1}"
+	fct_finish_env_report "${result_dir}"
+	bash "${ROOT_DIR}/scripts/bench/report.sh" "${result_dir}" >/dev/null
+}
+
+fct_run_data() {
+	local scale="${1:-small}"
+	local mode="${2:---reset}"
+	DATA_ROOT="$(dirname "$(fct_data_dir)")" bash "${ROOT_DIR}/scripts/bench/data.sh" generate "${scale}" "${mode}"
+}
+
+fct_run_report() {
+	if [[ "$#" -lt 1 ]]; then
+		printf 'report 命令需要结果目录参数。\n' >&2
+		return 2
+	fi
+	bash "${ROOT_DIR}/scripts/bench/report.sh" "$@"
+}
+
+fct_run_benchstat() {
+	if [[ "$#" -ne 2 ]]; then
+		printf 'benchstat 命令需要 before.txt 和 after.txt。\n' >&2
+		return 2
+	fi
+	fct_require_bin benchstat
+	benchstat "$1" "$2"
+}
+
 fct_start_stack() {
-	ENABLE_TRACE_PIPELINE="${ENABLE_TRACE_PIPELINE:-1}" \
-		ENABLE_LOG_PIPELINE="${ENABLE_LOG_PIPELINE:-1}" \
+	ENABLE_TRACE_PIPELINE="${ENABLE_TRACE_PIPELINE:-0}" \
+		ENABLE_LOG_PIPELINE="${ENABLE_LOG_PIPELINE:-0}" \
 		ENABLE_GRAFANA="${ENABLE_GRAFANA:-1}" \
 		bash "${ROOT_DIR}/scripts/start.sh"
 }
 
 fct_main() {
 	local command="${1:-}"
+	shift || true
 	case "${command}" in
 	-h | --help | help | "")
 		fct_usage
@@ -384,14 +575,23 @@ fct_main() {
 	smoke)
 		fct_run_k6 "smoke"
 		;;
+	read-heavy)
+		fct_run_k6 "read-heavy"
+		;;
 	load)
-		fct_run_k6 "mixed"
+		fct_run_k6 "load"
 		;;
 	stress)
 		fct_run_k6 "write-heavy"
 		;;
+	write-heavy)
+		fct_run_k6 "write-heavy"
+		;;
 	spike | soak | search | hot-content)
 		fct_run_k6 "${command}"
+		;;
+	data)
+		fct_run_data "$@"
 		;;
 	go-bench)
 		fct_run_go_bench
@@ -399,8 +599,17 @@ fct_main() {
 	ghz)
 		fct_run_ghz
 		;;
+	ghz-config)
+		fct_run_ghz_config "$@"
+		;;
 	pprof)
 		fct_run_pprof
+		;;
+	report)
+		fct_run_report "$@"
+		;;
+	benchstat)
+		fct_run_benchstat "$@"
 		;;
 	ports)
 		fct_print_ports

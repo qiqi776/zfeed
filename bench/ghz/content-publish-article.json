@@ -1,0 +1,20 @@
+{
+  "name": "content-publish-article",
+  "proto": "app/rpc/content/proto/content.proto",
+  "call": "content.ContentService.PublishArticle",
+  "insecure": true,
+  "total": 100,
+  "concurrency": 5,
+  "data": {
+    "user_id": 10001,
+    "title": "bench_ghz_article",
+    "description": "bench ghz article",
+    "cover": "https://example.com/bench/cover.png",
+    "content": "hello benchmark",
+    "visibility": "PUBLIC"
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-content-publish-article"
+  },
+  "format": "summary"
+}

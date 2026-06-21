@@ -22,6 +22,7 @@ function parseCSV(raw) {
 
 const users = parseCSV(open(`${benchConfig.dataDir}/users.csv`));
 const contentIDs = parseCSV(open(`${benchConfig.dataDir}/content_ids.csv`));
+const followEdges = parseCSV(open(`${benchConfig.dataDir}/follow_edges.csv`));
 const searchTerms = parseCSV(open(`${benchConfig.dataDir}/search_terms.csv`));
 
 export function loadUsers() {
@@ -30,6 +31,10 @@ export function loadUsers() {
 
 export function loadContentIDs() {
   return contentIDs;
+}
+
+export function loadFollowEdges() {
+  return followEdges;
 }
 
 export function loadSearchTerms() {
@@ -41,4 +46,20 @@ export function pick(values) {
     return undefined;
   }
   return values[Math.floor(Math.random() * values.length)];
+}
+
+export function pickUser() {
+  return pick(users);
+}
+
+export function pickContent() {
+  return pick(contentIDs);
+}
+
+export function pickFollowEdge() {
+  return pick(followEdges);
+}
+
+export function pickSearchTerm() {
+  return pick(searchTerms);
 }

@@ -1,0 +1,67 @@
+name: zfeed benchmark gate
+
+"on":
+  schedule:
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+    inputs:
+      baseline_artifact:
+        description: "Optional artifact name containing baseline go-bench.txt"
+        required: false
+        default: ""
+  pull_request:
+    paths:
+      - "app/**/*.go"
+      - "bench/**"
+      - "pkg/**/*.go"
+      - "scripts/bench/**"
+
+jobs:
+  go-benchmark-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run benchmark gate against pull request base
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          BENCH_BASELINE_REF="origin/${{ github.base_ref }}" \
+          BENCH_COUNT=3 \
+          RESULTS_ROOT=/tmp/zfeed-bench-ci \
+          bash scripts/bench/ci-gate.sh
+
+      - name: Run benchmark gate without baseline
+        if: ${{ github.event_name != 'pull_request' && inputs.baseline_artifact == '' }}
+        run: |
+          BENCH_COUNT=3 RESULTS_ROOT=/tmp/zfeed-bench-ci bash scripts/bench/ci-gate.sh
+
+      - name: Download baseline artifact
+        if: ${{ github.event_name != 'pull_request' && inputs.baseline_artifact != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.baseline_artifact }}
+          path: /tmp/zfeed-benchmark-baseline
+
+      - name: Run benchmark gate with baseline
+        if: ${{ github.event_name != 'pull_request' && inputs.baseline_artifact != '' }}
+        run: |
+          BENCH_BASELINE=/tmp/zfeed-benchmark-baseline \
+          BENCH_COUNT=5 \
+          RESULTS_ROOT=/tmp/zfeed-bench-ci \
+          bash scripts/bench/ci-gate.sh
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zfeed-benchmark-results
+          path: /tmp/zfeed-bench-ci

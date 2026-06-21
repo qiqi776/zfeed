@@ -19,6 +19,7 @@ export const taggedThresholds = {
 
 export function smokeOptions() {
   return {
+    summaryTrendStats: ["avg", "min", "med", "max", "p(90)", "p(95)", "p(99)"],
     thresholds: { ...defaultThresholds, ...taggedThresholds },
     scenarios: {
       smoke: {
@@ -33,6 +34,7 @@ export function smokeOptions() {
 
 export function stageOptions(stages) {
   return {
+    summaryTrendStats: ["avg", "min", "med", "max", "p(90)", "p(95)", "p(99)"],
     thresholds: { ...defaultThresholds, ...taggedThresholds },
     stages,
   };
@@ -47,10 +49,9 @@ export const loadStages = [
 ];
 
 export const stressStages = [
-  { duration: "2m", target: 50 },
-  { duration: "5m", target: 100 },
-  { duration: "5m", target: 200 },
-  { duration: "5m", target: 400 },
+  { duration: "2m", target: 10 },
+  { duration: "5m", target: 25 },
+  { duration: "5m", target: 50 },
   { duration: "2m", target: 0 },
 ];
 

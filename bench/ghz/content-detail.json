@@ -1,0 +1,16 @@
+{
+  "name": "content-detail",
+  "proto": "app/rpc/content/proto/content.proto",
+  "call": "content.ContentService.GetContentDetail",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "content_id": 900001,
+    "viewer_id": 10001
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-content-detail"
+  },
+  "format": "summary"
+}

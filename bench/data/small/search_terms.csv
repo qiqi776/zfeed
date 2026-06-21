@@ -1,5 +1,7 @@
 query,kind
 bench,common
 bench_article,content
+bench_video,content
 bench_user,user
+bench_small_hot,common
 unlikely_bench_empty_term,empty

@@ -1,0 +1,18 @@
+{
+  "name": "comment-list",
+  "proto": "app/rpc/interaction/proto/interaction.proto",
+  "call": "interaction.CommentService.QueryCommentList",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "content_id": 900001,
+    "scene": "ARTICLE",
+    "cursor": 0,
+    "page_size": 10
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-comment-list"
+  },
+  "format": "summary"
+}

@@ -1,0 +1,31 @@
+{
+  "name": "count-batch-get",
+  "proto": "app/rpc/count/proto/count.proto",
+  "call": "count.CounterService.BatchGetCount",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "keys": [
+      {
+        "biz_type": "LIKE",
+        "target_type": "CONTENT",
+        "target_id": 900001
+      },
+      {
+        "biz_type": "COMMENT",
+        "target_type": "CONTENT",
+        "target_id": 900001
+      },
+      {
+        "biz_type": "FAVORITE",
+        "target_type": "CONTENT",
+        "target_id": 900001
+      }
+    ]
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-count-batch-get"
+  },
+  "format": "summary"
+}

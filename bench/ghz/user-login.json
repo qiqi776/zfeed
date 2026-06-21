@@ -1,0 +1,16 @@
+{
+  "name": "user-login",
+  "proto": "app/rpc/user/proto/user.proto",
+  "call": "user.UserService.Login",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "mobile": "+8619000000001",
+    "password": "123456Aa!"
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-user-login"
+  },
+  "format": "summary"
+}

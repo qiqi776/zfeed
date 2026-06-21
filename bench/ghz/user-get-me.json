@@ -1,0 +1,15 @@
+{
+  "name": "user-get-me",
+  "proto": "app/rpc/user/proto/user.proto",
+  "call": "user.UserService.GetMe",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "user_id": 10001
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-user-get-me"
+  },
+  "format": "summary"
+}

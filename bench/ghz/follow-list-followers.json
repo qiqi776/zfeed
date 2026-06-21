@@ -1,0 +1,18 @@
+{
+  "name": "follow-list-followers",
+  "proto": "app/rpc/interaction/proto/interaction.proto",
+  "call": "interaction.FollowService.ListFollowers",
+  "insecure": true,
+  "total": 1000,
+  "concurrency": 20,
+  "data": {
+    "user_id": 10001,
+    "cursor": 0,
+    "page_size": 10,
+    "viewer_id": 10002
+  },
+  "metadata": {
+    "x-request-id": "bench-ghz-follow-list-followers"
+  },
+  "format": "summary"
+}
