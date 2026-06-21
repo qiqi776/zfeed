@@ -80,7 +80,8 @@ func (l *UpdateProfileLogic) UpdateProfile(in *user.UpdateProfileReq) (*user.Upd
 		if email == "" {
 			return nil, errorx.NewBadRequest("邮箱不能为空")
 		}
-		if _, err := mail.ParseAddress(email); err != nil {
+		parsedEmail, err := mail.ParseAddress(email)
+		if err != nil || parsedEmail.Address != email {
 			return nil, errorx.NewBadRequest("邮箱格式错误")
 		}
 		patch.Email = &email
@@ -92,12 +93,26 @@ func (l *UpdateProfileLogic) UpdateProfile(in *user.UpdateProfileReq) (*user.Upd
 			return nil, errorx.NewBadRequest("生日参数错误")
 		}
 		birthday := time.Unix(in.GetBirthday(), 0)
+		if birthday.After(time.Now()) {
+			return nil, errorx.NewBadRequest("生日参数错误")
+		}
 		patch.Birthday = &birthday
 		hasUpdate = true
 	}
 
 	if !hasUpdate {
 		return nil, errorx.NewBadRequest("没有可更新的字段")
+	}
+
+	currentUser, err := l.userRepo.GetByID(in.GetUserId())
+	if err != nil {
+		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询用户失败"))
+	}
+	if currentUser == nil {
+		return nil, errorx.NewNotFound("用户不存在")
+	}
+	if currentUser.Status != int32(user.UserStatus_USER_STATUS_ACTIVE) {
+		return nil, errorx.NewForbidden("账号状态异常")
 	}
 
 	userDO, err := l.userRepo.UpdateProfile(in.GetUserId(), patch)
@@ -117,12 +132,15 @@ func isAcceptedProfileAsset(raw string) bool {
 	if raw == "" {
 		return false
 	}
-	if strings.HasPrefix(raw, "/") {
+	if strings.HasPrefix(raw, "/") && !strings.HasPrefix(raw, "//") {
 		return true
 	}
 
 	parsed, err := url.Parse(raw)
 	if err != nil {
+		return false
+	}
+	if parsed.Host == "" {
 		return false
 	}
 	return parsed.Scheme == "http" || parsed.Scheme == "https"

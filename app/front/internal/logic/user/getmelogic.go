@@ -69,6 +69,9 @@ func (l *GetMeLogic) GetMe() (resp *types.GetMeRes, err error) {
 	if userErr != nil {
 		return nil, userErr
 	}
+	if userResp == nil {
+		return nil, errorx.NewMsg("查询我的信息失败")
+	}
 	if userResp.GetUserInfo() == nil {
 		return nil, errorx.NewNotFound("用户不存在")
 	}

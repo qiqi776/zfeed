@@ -3,6 +3,8 @@ package commentlogic
 import (
 	"context"
 	"errors"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +14,8 @@ import (
 	"gorm.io/gorm"
 
 	"zfeed/app/rpc/interaction/interaction"
+	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
+	"zfeed/app/rpc/interaction/internal/do"
 	"zfeed/app/rpc/interaction/internal/mq/event"
 	"zfeed/app/rpc/interaction/internal/repositories"
 	"zfeed/app/rpc/interaction/internal/svc"
@@ -136,6 +140,566 @@ func TestCommentIgnoresUserActionFailure(t *testing.T) {
 	}
 	if len(userActionProducer.events) != 1 {
 		t.Fatalf("user action events = %+v, want one attempted event", userActionProducer.events)
+	}
+}
+
+func TestCommentWriteErrors(t *testing.T) {
+	ctx := context.Background()
+	contentID := int64(9011)
+	contentUserID := int64(2011)
+	userID := int64(1011)
+
+	tests := []struct {
+		name string
+		repo *fakeCommentRepository
+		req  *interaction.CommentReq
+	}{
+		{
+			name: "create error",
+			repo: &fakeCommentRepository{createErr: errors.New("create comment failed")},
+			req: &interaction.CommentReq{
+				UserId:        userID,
+				ContentId:     contentID,
+				ContentUserId: contentUserID,
+				Scene:         interaction.Scene_ARTICLE,
+				Comment:       "create should fail",
+			},
+		},
+		{
+			name: "reply count error",
+			repo: &fakeCommentRepository{
+				createdID: 701,
+				incErr:    errors.New("increment reply count failed"),
+				getByID: map[int64]*do.CommentDO{
+					700: {ID: 700, ContentID: contentID, UserID: 1700, RootID: 0},
+				},
+			},
+			req: &interaction.CommentReq{
+				UserId:        userID,
+				ContentId:     contentID,
+				ContentUserId: contentUserID,
+				Scene:         interaction.Scene_ARTICLE,
+				Comment:       "reply count should fail",
+				ParentId:      700,
+				RootId:        700,
+				ReplyToUserId: 1700,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			userActionProducer := &fakeCommentUserActionProducer{}
+			logic := NewCommentLogic(ctx, &svc.ServiceContext{
+				MysqlDb:            newCommentUserActionTestDB(t),
+				UserActionProducer: userActionProducer,
+			})
+			logic.contentRepo = &fakeContentRepository{authorID: contentUserID}
+			logic.commentRepo = tt.repo
+
+			resp, err := logic.Comment(tt.req)
+			if err == nil {
+				t.Fatal("expected Comment error")
+			}
+			if resp != nil {
+				t.Fatalf("Comment response = %+v, want nil", resp)
+			}
+			if len(userActionProducer.events) != 0 {
+				t.Fatalf("user action events = %+v, want none", userActionProducer.events)
+			}
+		})
+	}
+}
+
+func TestCommentAuthorError(t *testing.T) {
+	userActionProducer := &fakeCommentUserActionProducer{}
+	logic := NewCommentLogic(context.Background(), &svc.ServiceContext{
+		MysqlDb:            newCommentUserActionTestDB(t),
+		UserActionProducer: userActionProducer,
+	})
+	logic.contentRepo = &fakeContentRepository{err: errors.New("author query failed")}
+	logic.commentRepo = &fakeCommentRepository{}
+
+	resp, err := logic.Comment(&interaction.CommentReq{
+		UserId:        1012,
+		ContentId:     9012,
+		ContentUserId: 2012,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       "author lookup should fail",
+	})
+	if err == nil {
+		t.Fatal("expected Comment error")
+	}
+	if resp != nil {
+		t.Fatalf("Comment response = %+v, want nil", resp)
+	}
+	if len(userActionProducer.events) != 0 {
+		t.Fatalf("user action events = %+v, want none", userActionProducer.events)
+	}
+}
+
+func TestCommentThreadError(t *testing.T) {
+	ctx := context.Background()
+	const (
+		contentID     int64 = 9013
+		contentUserID int64 = 2013
+		userID        int64 = 1013
+		parentID      int64 = 3013
+	)
+	repo := &fakeCommentRepository{getByID: map[int64]*do.CommentDO{}}
+	userActionProducer := &fakeCommentUserActionProducer{}
+	logic := NewCommentLogic(ctx, &svc.ServiceContext{
+		MysqlDb:            newCommentUserActionTestDB(t),
+		UserActionProducer: userActionProducer,
+	})
+	logic.contentRepo = &fakeContentRepository{authorID: contentUserID}
+	logic.commentRepo = repo
+
+	resp, err := logic.Comment(&interaction.CommentReq{
+		UserId:        userID,
+		ContentId:     contentID,
+		ContentUserId: contentUserID,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       "missing parent should fail",
+		ParentId:      parentID,
+		RootId:        parentID,
+		ReplyToUserId: 4013,
+	})
+	if err == nil {
+		t.Fatal("expected Comment error")
+	}
+	if resp != nil {
+		t.Fatalf("Comment response = %+v, want nil", resp)
+	}
+	if repo.createCalls != 0 {
+		t.Fatalf("Create calls = %d, want 0", repo.createCalls)
+	}
+	if len(userActionProducer.events) != 0 {
+		t.Fatalf("user action events = %+v, want none", userActionProducer.events)
+	}
+}
+
+func TestCommentRejects(t *testing.T) {
+	db := newCommentUserActionTestDB(t)
+	const (
+		contentID     int64 = 9301
+		contentUserID int64 = 9401
+		userID        int64 = 9501
+	)
+	seedCommentTestContent(t, db, contentID, contentUserID)
+
+	logic := NewCommentLogic(context.Background(), &svc.ServiceContext{MysqlDb: db})
+	tests := []struct {
+		name string
+		req  *interaction.CommentReq
+	}{
+		{name: "nil request"},
+		{name: "missing user", req: &interaction.CommentReq{ContentId: contentID, ContentUserId: contentUserID, Scene: interaction.Scene_ARTICLE, Comment: "ok"}},
+		{name: "missing content", req: &interaction.CommentReq{UserId: userID, ContentUserId: contentUserID, Scene: interaction.Scene_ARTICLE, Comment: "ok"}},
+		{name: "missing author", req: &interaction.CommentReq{UserId: userID, ContentId: contentID, Scene: interaction.Scene_ARTICLE, Comment: "ok"}},
+		{name: "unknown scene", req: &interaction.CommentReq{UserId: userID, ContentId: contentID, ContentUserId: contentUserID, Scene: interaction.Scene_SCENE_UNKNOWN, Comment: "ok"}},
+		{name: "blank text", req: &interaction.CommentReq{UserId: userID, ContentId: contentID, ContentUserId: contentUserID, Scene: interaction.Scene_ARTICLE, Comment: "  \t\n  "}},
+		{name: "overlong text", req: &interaction.CommentReq{UserId: userID, ContentId: contentID, ContentUserId: contentUserID, Scene: interaction.Scene_ARTICLE, Comment: strings.Repeat("x", 256)}},
+		{name: "content not found", req: &interaction.CommentReq{UserId: userID, ContentId: contentID + 1, ContentUserId: contentUserID, Scene: interaction.Scene_ARTICLE, Comment: "ok"}},
+		{name: "author mismatch", req: &interaction.CommentReq{UserId: userID, ContentId: contentID, ContentUserId: contentUserID + 1, Scene: interaction.Scene_ARTICLE, Comment: "ok"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := logic.Comment(tt.req); err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
+
+	var count int64
+	if err := db.Model(&commentTestComment{}).Count(&count).Error; err != nil {
+		t.Fatalf("count comments: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("comment count = %d, want 0", count)
+	}
+}
+
+func TestResolveThread(t *testing.T) {
+	ctx := context.Background()
+	logic := &CommentLogic{ctx: ctx}
+	const contentID int64 = 9601
+	root := &do.CommentDO{ID: 100, ContentID: contentID, UserID: 200, RootID: 0}
+	reply := &do.CommentDO{ID: 101, ContentID: contentID, UserID: 201, ParentID: 100, RootID: 100}
+
+	tests := []struct {
+		name        string
+		repo        *fakeCommentRepository
+		parentID    int64
+		rootID      int64
+		replyToID   int64
+		wantParent  int64
+		wantRoot    int64
+		wantReplyTo int64
+		wantError   bool
+	}{
+		{
+			name: "root comment",
+			repo: &fakeCommentRepository{},
+		},
+		{
+			name:      "missing parent",
+			repo:      &fakeCommentRepository{},
+			rootID:    root.ID,
+			wantError: true,
+		},
+		{
+			name:        "direct reply",
+			repo:        &fakeCommentRepository{getByID: map[int64]*do.CommentDO{root.ID: root}},
+			parentID:    root.ID,
+			wantParent:  root.ID,
+			wantRoot:    root.ID,
+			wantReplyTo: root.UserID,
+		},
+		{
+			name:        "nested reply",
+			repo:        &fakeCommentRepository{getByID: map[int64]*do.CommentDO{root.ID: root, reply.ID: reply}},
+			parentID:    reply.ID,
+			rootID:      root.ID,
+			replyToID:   reply.UserID,
+			wantParent:  reply.ID,
+			wantRoot:    root.ID,
+			wantReplyTo: reply.UserID,
+		},
+		{
+			name:      "parent not found",
+			repo:      &fakeCommentRepository{getByID: map[int64]*do.CommentDO{}},
+			parentID:  root.ID,
+			wantError: true,
+		},
+		{
+			name:      "wrong content",
+			repo:      &fakeCommentRepository{getByID: map[int64]*do.CommentDO{root.ID: {ID: root.ID, ContentID: contentID + 1, UserID: root.UserID}}},
+			parentID:  root.ID,
+			wantError: true,
+		},
+		{
+			name:      "wrong root",
+			repo:      &fakeCommentRepository{getByID: map[int64]*do.CommentDO{root.ID: root}},
+			parentID:  root.ID,
+			rootID:    root.ID + 1,
+			wantError: true,
+		},
+		{
+			name:      "wrong reply target",
+			repo:      &fakeCommentRepository{getByID: map[int64]*do.CommentDO{root.ID: root}},
+			parentID:  root.ID,
+			replyToID: root.UserID + 1,
+			wantError: true,
+		},
+		{
+			name:      "root not found",
+			repo:      &fakeCommentRepository{getByID: map[int64]*do.CommentDO{reply.ID: reply}},
+			parentID:  reply.ID,
+			rootID:    root.ID,
+			replyToID: reply.UserID,
+			wantError: true,
+		},
+		{
+			name:      "bad root",
+			repo:      &fakeCommentRepository{getByID: map[int64]*do.CommentDO{root.ID: {ID: root.ID, ContentID: contentID, UserID: root.UserID, RootID: 999}, reply.ID: reply}},
+			parentID:  reply.ID,
+			rootID:    root.ID,
+			replyToID: reply.UserID,
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parentID, rootID, replyToID, err := logic.resolveThread(tt.repo, contentID, tt.parentID, tt.rootID, tt.replyToID)
+			if tt.wantError {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolveThread returned error: %v", err)
+			}
+			if parentID != tt.wantParent || rootID != tt.wantRoot || replyToID != tt.wantReplyTo {
+				t.Fatalf("resolved = (%d,%d,%d), want (%d,%d,%d)", parentID, rootID, replyToID, tt.wantParent, tt.wantRoot, tt.wantReplyTo)
+			}
+		})
+	}
+}
+
+func TestResolveThreadRepoError(t *testing.T) {
+	ctx := context.Background()
+	logic := &CommentLogic{ctx: ctx}
+	const contentID int64 = 9602
+	root := &do.CommentDO{ID: 200, ContentID: contentID, UserID: 300, RootID: 0}
+	reply := &do.CommentDO{ID: 201, ContentID: contentID, UserID: 301, ParentID: 200, RootID: 200}
+
+	parentErr := errors.New("parent query failed")
+	rootErr := errors.New("root query failed")
+	tests := []struct {
+		name    string
+		repo    *fakeCommentRepository
+		parent  int64
+		root    int64
+		replyTo int64
+		wantErr error
+	}{
+		{
+			name:    "parent query error",
+			repo:    &fakeCommentRepository{getErrByID: map[int64]error{reply.ID: parentErr}},
+			parent:  reply.ID,
+			root:    root.ID,
+			replyTo: reply.UserID,
+			wantErr: parentErr,
+		},
+		{
+			name: "root query error",
+			repo: &fakeCommentRepository{
+				getByID: map[int64]*do.CommentDO{reply.ID: reply},
+				getErrByID: map[int64]error{
+					root.ID: rootErr,
+				},
+			},
+			parent:  reply.ID,
+			root:    root.ID,
+			replyTo: reply.UserID,
+			wantErr: rootErr,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parentID, rootID, replyToID, err := logic.resolveThread(tt.repo, contentID, tt.parent, tt.root, tt.replyTo)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("resolveThread error = %v, want %v", err, tt.wantErr)
+			}
+			if parentID != 0 || rootID != 0 || replyToID != 0 {
+				t.Fatalf("resolved = (%d,%d,%d), want zeros", parentID, rootID, replyToID)
+			}
+		})
+	}
+}
+
+func TestCommentCacheRoot(t *testing.T) {
+	ctx := context.Background()
+	db := newCommentUserActionTestDB(t)
+	store, redisClient := newCommentCacheRedis(t)
+	const (
+		userID        int64 = 9701
+		contentID     int64 = 9702
+		contentUserID int64 = 9703
+	)
+	seedCommentTestContent(t, db, contentID, contentUserID)
+
+	resp, err := NewCommentLogic(ctx, &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+		UserRpc: &fakeCommentUserService{
+			users: map[int64]*userservice.UserInfo{
+				userID: {UserId: userID, Nickname: "root-user", Avatar: "root.png"},
+			},
+		},
+	}).Comment(&interaction.CommentReq{
+		UserId:        userID,
+		ContentId:     contentID,
+		ContentUserId: contentUserID,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       " cached root ",
+	})
+	if err != nil {
+		t.Fatalf("Comment returned error: %v", err)
+	}
+
+	commentID := resp.GetCommentId()
+	listKey := rediskey.BuildCommentListKey(interaction.Scene_ARTICLE.String(), strconv.FormatInt(contentID, 10))
+	members, err := store.ZMembers(listKey)
+	if err != nil {
+		t.Fatalf("read list cache: %v", err)
+	}
+	if !reflect.DeepEqual(members, []string{strconv.FormatInt(commentID, 10)}) {
+		t.Fatalf("list members = %v, want [%d]", members, commentID)
+	}
+
+	raw, err := redisClient.GetCtx(ctx, rediskey.BuildCommentItemKey(strconv.FormatInt(commentID, 10)))
+	if err != nil {
+		t.Fatalf("read item cache: %v", err)
+	}
+	item, err := unmarshalCommentItem(raw)
+	if err != nil {
+		t.Fatalf("unmarshal item cache: %v", err)
+	}
+	if item.GetCommentId() != commentID || item.GetComment() != "cached root" || item.GetUserName() != "root-user" || item.GetUserAvatar() != "root.png" {
+		t.Fatalf("cached item = %+v", item)
+	}
+}
+
+func TestCommentCacheReply(t *testing.T) {
+	ctx := context.Background()
+	db := newCommentUserActionTestDB(t)
+	store, redisClient := newCommentCacheRedis(t)
+	const (
+		contentID     int64 = 9801
+		contentUserID int64 = 9802
+		rootUserID    int64 = 9803
+		replyUserID   int64 = 9804
+		nestedUserID  int64 = 9805
+	)
+	seedCommentTestContent(t, db, contentID, contentUserID)
+	svcCtx := &svc.ServiceContext{
+		MysqlDb: db,
+		Redis:   redisClient,
+		UserRpc: &fakeCommentUserService{},
+	}
+
+	rootRes, err := NewCommentLogic(ctx, svcCtx).Comment(&interaction.CommentReq{
+		UserId:        rootUserID,
+		ContentId:     contentID,
+		ContentUserId: contentUserID,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       "root",
+	})
+	if err != nil {
+		t.Fatalf("create root: %v", err)
+	}
+	rootID := rootRes.GetCommentId()
+
+	replyRes, err := NewCommentLogic(ctx, svcCtx).Comment(&interaction.CommentReq{
+		UserId:        replyUserID,
+		ContentId:     contentID,
+		ContentUserId: contentUserID,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       "reply",
+		ParentId:      rootID,
+		RootId:        rootID,
+		ReplyToUserId: rootUserID,
+	})
+	if err != nil {
+		t.Fatalf("create reply: %v", err)
+	}
+	replyID := replyRes.GetCommentId()
+
+	listKey := rediskey.BuildCommentListKey(interaction.Scene_ARTICLE.String(), strconv.FormatInt(contentID, 10))
+	replyKey := rediskey.BuildCommentReplyKey(strconv.FormatInt(rootID, 10))
+	rootItemKey := rediskey.BuildCommentItemKey(strconv.FormatInt(rootID, 10))
+	parentItemKey := rediskey.BuildCommentItemKey(strconv.FormatInt(replyID, 10))
+	store.ZAdd(listKey, float64(rootID), strconv.FormatInt(rootID, 10))
+	store.ZAdd(replyKey, float64(replyID), strconv.FormatInt(replyID, 10))
+	store.Set(rootItemKey, "cached-root")
+	store.Set(parentItemKey, "cached-parent")
+
+	_, err = NewCommentLogic(ctx, svcCtx).Comment(&interaction.CommentReq{
+		UserId:        nestedUserID,
+		ContentId:     contentID,
+		ContentUserId: contentUserID,
+		Scene:         interaction.Scene_ARTICLE,
+		Comment:       "nested",
+		ParentId:      replyID,
+		RootId:        rootID,
+		ReplyToUserId: replyUserID,
+	})
+	if err != nil {
+		t.Fatalf("create nested reply: %v", err)
+	}
+
+	for _, key := range []string{listKey, replyKey, rootItemKey, parentItemKey} {
+		if store.Exists(key) {
+			t.Fatalf("cache key %s still exists after reply create", key)
+		}
+	}
+
+	root := requireDeleteCommentRow(t, db, rootID)
+	if root.ReplyCount != 2 {
+		t.Fatalf("root reply_count = %d, want 2", root.ReplyCount)
+	}
+}
+
+func TestCommentCacheSkips(t *testing.T) {
+	ctx := context.Background()
+	const (
+		commentID int64 = 990101
+		contentID int64 = 990102
+		userID    int64 = 990103
+	)
+
+	NewCommentLogic(ctx, &svc.ServiceContext{}).updateCommentCacheAfterCreate(
+		commentID,
+		contentID,
+		interaction.Scene_ARTICLE,
+		0,
+		0,
+	)
+
+	_, redisClient := newCommentCacheRedis(t)
+	NewCommentLogic(ctx, &svc.ServiceContext{
+		Redis: redisClient,
+	}).updateCommentCacheAfterCreate(
+		0,
+		contentID,
+		interaction.Scene_ARTICLE,
+		0,
+		0,
+	)
+
+	tests := []struct {
+		name    string
+		repo    *fakeCommentRepository
+		userRPC *fakeCommentUserService
+	}{
+		{
+			name: "repo error",
+			repo: &fakeCommentRepository{
+				getErr: errors.New("comment lookup failed"),
+			},
+			userRPC: &fakeCommentUserService{},
+		},
+		{
+			name:    "missing comment",
+			repo:    &fakeCommentRepository{getByID: map[int64]*do.CommentDO{}},
+			userRPC: &fakeCommentUserService{},
+		},
+		{
+			name: "user error",
+			repo: &fakeCommentRepository{
+				getByID: map[int64]*do.CommentDO{
+					commentID: {
+						ID:        commentID,
+						ContentID: contentID,
+						UserID:    userID,
+						Comment:   "root",
+						Status:    repositories.CommentStatusNormal,
+					},
+				},
+			},
+			userRPC: &fakeCommentUserService{err: errors.New("user lookup failed")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store, redisClient := newCommentCacheRedis(t)
+			logic := NewCommentLogic(ctx, &svc.ServiceContext{
+				Redis:   redisClient,
+				UserRpc: tt.userRPC,
+			})
+			logic.commentRepo = tt.repo
+
+			logic.updateCommentCacheAfterCreate(
+				commentID,
+				contentID,
+				interaction.Scene_ARTICLE,
+				0,
+				0,
+			)
+
+			listKey := rediskey.BuildCommentListKey(interaction.Scene_ARTICLE.String(), strconv.FormatInt(contentID, 10))
+			itemKey := rediskey.BuildCommentItemKey(strconv.FormatInt(commentID, 10))
+			if store.Exists(listKey) || store.Exists(itemKey) {
+				t.Fatalf("unexpected cache write: list=%v item=%v", store.Exists(listKey), store.Exists(itemKey))
+			}
+		})
 	}
 }
 
@@ -708,7 +1272,11 @@ func newCommentLogicTestSvcCtx(db *gorm.DB, users map[int64]*userservice.UserInf
 }
 
 type fakeCommentUserService struct {
-	users map[int64]*userservice.UserInfo
+	users      map[int64]*userservice.UserInfo
+	extraUsers []*userservice.UserInfo
+	err        error
+	failErr    error
+	failures   int
 }
 
 func (f *fakeCommentUserService) Register(context.Context, *userservice.RegisterReq, ...grpc.CallOption) (*userservice.RegisterRes, error) {
@@ -740,11 +1308,22 @@ func (f *fakeCommentUserService) GetUserProfile(context.Context, *userservice.Ge
 }
 
 func (f *fakeCommentUserService) BatchGetUser(_ context.Context, in *userservice.BatchGetUserReq, _ ...grpc.CallOption) (*userservice.BatchGetUserRes, error) {
+	if f.failures > 0 {
+		f.failures--
+		if f.failErr != nil {
+			return nil, f.failErr
+		}
+		return nil, errors.New("transient user rpc failure")
+	}
+	if f.err != nil {
+		return nil, f.err
+	}
 	users := make([]*userservice.UserInfo, 0, len(in.GetUserIds()))
 	for _, userID := range in.GetUserIds() {
 		if user := f.users[userID]; user != nil {
 			users = append(users, user)
 		}
 	}
+	users = append(users, f.extraUsers...)
 	return &userservice.BatchGetUserRes{Users: users}, nil
 }

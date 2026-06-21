@@ -30,7 +30,11 @@ func NewCommentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *CommentLo
 }
 
 func (l *CommentLogic) Comment(req *types.CommentReq) (resp *types.CommentRes, err error) {
-	if req == nil || req.ContentId == nil || req.ContentUserId == nil || req.Scene == nil || req.Comment == nil {
+	if req == nil || req.ContentId == nil || *req.ContentId <= 0 ||
+		req.ContentUserId == nil || *req.ContentUserId <= 0 || req.Scene == nil || req.Comment == nil {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+	if negativeOptionalInt64(req.ParentId) || negativeOptionalInt64(req.RootId) || negativeOptionalInt64(req.ReplyToUserId) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -44,11 +48,16 @@ func (l *CommentLogic) Comment(req *types.CommentReq) (resp *types.CommentRes, e
 		return nil, err
 	}
 
+	comment := trimCommentInput(*req.Comment)
+	if comment == "" {
+		return nil, errorx.NewBadRequest("评论内容不能为空")
+	}
+
 	res, err := l.svcCtx.CommentRpc.Comment(l.ctx, &commentservicepb.CommentReq{
 		UserId:        userID,
 		ContentId:     *req.ContentId,
 		Scene:         scene,
-		Comment:       trimCommentInput(*req.Comment),
+		Comment:       comment,
 		ParentId:      optionalInt64Value(req.ParentId),
 		RootId:        optionalInt64Value(req.RootId),
 		ReplyToUserId: optionalInt64Value(req.ReplyToUserId),
@@ -56,6 +65,9 @@ func (l *CommentLogic) Comment(req *types.CommentReq) (resp *types.CommentRes, e
 	})
 	if err != nil {
 		return nil, err
+	}
+	if res == nil {
+		return nil, errorx.NewMsg("发表评论失败")
 	}
 
 	return &types.CommentRes{

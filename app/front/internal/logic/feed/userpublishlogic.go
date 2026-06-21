@@ -48,6 +48,9 @@ func (l *UserPublishLogic) UserPublish(req *types.UserPublishFeedReq) (resp *typ
 	if err != nil {
 		return nil, err
 	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("查询用户发布流失败")
+	}
 
 	items := make([]types.UserPublishFeedItem, 0, len(rpcResp.GetItems()))
 	for _, item := range rpcResp.GetItems() {

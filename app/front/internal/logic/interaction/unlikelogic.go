@@ -30,7 +30,7 @@ func NewUnlikeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnlikeLogi
 }
 
 func (l *UnlikeLogic) Unlike(req *types.UnlikeReq) (resp *types.UnlikeRes, err error) {
-	if req == nil || req.ContentId == nil || req.Scene == nil {
+	if req == nil || req.ContentId == nil || *req.ContentId <= 0 || req.Scene == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -44,13 +44,16 @@ func (l *UnlikeLogic) Unlike(req *types.UnlikeReq) (resp *types.UnlikeRes, err e
 		return nil, err
 	}
 
-	_, err = l.svcCtx.LikeRpc.Unlike(l.ctx, &interactionpb.UnlikeReq{
+	rpcResp, err := l.svcCtx.LikeRpc.Unlike(l.ctx, &interactionpb.UnlikeReq{
 		UserId:    userID,
 		ContentId: *req.ContentId,
 		Scene:     scene,
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("取消点赞失败")
 	}
 
 	return &types.UnlikeRes{}, nil

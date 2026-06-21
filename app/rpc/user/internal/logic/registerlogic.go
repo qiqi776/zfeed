@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"net/mail"
 	"strings"
 	"time"
 
 	"zfeed/app/rpc/user/internal/common/utils/session"
 	"zfeed/app/rpc/user/internal/do"
+	"zfeed/app/rpc/user/internal/model"
 	"zfeed/app/rpc/user/internal/repositories"
 	"zfeed/app/rpc/user/internal/svc"
 	"zfeed/app/rpc/user/user"
@@ -36,7 +38,7 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 }
 
 func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error) {
-	if in == nil || in.GetMobile() == "" || in.GetPassword() == "" {
+	if in == nil || in.GetMobile() == "" || strings.TrimSpace(in.GetPassword()) == "" {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if !mobilex.IsValid(in.GetMobile()) {
@@ -50,8 +52,29 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error
 
 	nickname := resolveRegisterNickname(mobile, in.GetNickname())
 	avatar := strings.TrimSpace(in.GetAvatar())
+	if avatar != "" && !isAcceptedProfileAsset(avatar) {
+		return nil, errorx.NewBadRequest("头像地址错误")
+	}
+	bio := strings.TrimSpace(in.GetBio())
 	email := resolveRegisterEmail(mobile, in.GetEmail())
-	birthday := resolveRegisterBirthday(in.GetBirthday())
+	if strings.TrimSpace(in.GetEmail()) != "" {
+		parsedEmail, err := mail.ParseAddress(email)
+		if err != nil || parsedEmail.Address != email {
+			return nil, errorx.NewBadRequest("邮箱格式错误")
+		}
+	}
+	birthdayInput := in.GetBirthday()
+	if birthdayInput < 0 {
+		return nil, errorx.NewBadRequest("生日参数错误")
+	}
+	if birthdayInput > 0 && time.Unix(birthdayInput, 0).After(time.Now()) {
+		return nil, errorx.NewBadRequest("生日参数错误")
+	}
+	birthday := resolveRegisterBirthday(birthdayInput)
+	gender := int32(in.GetGender())
+	if gender < 0 || gender > 2 {
+		return nil, errorx.NewBadRequest("性别参数错误")
+	}
 
 	exist, err := l.userRepo.GetByMobile(mobile)
 	if err != nil {
@@ -75,12 +98,12 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error
 		Username:     mobile,
 		Nickname:     nickname,
 		Avatar:       avatar,
-		Bio:          in.GetBio(),
+		Bio:          bio,
 		Mobile:       mobile,
 		Email:        email,
 		PasswordHash: passwordHash,
 		PasswordSalt: passwordSalt,
-		Gender:       int32(in.GetGender()),
+		Gender:       gender,
 		Birthday:     birthday,
 		Status:       int32(user.UserStatus_USER_STATUS_ACTIVE),
 	})
@@ -91,6 +114,9 @@ func (l *RegisterLogic) Register(in *user.RegisterReq) (*user.RegisterRes, error
 	sessionTTL := session.GetSessionTTL(l.svcCtx.Config)
 	token := session.NewSessionToken()
 	if err = session.SaveSession(l.ctx, l.svcCtx.Redis, userID, token, sessionTTL); err != nil {
+		if deleteErr := l.svcCtx.MysqlDb.WithContext(l.ctx).Delete(&model.ZfeedUser{}, userID).Error; deleteErr != nil {
+			logx.WithContext(l.ctx).Errorf("回滚注册用户失败: %v", deleteErr)
+		}
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("保存登录态失败"))
 	}
 

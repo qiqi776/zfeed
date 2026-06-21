@@ -30,13 +30,16 @@ func NewUnFollowUserLogic(ctx context.Context, svcCtx *svc.ServiceContext) *UnFo
 }
 
 func (l *UnFollowUserLogic) UnFollowUser(req *types.UnFollowUserReq) (resp *types.UnFollowUserRes, err error) {
-	if req == nil || req.TargetUserId == nil {
+	if req == nil || req.TargetUserId == nil || *req.TargetUserId <= 0 {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
 	userID, err := utils.GetContextUserId(l.ctx)
 	if err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewUnauthorized("用户未登录"))
+	}
+	if *req.TargetUserId == userID {
+		return nil, errorx.NewBadRequest("不能取消关注自己")
 	}
 
 	rpcResp, err := l.svcCtx.FollowRpc.UnfollowUser(l.ctx, &interaction.UnfollowUserReq{
@@ -45,6 +48,9 @@ func (l *UnFollowUserLogic) UnFollowUser(req *types.UnFollowUserReq) (resp *type
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("取消关注用户失败")
 	}
 
 	return &types.UnFollowUserRes{IsFollowed: rpcResp.GetIsFollowed()}, nil

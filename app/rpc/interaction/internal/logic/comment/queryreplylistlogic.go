@@ -101,12 +101,16 @@ func (l *QueryReplyListLogic) queryDB(in *interaction.QueryReplyListReq, pageSiz
 
 func (l *QueryReplyListLogic) queryCache(in *interaction.QueryReplyListReq, pageSize uint32) (*interaction.QueryReplyListRes, bool) {
 	key := rediskey.BuildCommentReplyKey(strconv.FormatInt(in.GetRootId(), 10))
-	ids, exists, err := readCmtCachedIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
+	ids, exists, hasInvalid, err := readCmtCachedIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
 	if err != nil {
 		l.Errorf("读取回复列表缓存失败: %v, root_id=%d", err, in.GetRootId())
 		return nil, false
 	}
 	if !exists {
+		return nil, false
+	}
+	if hasInvalid {
+		invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
 		return nil, false
 	}
 	if len(ids) == 0 {
@@ -137,6 +141,13 @@ func (l *QueryReplyListLogic) queryCache(in *interaction.QueryReplyListReq, page
 				invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
 				return nil, false
 			}
+		}
+	}
+
+	for _, item := range cachedMap {
+		if item != nil && item.GetRootId() != in.GetRootId() {
+			invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
+			return nil, false
 		}
 	}
 

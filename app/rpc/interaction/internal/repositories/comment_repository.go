@@ -297,7 +297,7 @@ func (r *commentRepositoryImpl) DecReplyCount(commentID int64) error {
 	return r.getDB().WithContext(r.ctx).
 		Table("zfeed_comment").
 		Where("id = ? AND is_deleted = 0", commentID).
-		UpdateColumn("reply_count", gorm.Expr("GREATEST(reply_count - 1, 0)")).Error
+		UpdateColumn("reply_count", gorm.Expr("CASE WHEN reply_count > 0 THEN reply_count - 1 ELSE 0 END")).Error
 }
 
 func normalizeCommentCursor(cursor int64) int64 {

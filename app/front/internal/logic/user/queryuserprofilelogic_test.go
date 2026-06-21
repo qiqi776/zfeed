@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	followservicepb "zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/user/client/userservice"
 	userpb "zfeed/app/rpc/user/user"
+	"zfeed/pkg/errorx"
 )
 
 func TestQueryUserProfileLoadsCountsFromCountRPC(t *testing.T) {
@@ -182,6 +184,22 @@ func TestQueryUserProfileFailsWhenUserRPCFails(t *testing.T) {
 
 	if _, err := logic.QueryUserProfile(&types.QueryUserProfileReq{UserId: 2004}); err == nil {
 		t.Fatal("expected user rpc failure")
+	}
+}
+
+func TestQueryUserProfileNilRPC(t *testing.T) {
+	logic := NewQueryUserProfileLogic(context.Background(), &svc.ServiceContext{
+		UserRpc:  &stubUserService{},
+		CountRpc: &stubCounterService{},
+	})
+
+	_, err := logic.QueryUserProfile(&types.QueryUserProfileReq{UserId: 2006})
+	if err == nil {
+		t.Fatal("expected nil user rpc response to be rejected")
+	}
+	var bizErr *errorx.BizError
+	if !errors.As(err, &bizErr) || bizErr.HTTPStatus() != http.StatusInternalServerError {
+		t.Fatalf("error = %v, want internal server error", err)
 	}
 }
 

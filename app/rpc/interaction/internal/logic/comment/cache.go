@@ -20,31 +20,33 @@ const (
 	retryDelay = 50 * time.Millisecond
 )
 
-func readCmtCachedIndexIDs(ctx context.Context, rds *goredis.Redis, key string, cursor int64, pageSize uint32) ([]int64, bool, error) {
+func readCmtCachedIndexIDs(ctx context.Context, rds *goredis.Redis, key string, cursor int64, pageSize uint32) ([]int64, bool, bool, error) {
 	if rds == nil || key == "" {
-		return nil, false, nil
+		return nil, false, false, nil
 	}
 
 	exists, err := rds.ExistsCtx(ctx, key)
 	if err != nil || !exists {
-		return nil, exists, err
+		return nil, exists, false, err
 	}
 
 	upper := maxScore(cursor)
 	pairs, err := rds.ZrevrangebyscoreWithScoresAndLimitCtx(ctx, key, 0, upper, 0, int(pageSize)+1)
 	if err != nil {
-		return nil, true, err
+		return nil, true, false, err
 	}
 
 	ids := make([]int64, 0, len(pairs))
+	hasInvalid := false
 	for _, pair := range pairs {
 		commentID, convErr := strconv.ParseInt(pair.Key, 10, 64)
 		if convErr != nil || commentID <= 0 {
+			hasInvalid = true
 			continue
 		}
 		ids = append(ids, commentID)
 	}
-	return ids, true, nil
+	return ids, true, hasInvalid, nil
 }
 
 func readCmtCachedItems(ctx context.Context, rds *goredis.Redis, commentIDs []int64) (map[int64]*interaction.CommentItem, []int64, error) {
@@ -253,11 +255,11 @@ func releaseCommentRebuild(ctx context.Context, logger logx.Logger, rds *goredis
 }
 
 func maxScore(cursor int64) int64 {
-	if cursor <= 0 {
-		return math.MaxInt64
-	}
 	if cursor == math.MinInt64 {
 		return 0
+	}
+	if cursor <= 0 {
+		return math.MaxInt64
 	}
 	return cursor - 1
 }

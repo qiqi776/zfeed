@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/logx"
 
@@ -29,8 +30,12 @@ func (l *LogoutLogic) Logout(in *user.LogoutReq) (*user.LogoutRes, error) {
 	if in == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
+	token := strings.TrimSpace(in.GetToken())
+	if in.GetUserId() <= 0 || token == "" {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
 
-	if err := session.RemoveSession(l.ctx, l.svcCtx.Redis, in.GetUserId(), in.GetToken()); err != nil {
+	if err := session.RemoveSession(l.ctx, l.svcCtx.Redis, in.GetUserId(), token); err != nil {
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("退出登录失败"))
 	}
 

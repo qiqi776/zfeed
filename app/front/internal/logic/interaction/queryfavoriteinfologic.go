@@ -30,7 +30,7 @@ func NewQueryFavoriteInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 }
 
 func (l *QueryFavoriteInfoLogic) QueryFavoriteInfo(req *types.QueryFavoriteInfoReq) (resp *types.QueryFavoriteInfoRes, err error) {
-	if req == nil || req.ContentId == nil || req.Scene == nil {
+	if req == nil || req.ContentId == nil || *req.ContentId <= 0 || req.Scene == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -47,6 +47,9 @@ func (l *QueryFavoriteInfoLogic) QueryFavoriteInfo(req *types.QueryFavoriteInfoR
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("查询收藏信息失败")
 	}
 
 	return &types.QueryFavoriteInfoRes{

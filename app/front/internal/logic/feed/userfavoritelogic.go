@@ -48,6 +48,9 @@ func (l *UserFavoriteLogic) UserFavorite(req *types.UserFavoriteFeedReq) (resp *
 	if err != nil {
 		return nil, err
 	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("查询用户收藏流失败")
+	}
 
 	items := make([]types.UserFavoriteFeedItem, 0, len(rpcResp.GetItems()))
 	for _, item := range rpcResp.GetItems() {

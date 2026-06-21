@@ -73,6 +73,9 @@ func (l *QueryUserProfileLogic) QueryUserProfile(req *types.QueryUserProfileReq)
 	if userErr != nil {
 		return nil, userErr
 	}
+	if userResp == nil {
+		return nil, errorx.NewMsg("查询用户资料失败")
+	}
 	if userResp.GetUserProfile() == nil {
 		return nil, errorx.NewNotFound("用户不存在")
 	}

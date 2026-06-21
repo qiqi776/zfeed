@@ -36,7 +36,7 @@ func (l *BatchQueryLikeInfoLogic) BatchQueryLikeInfo(req *types.BatchQueryLikeIn
 
 	likeInfos := make([]*interactionpb.LikeInfo, 0, len(req.LikeInfos))
 	for _, item := range req.LikeInfos {
-		if item.ContentId == nil || item.Scene == nil {
+		if item.ContentId == nil || *item.ContentId <= 0 || item.Scene == nil {
 			return nil, errorx.NewBadRequest("参数错误")
 		}
 
@@ -58,6 +58,9 @@ func (l *BatchQueryLikeInfoLogic) BatchQueryLikeInfo(req *types.BatchQueryLikeIn
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("批量查询点赞信息失败")
 	}
 
 	items := make([]types.QueryLikeInfoRes, 0, len(rpcResp.GetLikeInfos()))

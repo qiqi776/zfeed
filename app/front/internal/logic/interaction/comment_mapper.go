@@ -14,6 +14,14 @@ func optionalInt64Value(v *int64) int64 {
 	return *v
 }
 
+func negativeOptionalInt64(v *int64) bool {
+	return v != nil && *v < 0
+}
+
+func validCommentPageSize(pageSize uint32) bool {
+	return pageSize > 0 && pageSize <= maxCommentPageSize
+}
+
 func commentItemsFromRPC(items []*commentservicepb.CommentItem) []*types.CommentItem {
 	result := make([]*types.CommentItem, 0, len(items))
 	for _, item := range items {

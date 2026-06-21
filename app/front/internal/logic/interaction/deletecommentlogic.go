@@ -30,7 +30,10 @@ func NewDeleteCommentLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Del
 }
 
 func (l *DeleteCommentLogic) DeleteComment(req *types.DeleteCommentReq) (resp *types.DeleteCommentRes, err error) {
-	if req == nil || req.CommentId == nil || req.ContentId == nil || req.Scene == nil {
+	if req == nil || req.CommentId == nil || *req.CommentId <= 0 || req.ContentId == nil || *req.ContentId <= 0 || req.Scene == nil {
+		return nil, errorx.NewBadRequest("参数错误")
+	}
+	if negativeOptionalInt64(req.RootId) || negativeOptionalInt64(req.ParentId) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -44,7 +47,7 @@ func (l *DeleteCommentLogic) DeleteComment(req *types.DeleteCommentReq) (resp *t
 		return nil, err
 	}
 
-	_, err = l.svcCtx.CommentRpc.DeleteComment(l.ctx, &commentservicepb.DeleteCommentReq{
+	rpcResp, err := l.svcCtx.CommentRpc.DeleteComment(l.ctx, &commentservicepb.DeleteCommentReq{
 		UserId:    userID,
 		CommentId: *req.CommentId,
 		ContentId: *req.ContentId,
@@ -54,6 +57,9 @@ func (l *DeleteCommentLogic) DeleteComment(req *types.DeleteCommentReq) (resp *t
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("删除评论失败")
 	}
 
 	return &types.DeleteCommentRes{}, nil

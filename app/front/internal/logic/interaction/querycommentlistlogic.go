@@ -14,6 +14,8 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+const maxCommentPageSize uint32 = 50
+
 type QueryCommentListLogic struct {
 	logx.Logger
 	ctx    context.Context
@@ -29,7 +31,7 @@ func NewQueryCommentListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *
 }
 
 func (l *QueryCommentListLogic) QueryCommentList(req *types.QueryCommentListReq) (resp *types.QueryCommentListRes, err error) {
-	if req == nil || req.ContentId == nil || req.Scene == nil || req.Cursor == nil || req.PageSize == nil {
+	if req == nil || req.ContentId == nil || *req.ContentId <= 0 || req.Scene == nil || req.Cursor == nil || req.PageSize == nil || !validCommentPageSize(*req.PageSize) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -46,6 +48,9 @@ func (l *QueryCommentListLogic) QueryCommentList(req *types.QueryCommentListReq)
 	})
 	if err != nil {
 		return nil, err
+	}
+	if res == nil {
+		return nil, errorx.NewMsg("查询评论列表失败")
 	}
 
 	return &types.QueryCommentListRes{

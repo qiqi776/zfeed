@@ -66,15 +66,17 @@ func (l *BatchGetUserLogic) BatchGetUser(in *user.BatchGetUserReq) (*user.BatchG
 		if userDO == nil {
 			continue
 		}
+		if userDO.Status != int32(user.UserStatus_USER_STATUS_ACTIVE) {
+			continue
+		}
 
 		users = append(users, &user.UserInfo{
 			UserId:   userDO.ID,
 			Username: userDO.Username,
-			Mobile:   userDO.Mobile,
 			Nickname: userDO.Nickname,
-			Avatar:   userDO.Avatar,
+			Avatar:   normalizeProfileAsset(userDO.Avatar),
 			Bio:      userDO.Bio,
-			Gender:   user.Gender(userDO.Gender),
+			Gender:   normalizeGender(userDO.Gender),
 			Status:   user.UserStatus(userDO.Status),
 		})
 	}

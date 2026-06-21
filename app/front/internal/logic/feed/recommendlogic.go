@@ -49,6 +49,9 @@ func (l *RecommendLogic) Recommend(req *types.RecommendFeedReq) (resp *types.Rec
 	if err != nil {
 		return nil, err
 	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("查询推荐流失败")
+	}
 
 	items := make([]types.RecommendFeedItem, 0, len(rpcResp.GetItems()))
 	for _, item := range rpcResp.GetItems() {

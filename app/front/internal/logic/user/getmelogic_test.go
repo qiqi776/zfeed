@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	followservicepb "zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/app/rpc/user/client/userservice"
 	userpb "zfeed/app/rpc/user/user"
+	"zfeed/pkg/errorx"
 )
 
 func TestGetMeLoadsCountsFromCountRPC(t *testing.T) {
@@ -213,6 +215,23 @@ func TestGetMeFailsWhenUserRPCFails(t *testing.T) {
 
 	if _, err := logic.GetMe(); err == nil {
 		t.Fatal("expected user rpc failure")
+	}
+}
+
+func TestGetMeNilRPC(t *testing.T) {
+	ctx := context.WithValue(context.Background(), "user_id", int64(3006))
+	logic := NewGetMeLogic(ctx, &svc.ServiceContext{
+		UserRpc:  &stubUserService{},
+		CountRpc: &stubCounterService{},
+	})
+
+	_, err := logic.GetMe()
+	if err == nil {
+		t.Fatal("expected nil user rpc response to be rejected")
+	}
+	var bizErr *errorx.BizError
+	if !errors.As(err, &bizErr) || bizErr.HTTPStatus() != http.StatusInternalServerError {
+		t.Fatalf("error = %v, want internal server error", err)
 	}
 }
 

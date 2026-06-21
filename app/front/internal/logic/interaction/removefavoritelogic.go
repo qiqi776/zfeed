@@ -30,7 +30,7 @@ func NewRemoveFavoriteLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Re
 }
 
 func (l *RemoveFavoriteLogic) RemoveFavorite(req *types.RemoveFavoriteReq) (resp *types.RemoveFavoriteRes, err error) {
-	if req == nil || req.ContentId == nil || req.Scene == nil {
+	if req == nil || req.ContentId == nil || *req.ContentId <= 0 || req.Scene == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -44,13 +44,16 @@ func (l *RemoveFavoriteLogic) RemoveFavorite(req *types.RemoveFavoriteReq) (resp
 		return nil, err
 	}
 
-	_, err = l.svcCtx.FavoriteRpc.RemoveFavorite(l.ctx, &interaction.RemoveFavoriteReq{
+	rpcResp, err := l.svcCtx.FavoriteRpc.RemoveFavorite(l.ctx, &interaction.RemoveFavoriteReq{
 		UserId:    userID,
 		ContentId: *req.ContentId,
 		Scene:     scene,
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("取消收藏失败")
 	}
 
 	return &types.RemoveFavoriteRes{}, nil

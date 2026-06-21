@@ -1,6 +1,8 @@
 package logic
 
 import (
+	"strings"
+
 	"zfeed/app/rpc/user/internal/do"
 	"zfeed/app/rpc/user/user"
 )
@@ -15,9 +17,9 @@ func buildPrivateUserInfo(userDO *do.UserDO) *user.UserInfo {
 		Username: userDO.Username,
 		Mobile:   userDO.Mobile,
 		Nickname: userDO.Nickname,
-		Avatar:   userDO.Avatar,
+		Avatar:   normalizeProfileAsset(userDO.Avatar),
 		Bio:      userDO.Bio,
-		Gender:   user.Gender(userDO.Gender),
+		Gender:   normalizeGender(userDO.Gender),
 		Status:   user.UserStatus(userDO.Status),
 		Email:    userDO.Email,
 	}
@@ -26,4 +28,21 @@ func buildPrivateUserInfo(userDO *do.UserDO) *user.UserInfo {
 	}
 
 	return info
+}
+
+func normalizeGender(value int32) user.Gender {
+	switch user.Gender(value) {
+	case user.Gender_GENDER_UNKNOWN, user.Gender_GENDER_MALE, user.Gender_GENDER_FEMALE:
+		return user.Gender(value)
+	default:
+		return user.Gender_GENDER_UNKNOWN
+	}
+}
+
+func normalizeProfileAsset(raw string) string {
+	asset := strings.TrimSpace(raw)
+	if asset == "" || !isAcceptedProfileAsset(asset) {
+		return ""
+	}
+	return asset
 }

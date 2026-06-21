@@ -2,6 +2,7 @@ package feed
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -13,6 +14,7 @@ import (
 
 type fakeFeedRPC struct {
 	trackReq *contentpb.EmitRecommendTrackReq
+	trackErr error
 }
 
 func (f *fakeFeedRPC) RecommendFeed(
@@ -29,7 +31,7 @@ func (f *fakeFeedRPC) EmitRecommendTrack(
 	_ ...grpc.CallOption,
 ) (*contentpb.EmitRecommendTrackRes, error) {
 	f.trackReq = in
-	return &contentpb.EmitRecommendTrackRes{}, nil
+	return &contentpb.EmitRecommendTrackRes{}, f.trackErr
 }
 
 func (f *fakeFeedRPC) FollowFeed(
@@ -56,7 +58,7 @@ func (f *fakeFeedRPC) UserFavoriteFeed(
 	return &contentpb.UserFavoriteFeedRes{}, nil
 }
 
-func TestEmitRecommendTrackForwardsOptionalUserAndFields(t *testing.T) {
+func TestEmitRecommendTrackMaps(t *testing.T) {
 	eventType := "click"
 	contentID := int64(2001)
 	requestID := "req-001"
@@ -109,4 +111,127 @@ func TestEmitRecommendTrackForwardsOptionalUserAndFields(t *testing.T) {
 		got.GetOccurredAt() != occurredAt {
 		t.Fatalf("forwarded request = %+v", got)
 	}
+}
+
+func TestEmitRecommendTrackRejectsBlankEvent(t *testing.T) {
+	contentID := int64(2001)
+	tests := []struct {
+		name      string
+		eventType *string
+	}{
+		{
+			name:      "empty",
+			eventType: ptrString(""),
+		},
+		{
+			name:      "spaces",
+			eventType: ptrString("   "),
+		},
+		{
+			name:      "nil",
+			eventType: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			feedRPC := &fakeFeedRPC{}
+			logic := NewEmitRecommendTrackLogic(
+				context.WithValue(context.Background(), "user_id", int64(1001)),
+				&svc.ServiceContext{FeedRpc: feedRPC},
+			)
+
+			resp, err := logic.EmitRecommendTrack(&types.RecommendTrackReq{
+				EventType: tt.eventType,
+				ContentId: &contentID,
+			})
+			if err == nil {
+				t.Fatal("EmitRecommendTrack returned nil error")
+			}
+			if resp != nil {
+				t.Fatalf("EmitRecommendTrack response = %+v, want nil", resp)
+			}
+			if feedRPC.trackReq != nil {
+				t.Fatalf("FeedRpc.EmitRecommendTrack was called with %+v", feedRPC.trackReq)
+			}
+		})
+	}
+}
+
+func TestEmitRecommendTrackRejectsInvalidContent(t *testing.T) {
+	eventType := "click"
+	tests := []struct {
+		name      string
+		contentID *int64
+	}{
+		{
+			name:      "nil",
+			contentID: nil,
+		},
+		{
+			name:      "zero",
+			contentID: ptrInt64(0),
+		},
+		{
+			name:      "negative",
+			contentID: ptrInt64(-1),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			feedRPC := &fakeFeedRPC{}
+			logic := NewEmitRecommendTrackLogic(
+				context.WithValue(context.Background(), "user_id", int64(1001)),
+				&svc.ServiceContext{FeedRpc: feedRPC},
+			)
+
+			resp, err := logic.EmitRecommendTrack(&types.RecommendTrackReq{
+				EventType: &eventType,
+				ContentId: tt.contentID,
+			})
+			if err == nil {
+				t.Fatal("EmitRecommendTrack returned nil error")
+			}
+			if resp != nil {
+				t.Fatalf("EmitRecommendTrack response = %+v, want nil", resp)
+			}
+			if feedRPC.trackReq != nil {
+				t.Fatalf("FeedRpc.EmitRecommendTrack was called with %+v", feedRPC.trackReq)
+			}
+		})
+	}
+}
+
+func TestEmitRecommendTrackRPCError(t *testing.T) {
+	eventType := "click"
+	contentID := int64(2001)
+	rpcErr := errors.New("track rpc down")
+	feedRPC := &fakeFeedRPC{trackErr: rpcErr}
+	logic := NewEmitRecommendTrackLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{FeedRpc: feedRPC},
+	)
+
+	resp, err := logic.EmitRecommendTrack(&types.RecommendTrackReq{
+		EventType: &eventType,
+		ContentId: &contentID,
+	})
+	if !errors.Is(err, rpcErr) {
+		t.Fatalf("EmitRecommendTrack error = %v, want %v", err, rpcErr)
+	}
+	if resp != nil {
+		t.Fatalf("EmitRecommendTrack response = %+v, want nil", resp)
+	}
+	if feedRPC.trackReq == nil {
+		t.Fatal("FeedRpc.EmitRecommendTrack was not called")
+	}
+}
+
+func ptrString(value string) *string {
+	return &value
+}
+
+func ptrInt64(value int64) *int64 {
+	return &value
 }

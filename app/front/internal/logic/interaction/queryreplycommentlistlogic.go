@@ -29,7 +29,7 @@ func NewQueryReplyCommentListLogic(ctx context.Context, svcCtx *svc.ServiceConte
 }
 
 func (l *QueryReplyCommentListLogic) QueryReplyCommentList(req *types.QueryReplyCommentListReq) (resp *types.QueryReplyCommentListRes, err error) {
-	if req == nil || req.CommentId == nil || req.Cursor == nil || req.PageSize == nil {
+	if req == nil || req.CommentId == nil || *req.CommentId <= 0 || req.Cursor == nil || req.PageSize == nil || !validCommentPageSize(*req.PageSize) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -40,6 +40,9 @@ func (l *QueryReplyCommentListLogic) QueryReplyCommentList(req *types.QueryReply
 	})
 	if err != nil {
 		return nil, err
+	}
+	if res == nil {
+		return nil, errorx.NewMsg("查询回复列表失败")
 	}
 
 	return &types.QueryReplyCommentListRes{

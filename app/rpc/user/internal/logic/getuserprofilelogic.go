@@ -39,14 +39,17 @@ func (l *GetUserProfileLogic) GetUserProfile(in *user.GetUserProfileReq) (*user.
 	if userDO == nil {
 		return nil, errorx.NewNotFound("用户不存在")
 	}
+	if userDO.Status != int32(user.UserStatus_USER_STATUS_ACTIVE) {
+		return nil, errorx.NewNotFound("用户不存在")
+	}
 
 	return &user.GetUserProfileRes{
 		UserProfile: &user.UserProfile{
 			UserId:   userDO.ID,
 			Nickname: userDO.Nickname,
-			Avatar:   userDO.Avatar,
+			Avatar:   normalizeProfileAsset(userDO.Avatar),
 			Bio:      userDO.Bio,
-			Gender:   user.Gender(userDO.Gender),
+			Gender:   normalizeGender(userDO.Gender),
 			Status:   user.UserStatus(userDO.Status),
 		},
 	}, nil

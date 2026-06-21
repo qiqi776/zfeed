@@ -63,6 +63,55 @@ func TestGetMeReturnsPrivateProfileFields(t *testing.T) {
 	}
 }
 
+func TestGetMeRejectsNonActive(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int32
+	}{
+		{
+			name:   "disabled",
+			status: int32(user.UserStatus_USER_STATUS_DISABLED),
+		},
+		{
+			name:   "unknown",
+			status: int32(user.UserStatus_USER_STATUS_UNKNOWN),
+		},
+		{
+			name:   "unexpected",
+			status: 99,
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newUserLogicTestDB(t)
+			userID := int64(1101 + i)
+			if err := db.Create(&model.ZfeedUser{
+				ID:        userID,
+				Username:  tt.name + "-user",
+				Mobile:    "13800001101",
+				Email:     tt.name + "@example.com",
+				Nickname:  tt.name,
+				Status:    tt.status,
+				IsDeleted: 0,
+			}).Error; err != nil {
+				t.Fatalf("seed user: %v", err)
+			}
+
+			logic := NewGetMeLogic(context.Background(), &svc.ServiceContext{
+				MysqlDb: db,
+			})
+			resp, err := logic.GetMe(&user.GetMeReq{UserId: userID})
+			if err == nil {
+				t.Fatalf("GetMe returned nil error and response %+v, want non-ACTIVE rejection", resp)
+			}
+			if resp != nil && resp.GetUserInfo() != nil {
+				t.Fatalf("user info = %+v, want nil for non-ACTIVE user", resp.GetUserInfo())
+			}
+		})
+	}
+}
+
 func TestUpdateProfilePersistsUserFields(t *testing.T) {
 	db := newUserLogicTestDB(t)
 	oldBirthday := time.Date(1999, 1, 2, 0, 0, 0, 0, time.UTC)

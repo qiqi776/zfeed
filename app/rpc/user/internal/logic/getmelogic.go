@@ -39,6 +39,9 @@ func (l *GetMeLogic) GetMe(in *user.GetMeReq) (*user.GetMeRes, error) {
 	if userDO == nil {
 		return nil, errorx.NewNotFound("用户不存在")
 	}
+	if userDO.Status != int32(user.UserStatus_USER_STATUS_ACTIVE) {
+		return nil, errorx.NewForbidden("账号状态异常")
+	}
 
 	// Count fields stay at zero until follow/count services are wired in.
 	return &user.GetMeRes{

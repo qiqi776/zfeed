@@ -2,6 +2,7 @@ package logic
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -32,7 +33,7 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 }
 
 func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginRes, error) {
-	if in == nil || in.GetPassword() == "" || in.GetMobile() == "" {
+	if in == nil || strings.TrimSpace(in.GetPassword()) == "" || in.GetMobile() == "" {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if !mobilex.IsValid(in.GetMobile()) {
@@ -55,6 +56,9 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginRes, error) {
 	if !utils.CheckPassword(u.PasswordHash, in.GetPassword()+u.PasswordSalt) {
 		return nil, errorx.NewUnauthorized("密码错误")
 	}
+	if u.Status != int32(user.UserStatus_USER_STATUS_ACTIVE) {
+		return nil, errorx.NewForbidden("用户已禁用")
+	}
 
 	sessionTTL := session.GetSessionTTL(l.svcCtx.Config)
 	token := session.NewSessionToken()
@@ -67,6 +71,6 @@ func (l *LoginLogic) Login(in *user.LoginReq) (*user.LoginRes, error) {
 		Token:     token,
 		ExpiredAt: time.Now().Add(sessionTTL).Unix(),
 		Nickname:  u.Nickname,
-		Avatar:    u.Avatar,
+		Avatar:    normalizeProfileAsset(u.Avatar),
 	}, nil
 }

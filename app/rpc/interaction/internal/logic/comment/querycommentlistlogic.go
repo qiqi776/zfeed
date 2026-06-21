@@ -103,12 +103,16 @@ func (l *QueryCommentListLogic) queryDB(in *interaction.QueryCommentListReq, pag
 
 func (l *QueryCommentListLogic) queryCache(in *interaction.QueryCommentListReq, pageSize uint32) (*interaction.QueryCommentListRes, bool) {
 	key := rediskey.BuildCommentListKey(in.GetScene().String(), strconv.FormatInt(in.GetContentId(), 10))
-	ids, exists, err := readCmtCachedIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
+	ids, exists, hasInvalid, err := readCmtCachedIndexIDs(l.ctx, l.svcCtx.Redis, key, in.GetCursor(), pageSize)
 	if err != nil {
 		l.Errorf("读取评论列表缓存失败: %v, content_id=%d", err, in.GetContentId())
 		return nil, false
 	}
 	if !exists {
+		return nil, false
+	}
+	if hasInvalid {
+		invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
 		return nil, false
 	}
 	if len(ids) == 0 {
@@ -138,6 +142,13 @@ func (l *QueryCommentListLogic) queryCache(in *interaction.QueryCommentListReq, 
 				invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
 				return nil, false
 			}
+		}
+	}
+
+	for _, item := range cachedMap {
+		if item != nil && item.GetContentId() != in.GetContentId() {
+			invalidateCmtCacheKey(l.ctx, l.Logger, l.svcCtx.Redis, key)
+			return nil, false
 		}
 	}
 

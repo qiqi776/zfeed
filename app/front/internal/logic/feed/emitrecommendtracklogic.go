@@ -5,6 +5,7 @@ package feed
 
 import (
 	"context"
+	"strings"
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
@@ -30,7 +31,8 @@ func NewEmitRecommendTrackLogic(ctx context.Context, svcCtx *svc.ServiceContext)
 }
 
 func (l *EmitRecommendTrackLogic) EmitRecommendTrack(req *types.RecommendTrackReq) (resp *types.RecommendTrackRes, err error) {
-	if req == nil || req.EventType == nil || req.ContentId == nil || *req.ContentId <= 0 {
+	if req == nil || req.EventType == nil || strings.TrimSpace(*req.EventType) == "" ||
+		req.ContentId == nil || *req.ContentId <= 0 {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 

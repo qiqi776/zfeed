@@ -14,8 +14,10 @@ import (
 )
 
 type fakeLikeService struct {
-	likeReq   *interactionpb.LikeReq
-	unlikeReq *interactionpb.UnlikeReq
+	likeReq      *interactionpb.LikeReq
+	unlikeReq    *interactionpb.UnlikeReq
+	queryLikeReq *interactionpb.QueryLikeInfoReq
+	batchLikeReq *interactionpb.BatchLikeInfoReq
 }
 
 func (f *fakeLikeService) Like(
@@ -37,18 +39,20 @@ func (f *fakeLikeService) Unlike(
 }
 
 func (f *fakeLikeService) QueryLikeInfo(
-	context.Context,
-	*interactionpb.QueryLikeInfoReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.QueryLikeInfoReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.QueryLikeInfoRes, error) {
-	return &interactionpb.QueryLikeInfoRes{}, nil
+	f.queryLikeReq = in
+	return &interactionpb.QueryLikeInfoRes{Scene: in.GetScene(), ContentId: in.GetContentId()}, nil
 }
 
 func (f *fakeLikeService) BatchLikeInfo(
-	context.Context,
-	*interactionpb.BatchLikeInfoReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.BatchLikeInfoReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.BatchLikeInfoRes, error) {
+	f.batchLikeReq = in
 	return &interactionpb.BatchLikeInfoRes{}, nil
 }
 
@@ -60,9 +64,25 @@ func (f *fakeLikeService) BatchIsLiked(
 	return &interactionpb.BatchIsLikedRes{}, nil
 }
 
+type likeActionService struct {
+	fakeLikeService
+	res *interactionpb.LikeRes
+	err error
+}
+
+func (f *likeActionService) Like(
+	_ context.Context,
+	in *interactionpb.LikeReq,
+	_ ...grpc.CallOption,
+) (*interactionpb.LikeRes, error) {
+	f.likeReq = in
+	return f.res, f.err
+}
+
 type fakeFavoriteService struct {
 	favoriteReq       *interactionpb.FavoriteReq
 	removeFavoriteReq *interactionpb.RemoveFavoriteReq
+	queryFavoriteReq  *interactionpb.QueryFavoriteInfoReq
 }
 
 func (f *fakeFavoriteService) Favorite(
@@ -84,11 +104,12 @@ func (f *fakeFavoriteService) RemoveFavorite(
 }
 
 func (f *fakeFavoriteService) QueryFavoriteInfo(
-	context.Context,
-	*interactionpb.QueryFavoriteInfoReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.QueryFavoriteInfoReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.QueryFavoriteInfoRes, error) {
-	return &interactionpb.QueryFavoriteInfoRes{}, nil
+	f.queryFavoriteReq = in
+	return &interactionpb.QueryFavoriteInfoRes{Scene: in.GetScene(), ContentId: in.GetContentId()}, nil
 }
 
 func (f *fakeFavoriteService) QueryFavoriteList(
@@ -100,7 +121,10 @@ func (f *fakeFavoriteService) QueryFavoriteList(
 }
 
 type fakeCommentService struct {
-	commentReq *interactionpb.CommentReq
+	commentReq       *interactionpb.CommentReq
+	deleteCommentReq *interactionpb.DeleteCommentReq
+	queryCommentReq  *interactionpb.QueryCommentListReq
+	queryReplyReq    *interactionpb.QueryReplyListReq
 }
 
 func (f *fakeCommentService) Comment(
@@ -113,26 +137,29 @@ func (f *fakeCommentService) Comment(
 }
 
 func (f *fakeCommentService) DeleteComment(
-	context.Context,
-	*interactionpb.DeleteCommentReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.DeleteCommentReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.DeleteCommentRes, error) {
+	f.deleteCommentReq = in
 	return &interactionpb.DeleteCommentRes{}, nil
 }
 
 func (f *fakeCommentService) QueryCommentList(
-	context.Context,
-	*interactionpb.QueryCommentListReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.QueryCommentListReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.QueryCommentListRes, error) {
+	f.queryCommentReq = in
 	return &interactionpb.QueryCommentListRes{}, nil
 }
 
 func (f *fakeCommentService) QueryReplyList(
-	context.Context,
-	*interactionpb.QueryReplyListReq,
-	...grpc.CallOption,
+	_ context.Context,
+	in *interactionpb.QueryReplyListReq,
+	_ ...grpc.CallOption,
 ) (*interactionpb.QueryReplyListRes, error) {
+	f.queryReplyReq = in
 	return &interactionpb.QueryReplyListRes{}, nil
 }
 
@@ -263,6 +290,112 @@ func TestLikeDoesNotDependOnRecommendTrack(t *testing.T) {
 	}
 }
 
+func TestLikeRejectsInvalidContent(t *testing.T) {
+	scene := "ARTICLE"
+	tests := []struct {
+		name      string
+		contentID int64
+	}{
+		{name: "zero", contentID: 0},
+		{name: "negative", contentID: -7},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			likeRPC := &fakeLikeService{}
+			logic := NewLikeLogic(
+				context.WithValue(context.Background(), "user_id", int64(1001)),
+				&svc.ServiceContext{LikeRpc: likeRPC},
+			)
+
+			resp, err := logic.Like(&types.LikeReq{
+				ContentId: &tt.contentID,
+				Scene:     &scene,
+			})
+			if err == nil {
+				t.Fatal("Like returned nil error")
+			}
+			if resp != nil {
+				t.Fatalf("Like response = %+v, want nil", resp)
+			}
+			if likeRPC.likeReq != nil {
+				t.Fatalf("LikeRpc.Like was called with %+v", likeRPC.likeReq)
+			}
+		})
+	}
+}
+
+func TestLikeMaps(t *testing.T) {
+	contentID := int64(2001)
+	scene := "ARTICLE"
+	likeRPC := &fakeLikeService{}
+	logic := NewLikeLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{LikeRpc: likeRPC},
+	)
+
+	resp, err := logic.Like(&types.LikeReq{
+		ContentId: &contentID,
+		Scene:     &scene,
+	})
+	if err != nil {
+		t.Fatalf("Like returned error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("Like returned nil response")
+	}
+	if likeRPC.likeReq == nil {
+		t.Fatal("LikeRpc.Like was not called")
+	}
+	if likeRPC.likeReq.GetUserId() != 1001 || likeRPC.likeReq.GetContentId() != contentID ||
+		likeRPC.likeReq.GetScene() != interactionpb.Scene_ARTICLE {
+		t.Fatalf("rpc request = %+v", likeRPC.likeReq)
+	}
+}
+
+func TestLikeRPCError(t *testing.T) {
+	contentID := int64(2001)
+	scene := "ARTICLE"
+	rpcErr := errors.New("like rpc down")
+	likeRPC := &likeActionService{err: rpcErr}
+	logic := NewLikeLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{LikeRpc: likeRPC},
+	)
+
+	resp, err := logic.Like(&types.LikeReq{
+		ContentId: &contentID,
+		Scene:     &scene,
+	})
+	if !errors.Is(err, rpcErr) {
+		t.Fatalf("Like error = %v, want %v", err, rpcErr)
+	}
+	if resp != nil {
+		t.Fatalf("Like response = %+v, want nil", resp)
+	}
+}
+
+func TestLikeNilRPC(t *testing.T) {
+	contentID := int64(2001)
+	scene := "ARTICLE"
+	likeRPC := &likeActionService{}
+	logic := NewLikeLogic(
+		context.WithValue(context.Background(), "user_id", int64(1001)),
+		&svc.ServiceContext{LikeRpc: likeRPC},
+	)
+
+	resp, err := logic.Like(&types.LikeReq{
+		ContentId: &contentID,
+		Scene:     &scene,
+	})
+	if err == nil {
+		t.Fatal("Like returned nil error")
+	}
+	if resp != nil {
+		t.Fatalf("Like response = %+v, want nil", resp)
+	}
+}
+
 func TestUnlikeDoesNotEmitRecommendTrackAfterSuccess(t *testing.T) {
 	contentID := int64(2001)
 	scene := "ARTICLE"
@@ -322,6 +455,41 @@ func TestFavoriteDoesNotEmitRecommendTrackAfterSuccess(t *testing.T) {
 	}
 	if feedRPC.trackReq != nil {
 		t.Fatalf("FeedRpc.EmitRecommendTrack was called: %+v", feedRPC.trackReq)
+	}
+}
+
+func TestFavoriteRejectsInvalidContent(t *testing.T) {
+	scene := "ARTICLE"
+	tests := []struct {
+		name      string
+		contentID int64
+	}{
+		{name: "zero", contentID: 0},
+		{name: "negative", contentID: -7},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			favoriteRPC := &fakeFavoriteService{}
+			logic := NewFavoriteLogic(
+				context.WithValue(context.Background(), "user_id", int64(1001)),
+				&svc.ServiceContext{FavoriteRpc: favoriteRPC},
+			)
+
+			resp, err := logic.Favorite(&types.FavoriteReq{
+				ContentId: &tt.contentID,
+				Scene:     &scene,
+			})
+			if err == nil {
+				t.Fatal("Favorite returned nil error")
+			}
+			if resp != nil {
+				t.Fatalf("Favorite response = %+v, want nil", resp)
+			}
+			if favoriteRPC.favoriteReq != nil {
+				t.Fatalf("FavoriteRpc.Favorite was called with %+v", favoriteRPC.favoriteReq)
+			}
+		})
 	}
 }
 

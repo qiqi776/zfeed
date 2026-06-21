@@ -46,6 +46,9 @@ func (l *FollowLogic) Follow(req *types.FollowFeedReq) (resp *types.FollowFeedRe
 	if err != nil {
 		return nil, err
 	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("查询关注流失败")
+	}
 
 	items := make([]types.FollowFeedItem, 0, len(rpcResp.GetItems()))
 	for _, item := range rpcResp.GetItems() {

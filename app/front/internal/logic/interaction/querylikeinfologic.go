@@ -30,7 +30,7 @@ func NewQueryLikeInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Que
 }
 
 func (l *QueryLikeInfoLogic) QueryLikeInfo(req *types.QueryLikeInfoReq) (resp *types.QueryLikeInfoRes, err error) {
-	if req == nil || req.ContentId == nil || req.Scene == nil {
+	if req == nil || req.ContentId == nil || *req.ContentId <= 0 || req.Scene == nil {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -47,6 +47,9 @@ func (l *QueryLikeInfoLogic) QueryLikeInfo(req *types.QueryLikeInfoReq) (resp *t
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("查询点赞信息失败")
 	}
 
 	return &types.QueryLikeInfoRes{
