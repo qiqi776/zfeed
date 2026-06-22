@@ -27,6 +27,8 @@ fct_expected_port_rows() {
 nginx 网关|${GATEWAY_HOST_PORT}|80|默认 HTTP 压测入口
 front-api|${FRONT_API_PORT}|5000|HTTP 直连入口
 front-api Prometheus|${PROM_PORT}|9290|API 指标
+admin-api|${ADMIN_API_PORT}|5001|后台管理 HTTP 入口
+admin-api Prometheus|${ADMIN_PROM_PORT}|9291|后台管理指标
 content-rpc|5001|5001|内容服务 gRPC
 content-rpc Prometheus|${CONTENT_PROM_PORT}|9291|内容服务指标
 content-rpc XXL 执行器|${XXL_JOB_EXECUTOR_PORT}|${XXL_EXECUTOR_PORT}|XXL-JOB 回调执行器
@@ -157,9 +159,10 @@ readonly ENABLE_LOG_PIPELINE_VALUE="${ENABLE_LOG_PIPELINE:-0}"
 readonly ENABLE_TRACE_PIPELINE_VALUE="${ENABLE_TRACE_PIPELINE:-0}"
 readonly ENABLE_GRAFANA_VALUE="${ENABLE_GRAFANA:-0}"
 
-app_services=(front-api user-rpc content-rpc interaction-rpc count-rpc search-rpc search-indexer)
+app_services=(front-api admin-api user-rpc content-rpc interaction-rpc count-rpc search-rpc search-indexer)
 app_images=(
   "${FRONT_API_IMAGE}"
+  "${ADMIN_API_IMAGE}"
   "${USER_RPC_IMAGE}"
   "${CONTENT_RPC_IMAGE}"
   "${INTERACTION_RPC_IMAGE}"

@@ -474,6 +474,8 @@ fct_print_ports() {
 | nginx 网关 | ${GATEWAY_HOST_PORT} | 80 | HTTP 压测默认入口 |
 | front-api | ${FRONT_API_PORT} | 5000 | HTTP 直连入口 |
 | front-api Prometheus | ${PROM_PORT} | 9290 | API 指标 |
+| admin-api | ${ADMIN_API_PORT} | 5001 | 后台管理 HTTP 入口 |
+| admin-api Prometheus | ${ADMIN_PROM_PORT} | 9291 | 后台管理指标 |
 | content-rpc | 5001 | 5001 | 内容服务 gRPC |
 | content-rpc Prometheus | ${CONTENT_PROM_PORT} | 9291 | 内容服务指标 |
 | content-rpc XXL 执行器 | ${XXL_JOB_EXECUTOR_PORT} | ${XXL_EXECUTOR_PORT} | XXL-JOB 回调执行器 |
