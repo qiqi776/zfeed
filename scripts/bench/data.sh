@@ -12,12 +12,17 @@ fct_usage() {
 	cat <<'EOF'
 用法：
   scripts/bench/data.sh generate <small|medium|large> [--reset|--append]
+  scripts/bench/data.sh seed-db <small|medium|large> [--dry-run|run]
   scripts/bench/data.sh cleanup-db [--dry-run|run]
 
 说明：
   生成安全的合成压测 fixture。脚本只写 bench/data/<scale> 文件，不写数据库。
   --reset  重建目标数据目录，默认行为
   --append 追加一批数据，基于当前 CSV 最大 ID 继续生成
+
+  seed-db 默认只打印 SQL。真实执行需要安装 mysql 客户端，并设置：
+    BENCH_DB_HOST、BENCH_DB_USER、BENCH_DB_NAME、BENCH_SEED_CONFIRM=seed-bench-data
+  可选设置：BENCH_DB_PORT、BENCH_DB_PASSWORD、MYSQL_BIN、GO_BIN
 
   cleanup-db 默认只允许 --dry-run 打印 SQL。真实执行需要安装 mysql 客户端，并设置：
     BENCH_DB_HOST、BENCH_DB_USER、BENCH_DB_NAME、BENCH_CLEANUP_CONFIRM=delete-bench-data
@@ -367,6 +372,78 @@ fct_run_cleanup_db() {
 	fct_cleanup_sql | "${mysql_bin}" "${mysql_args[@]}"
 }
 
+fct_run_seed_db() {
+	local scale="${1:-}"
+	local mode="${2:---dry-run}"
+	if [[ -z "${scale}" ]]; then
+		fct_usage >&2
+		return 2
+	fi
+
+	local data_root="${DATA_ROOT:-${DEFAULT_DATA_ROOT}}"
+	local data_dir="${data_root}/${scale}"
+	if [[ ! -d "${data_dir}" ]]; then
+		printf '压测数据目录不存在：%s\n' "${data_dir}" >&2
+		printf '请先执行：scripts/bench/data.sh generate %s\n' "${scale}" >&2
+		return 1
+	fi
+
+	local go_bin="${GO_BIN:-go}"
+	if ! command -v "${go_bin}" >/dev/null 2>&1; then
+		printf '缺少 go 可执行文件：%s\n' "${go_bin}" >&2
+		return 1
+	fi
+
+	case "${mode}" in
+	--dry-run | dry-run)
+		(cd "${ROOT_DIR}" && "${go_bin}" run ./bench/tools/benchseed --data "${data_dir}")
+		return 0
+		;;
+	"" | run)
+		;;
+	*)
+		printf '未知 seed-db 模式：%s\n' "${mode}" >&2
+		return 2
+		;;
+	esac
+
+	if [[ "${BENCH_SEED_CONFIRM:-}" != "seed-bench-data" ]]; then
+		printf '真实写入 bench fixture 前必须设置 BENCH_SEED_CONFIRM=seed-bench-data。\n' >&2
+		return 2
+	fi
+
+	local mysql_bin="${MYSQL_BIN:-mysql}"
+	if ! command -v "${mysql_bin}" >/dev/null 2>&1; then
+		printf '缺少 mysql 客户端：%s\n' "${mysql_bin}" >&2
+		return 1
+	fi
+
+	local db_host="${BENCH_DB_HOST:-}"
+	local db_port="${BENCH_DB_PORT:-3306}"
+	local db_user="${BENCH_DB_USER:-}"
+	local db_name="${BENCH_DB_NAME:-}"
+	if [[ -z "${db_host}" || -z "${db_user}" || -z "${db_name}" ]]; then
+		printf '真实写入 bench fixture 前必须设置 BENCH_DB_HOST、BENCH_DB_USER、BENCH_DB_NAME。\n' >&2
+		return 2
+	fi
+
+	local mysql_args=(
+		--host="${db_host}"
+		--port="${db_port}"
+		--user="${db_user}"
+		--database="${db_name}"
+		--batch
+	)
+	if [[ -n "${BENCH_DB_PASSWORD:-}" ]]; then
+		(cd "${ROOT_DIR}" && "${go_bin}" run ./bench/tools/benchseed --data "${data_dir}") |
+			MYSQL_PWD="${BENCH_DB_PASSWORD}" "${mysql_bin}" "${mysql_args[@]}"
+		return 0
+	fi
+
+	(cd "${ROOT_DIR}" && "${go_bin}" run ./bench/tools/benchseed --data "${data_dir}") |
+		"${mysql_bin}" "${mysql_args[@]}"
+}
+
 fct_main() {
 	local command="${1:-}"
 	case "${command}" in
@@ -381,6 +458,9 @@ fct_main() {
 			return 2
 		fi
 		fct_generate "${scale}" "${mode}"
+		;;
+	seed-db)
+		fct_run_seed_db "${2:-}" "${3:---dry-run}"
 		;;
 	cleanup-db)
 		fct_run_cleanup_db "${2:---dry-run}"

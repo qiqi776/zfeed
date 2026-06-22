@@ -40,6 +40,10 @@ bench_article,content
   "name": "follow-list-followers",
   "data": {"user_id": 1, "viewer_id": 2}
 }`)
+	writeFile(t, filepath.Join(configDir, "search-contents.json"), `{
+  "name": "search-contents",
+  "data": {"query": "old", "mode": "cursor", "viewer_id": 2}
+}`)
 
 	if err := generateConfigs(configDir, dataDir, outputDir); err != nil {
 		t.Fatalf("generateConfigs returned error: %v", err)
@@ -61,6 +65,12 @@ bench_article,content
 	followersData := followers["data"].(map[string]any)
 	if followersData["user_id"] != float64(10001) || followersData["viewer_id"] != float64(10002) {
 		t.Fatalf("followers data = %+v, want follow edge followee and follower", followersData)
+	}
+
+	search := readJSON(t, filepath.Join(outputDir, "search-contents.json"))
+	searchData := search["data"].(map[string]any)
+	if searchData["query"] != "bench_article" || searchData["viewer_id"] != float64(10001) || searchData["mode"] != "latest" {
+		t.Fatalf("search data = %+v, want fixture query, viewer, and supported latest mode", searchData)
 	}
 }
 

@@ -373,7 +373,7 @@ function searchContents(state) {
   const res = postJSON(
     benchConfig.baseURL,
     "/v1/search/contents",
-    { query, cursor: 0, page_size: 10, mode: "cursor" },
+    { query, cursor: 0, page_size: 10, mode: "latest" },
     activeToken(state),
     { name: "search_contents", module: "search", kind: "read", auth: "optional" },
   );
@@ -384,7 +384,7 @@ function searchUsers(state) {
   const res = postJSON(
     benchConfig.baseURL,
     "/v1/search/users",
-    { query: "bench", cursor: 0, page_size: 10, mode: "cursor" },
+    { query: "bench", cursor: 0, page_size: 10, mode: "latest" },
     activeToken(state),
     { name: "search_users", module: "search", kind: "read", auth: "optional" },
   );

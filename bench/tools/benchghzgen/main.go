@@ -207,6 +207,7 @@ func applyFixture(name string, data map[string]any, fixture fixtureData) {
 			data["query"] = query
 		}
 		data["viewer_id"] = userID
+		data["mode"] = "latest"
 	}
 }
 

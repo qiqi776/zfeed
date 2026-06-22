@@ -21,6 +21,7 @@ readonly GHZ_COUNT_TARGET="${GHZ_COUNT_TARGET:-127.0.0.1:5004}"
 readonly GHZ_SEARCH_TARGET="${GHZ_SEARCH_TARGET:-127.0.0.1:5006}"
 readonly BENCH_ENV="${BENCH_ENV:-local}"
 readonly BENCH_IMAGE_TAG="${BENCH_IMAGE_TAG:-}"
+readonly BENCH_GHZ_VERIFY_DB="${BENCH_GHZ_VERIFY_DB:-1}"
 
 fct_usage() {
 	cat <<'EOF'
@@ -60,6 +61,13 @@ fct_usage() {
   GHZ_USER_TARGET         user-rpc ghz 目标，默认 127.0.0.1:5003
   GHZ_COUNT_TARGET        count-rpc ghz 目标，默认 127.0.0.1:5004
   GHZ_SEARCH_TARGET       search-rpc ghz 目标，默认 127.0.0.1:5006
+  BENCH_GHZ_VERIFY_DB     ghz 前校验 fixture 已入库，默认 1；设为 0 可跳过
+  BENCH_DB_DSN            ghz fixture 校验用 MySQL DSN，优先级高于 BENCH_DB_HOST 等拆分变量
+  BENCH_DB_HOST           ghz fixture 校验用 MySQL host
+  BENCH_DB_PORT           ghz fixture 校验用 MySQL port，默认 3306
+  BENCH_DB_USER           ghz fixture 校验用 MySQL user
+  BENCH_DB_PASSWORD       ghz fixture 校验用 MySQL password，可为空
+  BENCH_DB_NAME           ghz fixture 校验用 MySQL database
   BENCH_COUNT    Go benchmark 重复次数，默认 10
   PPROF_URL      pprof 地址，例如 http://127.0.0.1:6060/debug/pprof/profile?seconds=30
 EOF
@@ -153,6 +161,46 @@ fct_data_scale() {
 		fi
 	fi
 	basename "${data_dir}"
+}
+
+fct_mysql_dsn() {
+	if [[ -n "${BENCH_DB_DSN:-}" ]]; then
+		printf '%s\n' "${BENCH_DB_DSN}"
+		return 0
+	fi
+
+	local db_host="${BENCH_DB_HOST:-}"
+	local db_port="${BENCH_DB_PORT:-3306}"
+	local db_user="${BENCH_DB_USER:-}"
+	local db_name="${BENCH_DB_NAME:-}"
+	if [[ -z "${db_host}" || -z "${db_user}" || -z "${db_name}" ]]; then
+		printf 'ghz fixture 校验需要设置 BENCH_DB_DSN，或设置 BENCH_DB_HOST、BENCH_DB_USER、BENCH_DB_NAME。\n' >&2
+		printf '如需临时跳过校验，可设置 BENCH_GHZ_VERIFY_DB=0。\n' >&2
+		return 2
+	fi
+
+	local auth="${db_user}"
+	if [[ -n "${BENCH_DB_PASSWORD:-}" ]]; then
+		auth="${db_user}:${BENCH_DB_PASSWORD}"
+	fi
+	printf '%s@tcp(%s:%s)/%s?parseTime=true&loc=Local\n' "${auth}" "${db_host}" "${db_port}" "${db_name}"
+}
+
+fct_verify_ghz_fixture_db() {
+	case "${BENCH_GHZ_VERIFY_DB}" in
+	0 | false | FALSE | no | NO)
+		printf '已跳过 ghz fixture 数据库校验：BENCH_GHZ_VERIFY_DB=%s\n' "${BENCH_GHZ_VERIFY_DB}" >&2
+		return 0
+		;;
+	esac
+
+	local dsn
+	dsn="$(fct_mysql_dsn)" || return
+	printf '校验 ghz fixture 数据库：%s\n' "$(fct_data_dir)" >&2
+	"${GO_BIN}" run ./bench/tools/benchseed \
+		--mode verify-db \
+		--data "$(fct_data_dir)" \
+		--dsn "${dsn}"
 }
 
 fct_image_summary() {
@@ -420,6 +468,21 @@ fct_run_ghz() {
 	for config in "${generated_config_dir}"/*.json; do
 		[[ -f "${config}" ]] || continue
 		found_config=1
+	done
+
+	if [[ "${found_config}" -eq 0 ]]; then
+		printf '未找到任何 ghz 配置文件：%s\n' "${generated_config_dir}/*.json" >&2
+		rm -rf "${generated_config_dir}"
+		return 2
+	fi
+
+	if ! fct_verify_ghz_fixture_db; then
+		rm -rf "${generated_config_dir}"
+		return 1
+	fi
+
+	for config in "${generated_config_dir}"/*.json; do
+		[[ -f "${config}" ]] || continue
 		local name
 		name="$(basename "${config}" .json)"
 		local target
@@ -429,12 +492,6 @@ fct_run_ghz() {
 			return 1
 		fi
 	done
-
-	if [[ "${found_config}" -eq 0 ]]; then
-		printf '未找到任何 ghz 配置文件：%s\n' "${generated_config_dir}/*.json" >&2
-		rm -rf "${generated_config_dir}"
-		return 2
-	fi
 
 	local result_dir
 	result_dir="$(fct_result_dir "ghz")"

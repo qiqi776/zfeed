@@ -124,6 +124,45 @@ func TestCollectReportIgnoresNonGHZTextFiles(t *testing.T) {
 	}
 }
 
+func TestCollectReportFailsWhenGHZHasOnlyNonOKResponses(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "search-contents.txt"), `Summary:
+  Name:		search-contents
+  Count:	1000
+  Average:	2.65 ms
+  Requests/sec:	5593.00
+
+Latency distribution:
+
+Status code distribution:
+  [InvalidArgument]   1000 responses
+
+Error distribution:
+  [1000]   rpc error: code = InvalidArgument desc = 搜索模式不支持
+`)
+
+	report, err := collectReport(dir, "")
+	if err != nil {
+		t.Fatalf("collectReport returned error: %v", err)
+	}
+
+	if len(report.GHZ) != 1 || report.GHZ[0].Errors != 1000 || report.GHZ[0].OKResponses != 0 {
+		t.Fatalf("ghz summaries = %+v, want 1000 non-OK responses counted as errors", report.GHZ)
+	}
+	if report.Verdict != "FAIL" {
+		t.Fatalf("verdict = %s, want FAIL for ghz zero OK responses", report.Verdict)
+	}
+	rendered := renderReport(report)
+	for _, want := range []string{
+		"ghz 场景 search-contents 没有 OK 响应",
+		"| search-contents | 1000 | 5593.00 | 2.65ms | 0.00ms | 0.00ms | 0 | 1000 |",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered report missing %q:\n%s", want, rendered)
+		}
+	}
+}
+
 func TestParseK6SummaryUsesRatePassesAsFailedRequests(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "k6-summary.json"), `{
@@ -171,6 +210,41 @@ func TestRenderReportMarksFailWhenK6ErrorRateExceedsThreshold(t *testing.T) {
 		"- 判定：FAIL",
 		"HTTP 错误率 2.0000% 超过 0.5%",
 		"| HTTP P95 | 120.00ms |",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("rendered report missing %q:\n%s", want, rendered)
+		}
+	}
+}
+
+func TestCollectReportWarnsOnGoBenchFailureMarkers(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "go-bench.txt"), `goos: linux
+goarch: amd64
+pkg: zfeed/bench/go/ormobserver
+cpu: test CPU
+BenchmarkObserverPluginQuery/plain-8         	  184386	      6103 ns/op	    3291 B/op	      52 allocs/op
+BenchmarkObserverPluginQuery/plain-8         	--- FAIL: BenchmarkObserverPluginQuery/plain
+    observer_bench_test.go:29: seed model: UNIQUE constraint failed: observer_bench_models.id
+PASS
+ok  	zfeed/bench/go/ormobserver	4.779s
+`)
+
+	report, err := collectReport(dir, "")
+	if err != nil {
+		t.Fatalf("collectReport returned error: %v", err)
+	}
+
+	if len(report.GoBenchIssues) == 0 {
+		t.Fatalf("GoBenchIssues is empty, want benchmark failure marker")
+	}
+	if report.Verdict != "WARN" {
+		t.Fatalf("verdict = %s, want WARN for go benchmark failure markers", report.Verdict)
+	}
+	rendered := renderReport(report)
+	for _, want := range []string{
+		"Go benchmark 输出包含失败标记",
+		"UNIQUE constraint failed",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("rendered report missing %q:\n%s", want, rendered)

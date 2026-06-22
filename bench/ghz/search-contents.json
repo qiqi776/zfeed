@@ -10,7 +10,7 @@
     "cursor": 0,
     "page_size": 10,
     "viewer_id": 10001,
-    "mode": "cursor"
+    "mode": "latest"
   },
   "metadata": {
     "x-request-id": "bench-ghz-search-contents"

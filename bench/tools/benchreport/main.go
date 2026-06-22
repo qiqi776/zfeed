@@ -30,6 +30,7 @@ type Report struct {
 	K6             *K6Summary
 	GHZ            []GHZSummary
 	GoBench        []GoBenchSummary
+	GoBenchIssues  []string
 	Evidence       []EvidencePath
 	Benchstat      string
 	BenchstatError string
@@ -136,11 +137,12 @@ func collectReport(resultDir string, baselineDir string) (Report, error) {
 	}
 	report.GHZ = ghz
 
-	goBench, err := parseGoBench(filepath.Join(resultDir, "go-bench.txt"))
+	goBench, goBenchIssues, err := parseGoBench(filepath.Join(resultDir, "go-bench.txt"))
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return Report{}, err
 	}
 	report.GoBench = goBench
+	report.GoBenchIssues = goBenchIssues
 	report.Evidence = collectEvidence(resultDir)
 
 	if baselineDir != "" {
@@ -345,26 +347,52 @@ func collectEvidence(resultDir string) []EvidencePath {
 }
 
 func parseGHZText(body string) GHZSummary {
-	return GHZSummary{
+	summary := GHZSummary{
 		Name:        firstStringSubmatch(body, `(?m)^\s*Name:\s*(\S+)`),
 		Count:       int64(firstFloatSubmatch(body, `(?m)^\s*Count:\s*([0-9.]+)`)),
 		AverageMS:   firstFloatSubmatch(body, `(?m)^\s*Average:\s*([0-9.]+)\s*ms`),
 		RequestsSec: firstFloatSubmatch(body, `(?m)^\s*Requests/sec:\s*([0-9.]+)`),
 		P95MS:       firstFloatSubmatch(body, `(?m)^\s*95\s*%\s*in\s*([0-9.]+)\s*ms`),
 		P99MS:       firstFloatSubmatch(body, `(?m)^\s*99\s*%\s*in\s*([0-9.]+)\s*ms`),
-		OKResponses: int64(firstFloatSubmatch(body, `(?m)^\s*\[OK\]\s*([0-9]+)\s*responses`)),
 		Errors:      int64(firstFloatSubmatch(body, `(?m)^\s*\[[A-Z_]+\]\s*([0-9]+)\s*errors`)),
 	}
+
+	okResponses, nonOKResponses := parseGHZStatusResponses(body)
+	summary.OKResponses = okResponses
+	summary.Errors += nonOKResponses
+	return summary
 }
 
-func parseGoBench(path string) ([]GoBenchSummary, error) {
+func parseGHZStatusResponses(body string) (int64, int64) {
+	re := regexp.MustCompile(`(?m)^\s*\[([^\]]+)\]\s*([0-9]+)\s*responses\s*$`)
+	var okResponses int64
+	var nonOKResponses int64
+	for _, match := range re.FindAllStringSubmatch(body, -1) {
+		count, err := strconv.ParseInt(match[2], 10, 64)
+		if err != nil {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(match[1]), "OK") {
+			okResponses += count
+			continue
+		}
+		nonOKResponses += count
+	}
+	return okResponses, nonOKResponses
+}
+
+func parseGoBench(path string) ([]GoBenchSummary, []string, error) {
 	body, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var summaries []GoBenchSummary
+	var issues []string
 	var current *GoBenchSummary
 	for _, line := range strings.Split(string(body), "\n") {
+		if isGoBenchIssueLine(line) {
+			issues = appendUniqueString(issues, strings.TrimSpace(line))
+		}
 		switch {
 		case strings.HasPrefix(line, "pkg: "):
 			if current != nil {
@@ -380,7 +408,29 @@ func parseGoBench(path string) ([]GoBenchSummary, error) {
 	if current != nil {
 		summaries = append(summaries, *current)
 	}
-	return summaries, nil
+	return summaries, issues, nil
+}
+
+func isGoBenchIssueLine(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if strings.Contains(trimmed, "--- FAIL:") ||
+		strings.Contains(trimmed, "panic:") ||
+		strings.Contains(trimmed, "UNIQUE constraint failed") {
+		return true
+	}
+	return trimmed == "FAIL" || strings.HasPrefix(trimmed, "FAIL\t")
+}
+
+func appendUniqueString(values []string, value string) []string {
+	if value == "" {
+		return values
+	}
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
 }
 
 func runBenchstat(before string, after string) (string, string) {
@@ -423,9 +473,16 @@ func evaluate(report Report) (string, []string) {
 		}
 	}
 	for _, item := range report.GHZ {
+		if item.Count > 0 && item.OKResponses == 0 {
+			failures = append(failures, fmt.Sprintf("ghz 场景 %s 没有 OK 响应", item.Name))
+			continue
+		}
 		if item.Errors > 0 {
 			failures = append(failures, fmt.Sprintf("ghz 场景 %s 出现 %d 个错误", item.Name, item.Errors))
 		}
+	}
+	if len(report.GoBenchIssues) > 0 {
+		warnings = append(warnings, fmt.Sprintf("Go benchmark 输出包含失败标记：%s", strings.Join(firstNStrings(report.GoBenchIssues, 3), "；")))
 	}
 	if report.BenchstatError != "" {
 		warnings = append(warnings, report.BenchstatError)
@@ -720,13 +777,16 @@ func renderRetestConditions(out *bytes.Buffer, report Report) {
 }
 
 func stableThroughput(report Report) string {
-	if report.K6 != nil && report.K6.RequestRate > 0 {
+	if report.K6 != nil &&
+		report.K6.RequestRate > 0 &&
+		report.K6.HTTPFailedRate <= k6MaxFailedRate &&
+		report.K6.ChecksRate >= k6MinChecksRate {
 		return fmt.Sprintf("%.2f HTTP RPS", report.K6.RequestRate)
 	}
-	if slowest, ok := slowestGHZ(report.GHZ); ok && slowest.RequestsSec > 0 {
+	if slowest, ok := slowestSuccessfulGHZ(report.GHZ); ok && slowest.RequestsSec > 0 {
 		return fmt.Sprintf("%.2f RPC RPS (%s)", slowest.RequestsSec, slowest.Name)
 	}
-	return "未采集，需要 k6 或 ghz 结果"
+	return "未采集或未通过阈值，需要成功压测结果"
 }
 
 func capacityKnee(report Report) string {
@@ -749,8 +809,13 @@ func bottleneckSummary(report Report) string {
 	if report.K6 != nil && report.K6.DurationP95MS > k6MaxP95MS {
 		return "HTTP P95 超过阈值，优先检查慢接口、RPC 和 DB 证据"
 	}
-	if slowest, ok := slowestGHZ(report.GHZ); ok && slowest.Errors > 0 {
-		return fmt.Sprintf("ghz 场景 %s 出现错误，优先检查对应 RPC 服务", slowest.Name)
+	for _, item := range report.GHZ {
+		if item.Count > 0 && item.OKResponses == 0 {
+			return fmt.Sprintf("ghz 场景 %s 没有 OK 响应，优先检查请求参数和 fixture 数据", item.Name)
+		}
+		if item.Errors > 0 {
+			return fmt.Sprintf("ghz 场景 %s 出现错误，优先检查对应 RPC 服务", item.Name)
+		}
 	}
 	if hasMissingEvidence(report.Evidence) {
 		return "自动指标未发现失败项，但诊断证据未采集完整"
@@ -771,12 +836,37 @@ func slowestGHZ(items []GHZSummary) (GHZSummary, bool) {
 	return slowest, true
 }
 
+func slowestSuccessfulGHZ(items []GHZSummary) (GHZSummary, bool) {
+	var slowest GHZSummary
+	var found bool
+	for _, item := range items {
+		if item.OKResponses <= 0 || item.Errors > 0 {
+			continue
+		}
+		if !found || item.P95MS > slowest.P95MS {
+			slowest = item
+			found = true
+		}
+	}
+	return slowest, found
+}
+
 func ghzErrorRate(item GHZSummary) float64 {
 	total := item.OKResponses + item.Errors
 	if total <= 0 {
 		return 0
 	}
 	return float64(item.Errors) / float64(total)
+}
+
+func firstNStrings(values []string, n int) []string {
+	if n <= 0 || len(values) == 0 {
+		return nil
+	}
+	if len(values) <= n {
+		return values
+	}
+	return values[:n]
 }
 
 func hasMissingEvidence(items []EvidencePath) bool {

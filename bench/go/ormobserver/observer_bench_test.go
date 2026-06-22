@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ type observerBenchModel struct {
 	ID   int64  `gorm:"primaryKey"`
 	Name string `gorm:"size:32"`
 }
+
+var observerBenchDBSeq atomic.Uint64
 
 func init() {
 	logx.SetWriter(logx.NewWriter(io.Discard))
@@ -52,7 +55,8 @@ func openObserverBenchDB(b *testing.B, observer bool) *gorm.DB {
 	b.Helper()
 
 	name := strings.NewReplacer("/", "_", " ", "_").Replace(b.Name())
-	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", name)
+	seq := observerBenchDBSeq.Add(1)
+	dsn := fmt.Sprintf("file:%s_%d?mode=memory&cache=shared", name, seq)
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
