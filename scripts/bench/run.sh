@@ -22,6 +22,7 @@ readonly GHZ_SEARCH_TARGET="${GHZ_SEARCH_TARGET:-127.0.0.1:5006}"
 readonly BENCH_ENV="${BENCH_ENV:-local}"
 readonly BENCH_IMAGE_TAG="${BENCH_IMAGE_TAG:-}"
 readonly BENCH_GHZ_VERIFY_DB="${BENCH_GHZ_VERIFY_DB:-1}"
+readonly BENCH_SCHEMA_VERIFY="${BENCH_SCHEMA_VERIFY:-1}"
 readonly BENCH_CAPTURE_INTERACTION_LOGS="${BENCH_CAPTURE_INTERACTION_LOGS:-auto}"
 readonly BENCH_INTERACTION_LOG_TAIL="${BENCH_INTERACTION_LOG_TAIL:-2000}"
 
@@ -70,6 +71,7 @@ fct_usage() {
   BENCH_DB_USER           ghz fixture 校验用 MySQL user
   BENCH_DB_PASSWORD       ghz fixture 校验用 MySQL password，可为空
   BENCH_DB_NAME           ghz fixture 校验用 MySQL database
+  BENCH_SCHEMA_VERIFY     k6 前校验 MySQL schema，默认 1；设为 0 可跳过
   BENCH_DEBUG_FAILURES    k6 失败检查时输出响应摘要；设为 1 时默认采集 interaction-rpc 日志
   BENCH_CAPTURE_INTERACTION_LOGS  k6 后采集 interaction-rpc 日志，默认 auto；可设 1/0
   BENCH_INTERACTION_LOG_TAIL      每个 interaction-rpc 文件日志最多采集行数，默认 2000
@@ -119,6 +121,14 @@ fct_data_dir() {
 	esac
 }
 
+fct_compose_env_value() {
+	local key="${1}"
+	if [[ ! -f "${COMPOSE_ENV_PATH}" ]]; then
+		return 1
+	fi
+	awk -F '=' -v key="${key}" '$1 == key {print substr($0, index($0, "=") + 1); exit}' "${COMPOSE_ENV_PATH}"
+}
+
 fct_go_version() {
 	if command -v "${GO_BIN}" >/dev/null 2>&1; then
 		"${GO_BIN}" version
@@ -152,6 +162,171 @@ fct_machine_spec() {
 		fi
 	fi
 	printf '%s %s cpu=%s mem=%s\n' "${os_name}" "${arch_name}" "${cpu_count}" "${memory_total}"
+}
+
+fct_bench_db_host() {
+	printf '%s\n' "${BENCH_DB_HOST:-127.0.0.1}"
+}
+
+fct_bench_db_port() {
+	if [[ -n "${BENCH_DB_PORT:-}" ]]; then
+		printf '%s\n' "${BENCH_DB_PORT}"
+		return
+	fi
+	fct_compose_env_value MYSQL_PORT || printf '3306\n'
+}
+
+fct_bench_db_user() {
+	if [[ -n "${BENCH_DB_USER:-}" ]]; then
+		printf '%s\n' "${BENCH_DB_USER}"
+		return
+	fi
+	printf 'root\n'
+}
+
+fct_bench_db_password() {
+	if [[ -n "${BENCH_DB_PASSWORD:-}" ]]; then
+		printf '%s\n' "${BENCH_DB_PASSWORD}"
+		return
+	fi
+	fct_compose_env_value MYSQL_ROOT_PASSWORD || true
+}
+
+fct_bench_db_name() {
+	if [[ -n "${BENCH_DB_NAME:-}" ]]; then
+		printf '%s\n' "${BENCH_DB_NAME}"
+		return
+	fi
+	fct_compose_env_value MYSQL_DATABASE || printf 'zfeed\n'
+}
+
+fct_run_schema_query_with_mysql() {
+	local query="${1}"
+	local db_host
+	local db_port
+	local db_user
+	local db_password
+	local db_name
+	db_host="$(fct_bench_db_host)"
+	db_port="$(fct_bench_db_port)"
+	db_user="$(fct_bench_db_user)"
+	db_password="$(fct_bench_db_password)"
+	db_name="$(fct_bench_db_name)"
+
+	local mysql_args=(
+		--host="${db_host}"
+		--port="${db_port}"
+		--user="${db_user}"
+		--database="${db_name}"
+		--batch
+		--skip-column-names
+	)
+	if [[ -n "${db_password}" ]]; then
+		MYSQL_PWD="${db_password}" mysql "${mysql_args[@]}" <<<"${query}"
+		return
+	fi
+	mysql "${mysql_args[@]}" <<<"${query}"
+}
+
+fct_run_schema_query_with_docker() {
+	local query="${1}"
+	if ! command -v docker >/dev/null 2>&1; then
+		return 127
+	fi
+	if [[ ! -f "${COMPOSE_ENV_PATH}" ]]; then
+		return 1
+	fi
+
+	(
+		cd "${ROOT_DIR}/deploy"
+		docker compose --env-file .env -f docker-compose.yml exec -T mysql \
+			sh -lc 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "${MYSQL_DATABASE:-zfeed}" --batch --skip-column-names'
+	) <<<"${query}"
+}
+
+fct_run_schema_query() {
+	local query="${1}"
+	if command -v mysql >/dev/null 2>&1; then
+		fct_run_schema_query_with_mysql "${query}"
+		return
+	fi
+	fct_run_schema_query_with_docker "${query}"
+}
+
+fct_required_schema_columns() {
+	cat <<'EOF'
+zfeed_favorite.scene
+zfeed_favorite.content_user_id
+zfeed_like.scene
+zfeed_like.content_user_id
+zfeed_like.last_event_ts
+zfeed_like.is_deleted
+EOF
+}
+
+fct_required_schema_query() {
+	cat <<'SQL'
+SELECT CONCAT(table_name, '.', column_name)
+FROM information_schema.columns
+WHERE table_schema = DATABASE()
+  AND CONCAT(table_name, '.', column_name) IN (
+    'zfeed_favorite.scene',
+    'zfeed_favorite.content_user_id',
+    'zfeed_like.scene',
+    'zfeed_like.content_user_id',
+    'zfeed_like.last_event_ts',
+    'zfeed_like.is_deleted'
+  )
+ORDER BY table_name, column_name;
+SQL
+}
+
+fct_verify_bench_schema() {
+	case "${BENCH_SCHEMA_VERIFY}" in
+	0 | false | FALSE | no | NO)
+		printf '已跳过 bench schema 校验：BENCH_SCHEMA_VERIFY=%s\n' "${BENCH_SCHEMA_VERIFY}" >&2
+		return 0
+		;;
+	esac
+
+	local actual
+	if ! actual="$(fct_run_schema_query "$(fct_required_schema_query)")"; then
+		printf 'bench schema 校验无法连接 MySQL。\n' >&2
+		printf '请确认本地栈已启动，或设置 BENCH_DB_HOST、BENCH_DB_PORT、BENCH_DB_USER、BENCH_DB_PASSWORD、BENCH_DB_NAME。\n' >&2
+		printf '如需临时跳过校验，可设置 BENCH_SCHEMA_VERIFY=0。\n' >&2
+		return 1
+	fi
+
+	declare -A found=()
+	local column
+	while IFS= read -r column; do
+		[[ -n "${column}" ]] || continue
+		found["${column}"]=1
+	done <<<"${actual}"
+
+	local missing=()
+	while IFS= read -r column; do
+		[[ -n "${column}" ]] || continue
+		if [[ -z "${found[${column}]:-}" ]]; then
+			missing+=("${column}")
+		fi
+	done < <(fct_required_schema_columns)
+
+	if [[ "${#missing[@]}" -eq 0 ]]; then
+		printf 'bench schema 校验通过。\n' >&2
+		return 0
+	fi
+
+	printf 'bench schema 校验失败，缺少列：\n' >&2
+	for column in "${missing[@]}"; do
+		printf '  - %s\n' "${column}" >&2
+	done
+	printf '可执行收藏/点赞表幂等 DDL 后重试：\n' >&2
+	# shellcheck disable=SC2016 # Printed command expands MYSQL_ROOT_PASSWORD inside the container shell.
+	printf '  docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec -T mysql sh -lc '\''mysql -uroot -p"$MYSQL_ROOT_PASSWORD" zfeed < /seed-sql/zfeed_favorite.sql'\''\n' >&2
+	# shellcheck disable=SC2016 # Printed command expands MYSQL_ROOT_PASSWORD inside the container shell.
+	printf '  docker compose --env-file deploy/.env -f deploy/docker-compose.yml exec -T mysql sh -lc '\''mysql -uroot -p"$MYSQL_ROOT_PASSWORD" zfeed < /seed-sql/zfeed_like.sql'\''\n' >&2
+	return 1
 }
 
 fct_data_scale() {
@@ -258,6 +433,7 @@ fct_write_env_report() {
 - Go 可执行文件：${GO_BIN}
 - 压测次数：${BENCH_COUNT}
 - BENCH_DEBUG_FAILURES：${BENCH_DEBUG_FAILURES:-0}
+- BENCH_SCHEMA_VERIFY：${BENCH_SCHEMA_VERIFY}
 - BENCH_CAPTURE_INTERACTION_LOGS：${BENCH_CAPTURE_INTERACTION_LOGS}
 - BENCH_INTERACTION_LOG_TAIL：${BENCH_INTERACTION_LOG_TAIL}
 EOF
@@ -523,6 +699,7 @@ fct_run_k6() {
 		return 2
 	fi
 	fct_require_bin "${K6_BIN}"
+	fct_verify_bench_schema
 	fct_check_http_target "${BASE_URL}"
 
 	local result_dir

@@ -14,6 +14,7 @@ export const taggedThresholds = {
   "http_req_duration{name:feed_recommend}": ["p(95)<300", "p(99)<1000"],
   "http_req_duration{name:content_detail}": ["p(95)<400", "p(99)<1200"],
   "http_req_duration{name:interaction_like}": ["p(95)<300", "p(99)<800"],
+  "http_req_duration{name:interaction_favorite}": ["p(95)<300", "p(99)<800"],
   "http_req_duration{name:search_contents}": ["p(95)<500", "p(99)<1500"],
 };
 

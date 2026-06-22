@@ -51,6 +51,8 @@ export function runSmoke(state) {
   contentDetail(state);
   likeContent(state);
   queryLikeInfo(state);
+  favoriteContent(state);
+  queryFavoriteInfo(state);
   searchContents(state);
   searchUsers(state);
 }
