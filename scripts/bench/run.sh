@@ -22,6 +22,8 @@ readonly GHZ_SEARCH_TARGET="${GHZ_SEARCH_TARGET:-127.0.0.1:5006}"
 readonly BENCH_ENV="${BENCH_ENV:-local}"
 readonly BENCH_IMAGE_TAG="${BENCH_IMAGE_TAG:-}"
 readonly BENCH_GHZ_VERIFY_DB="${BENCH_GHZ_VERIFY_DB:-1}"
+readonly BENCH_CAPTURE_INTERACTION_LOGS="${BENCH_CAPTURE_INTERACTION_LOGS:-auto}"
+readonly BENCH_INTERACTION_LOG_TAIL="${BENCH_INTERACTION_LOG_TAIL:-2000}"
 
 fct_usage() {
 	cat <<'EOF'
@@ -68,6 +70,9 @@ fct_usage() {
   BENCH_DB_USER           ghz fixture 校验用 MySQL user
   BENCH_DB_PASSWORD       ghz fixture 校验用 MySQL password，可为空
   BENCH_DB_NAME           ghz fixture 校验用 MySQL database
+  BENCH_DEBUG_FAILURES    k6 失败检查时输出响应摘要；设为 1 时默认采集 interaction-rpc 日志
+  BENCH_CAPTURE_INTERACTION_LOGS  k6 后采集 interaction-rpc 日志，默认 auto；可设 1/0
+  BENCH_INTERACTION_LOG_TAIL      每个 interaction-rpc 文件日志最多采集行数，默认 2000
   BENCH_COUNT    Go benchmark 重复次数，默认 10
   PPROF_URL      pprof 地址，例如 http://127.0.0.1:6060/debug/pprof/profile?seconds=30
 EOF
@@ -252,6 +257,9 @@ fct_write_env_report() {
 - GHZ 搜索目标：${GHZ_SEARCH_TARGET}
 - Go 可执行文件：${GO_BIN}
 - 压测次数：${BENCH_COUNT}
+- BENCH_DEBUG_FAILURES：${BENCH_DEBUG_FAILURES:-0}
+- BENCH_CAPTURE_INTERACTION_LOGS：${BENCH_CAPTURE_INTERACTION_LOGS}
+- BENCH_INTERACTION_LOG_TAIL：${BENCH_INTERACTION_LOG_TAIL}
 EOF
 }
 
@@ -287,6 +295,7 @@ fct_write_result_readme() {
 - \`k6-output.txt\`：k6 原始终端输出，包含检查项、时延、吞吐和错误率。
 - \`go-bench.txt\`：Go benchmark 原始输出，仅 \`go-bench\` 场景生成。
 - \`*.txt\`：ghz 或 pprof 原始文本输出；ghz 按场景名生成，pprof 使用 \`pprof-top.txt\`。
+- \`interaction-rpc-logs/\`：开启 \`BENCH_CAPTURE_INTERACTION_LOGS=1\` 或 \`BENCH_DEBUG_FAILURES=1\` 时生成，用于定位 like/favorite 失败。
 - \`report.md\`：自动生成的结果摘要和 PASS/WARN/FAIL 判定。
 
 如果某个文件不存在，通常表示当前场景不会产出该类型结果；新的脚本也会在真正发起请求前先做目标可达性检查，避免"服务未启动但已生成一份看起来像结果的目录"。
@@ -338,6 +347,109 @@ fct_check_pprof_target() {
 		printf '请先确认目标服务已开启 pprof，再重新抓取。\n' >&2
 		return 1
 	fi
+}
+
+fct_should_capture_interaction_logs() {
+	case "${BENCH_CAPTURE_INTERACTION_LOGS}" in
+	1 | true | TRUE | yes | YES)
+		return 0
+		;;
+	0 | false | FALSE | no | NO)
+		return 1
+		;;
+	auto | AUTO)
+		[[ "${BENCH_DEBUG_FAILURES:-0}" == "1" ]]
+		return
+		;;
+	*)
+		printf '未知 BENCH_CAPTURE_INTERACTION_LOGS 值：%s\n' "${BENCH_CAPTURE_INTERACTION_LOGS}" >&2
+		return 2
+		;;
+	esac
+}
+
+fct_collect_interaction_file_logs() {
+	local output_dir="${1}"
+	local file_dir="${output_dir}/files"
+	local copied=0
+	mkdir -p "${file_dir}"
+
+	local source_dir="${ROOT_DIR}/logs/interaction-rpc"
+	if [[ -d "${source_dir}" ]]; then
+		local source
+		for source in "${source_dir}"/*.log "${source_dir}"/*.log-*; do
+			[[ -f "${source}" ]] || continue
+			tail -n "${BENCH_INTERACTION_LOG_TAIL}" "${source}" >"${file_dir}/$(basename "${source}")"
+			copied=1
+		done
+	fi
+
+	local flat_log="${ROOT_DIR}/logs/interaction-rpc.log"
+	if [[ -f "${flat_log}" ]]; then
+		tail -n "${BENCH_INTERACTION_LOG_TAIL}" "${flat_log}" >"${file_dir}/root-interaction-rpc.log"
+		copied=1
+	fi
+
+	if [[ "${copied}" -eq 0 ]]; then
+		printf '未找到 interaction-rpc 文件日志。\n' >"${file_dir}/README.txt"
+	fi
+}
+
+fct_collect_interaction_docker_logs() {
+	local output_dir="${1}"
+	local since_time="${2}"
+	local docker_log="${output_dir}/docker.log"
+	local docker_err="${output_dir}/docker.err"
+
+	if ! command -v docker >/dev/null 2>&1; then
+		printf '未找到 docker 命令，跳过 docker compose logs。\n' >"${docker_err}"
+		return 0
+	fi
+	if [[ ! -f "${COMPOSE_ENV_PATH}" ]]; then
+		printf '未找到 Compose 环境文件：%s\n' "${COMPOSE_ENV_PATH}" >"${docker_err}"
+		return 0
+	fi
+
+	if ! (
+		cd "${ROOT_DIR}/deploy"
+		docker compose --env-file .env -f docker-compose.yml logs \
+			--no-color \
+			--timestamps \
+			--since "${since_time}" \
+			interaction-rpc
+	) >"${docker_log}" 2>"${docker_err}"; then
+		return 0
+	fi
+}
+
+fct_collect_interaction_logs() {
+	local result_dir="${1}"
+	local since_time="${2}"
+
+	local capture_status=0
+	fct_should_capture_interaction_logs || capture_status=$?
+	if [[ "${capture_status}" -eq 1 ]]; then
+		return 0
+	fi
+	if [[ "${capture_status}" -ne 0 ]]; then
+		return "${capture_status}"
+	fi
+
+	local output_dir="${result_dir}/interaction-rpc-logs"
+	mkdir -p "${output_dir}"
+	cat >"${output_dir}/README.md" <<EOF
+# interaction-rpc 日志
+
+- 采集开始时间：${since_time}
+- 采集结束时间：$(date -Is)
+- 文件日志：\`files/\`
+- Docker 日志：\`docker.log\`
+- Docker 错误输出：\`docker.err\`
+EOF
+
+	fct_collect_interaction_file_logs "${output_dir}"
+	fct_collect_interaction_docker_logs "${output_dir}" "${since_time}"
+	printf 'interaction-rpc 日志已采集：%s\n' "${output_dir}" >&2
 }
 
 fct_print_ports() {
@@ -417,9 +529,17 @@ fct_run_k6() {
 
 	printf '开始执行 k6 场景：%s\n' "${scenario}" >&2
 	printf '结果目录：%s\n' "${result_dir}" >&2
+	local log_since
+	log_since="$(date -Is)"
+	local k6_status=0
 	env BASE_URL="${BASE_URL}" DATA_DIR="$(fct_data_dir)" "${K6_BIN}" run \
 		--summary-export "${result_dir}/k6-summary.json" \
-		"${scenario_file}" 2>&1 | tee "${result_dir}/k6-output.txt"
+		"${scenario_file}" 2>&1 | tee "${result_dir}/k6-output.txt" || k6_status="${PIPESTATUS[0]}"
+	fct_collect_interaction_logs "${result_dir}" "${log_since}"
+	if [[ "${k6_status}" -ne 0 ]]; then
+		fct_generate_report "${result_dir}" || true
+		return "${k6_status}"
+	fi
 	fct_generate_report "${result_dir}"
 }
 
