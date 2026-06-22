@@ -20,7 +20,7 @@ bash ./scripts/start.sh
 该脚本会通过 `deploy/docker-compose.yml` 拉起：
 
 - 基础设施：`etcd`、`redis`、`mysql`、`kafka`、`canal`、`xxl-job-admin`
-- 后端服务：`front-api`、`user-rpc`、`content-rpc`、`interaction-rpc`、`count-rpc`、`search-rpc`
+- 后端服务：`front-api`、`admin-api`、`user-rpc`、`content-rpc`、`interaction-rpc`、`count-rpc`、`search-rpc`
 - 网关入口：`nginx`
 - 观测组件：`prometheus`
 - 搜索索引：`opensearch`、`search-index-bootstrap`、`search-indexer`
@@ -50,6 +50,7 @@ GOCACHE=/tmp/go-build go test -tags=e2e ./tests/e2e -run TestObservabilityE2E -c
 
 ## 网关路由
 
+- `/v1/admin/*` -> `admin-api:5001`（宿主机端口 `${ADMIN_API_PORT}`，默认 5011）
 - `/v1/*` -> `front-api:5000`
 - `/` -> `404`
 
