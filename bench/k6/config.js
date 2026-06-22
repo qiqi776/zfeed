@@ -45,7 +45,6 @@ export const loadStages = [
   { duration: "2m", target: 10 },
   { duration: "5m", target: 25 },
   { duration: "5m", target: 50 },
-  { duration: "5m", target: 100 },
   { duration: "2m", target: 0 },
 ];
 

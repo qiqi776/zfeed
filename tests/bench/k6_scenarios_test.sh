@@ -55,10 +55,12 @@ done
 
 node --input-type=module <<'EOF'
 globalThis.__ENV = {};
-const { stressStages } = await import("./bench/k6/config.js");
-const maxTarget = Math.max(...stressStages.map((stage) => Number(stage.target)));
-if (maxTarget !== 50) {
-  console.error(`expected stressStages max target 50, got ${maxTarget}`);
-  process.exit(1);
+const { loadStages, stressStages } = await import("./bench/k6/config.js");
+for (const [name, stages] of Object.entries({ loadStages, stressStages })) {
+  const maxTarget = Math.max(...stages.map((stage) => Number(stage.target)));
+  if (maxTarget !== 50) {
+    console.error(`expected ${name} max target 50, got ${maxTarget}`);
+    process.exit(1);
+  }
 }
 EOF
