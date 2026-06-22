@@ -2,6 +2,10 @@ package user
 
 import (
 	"context"
+	"net/mail"
+	"net/url"
+	"strings"
+	"time"
 
 	"zfeed/app/front/internal/svc"
 	"zfeed/app/front/internal/types"
@@ -28,7 +32,11 @@ func NewUpdateProfileLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Upd
 }
 
 func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (*types.UpdateProfileRes, error) {
-	if req == nil {
+	if emptyUpdateProfilePayload(req) ||
+		invalidUpdateProfileGender(req.Gender) ||
+		invalidUpdateProfileEmail(req.Email) ||
+		invalidUpdateProfileAvatar(req.Avatar) ||
+		invalidUpdateProfileBirthday(req.Birthday) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 
@@ -48,10 +56,12 @@ func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (*types.
 		rpcReq.Bio = req.Bio
 	}
 	if req.Avatar != nil {
-		rpcReq.Avatar = req.Avatar
+		avatar := strings.TrimSpace(*req.Avatar)
+		rpcReq.Avatar = &avatar
 	}
 	if req.Email != nil {
-		rpcReq.Email = req.Email
+		email := strings.TrimSpace(*req.Email)
+		rpcReq.Email = &email
 	}
 	if req.Gender != nil {
 		gender := userpb.Gender(*req.Gender)
@@ -82,4 +92,72 @@ func (l *UpdateProfileLogic) UpdateProfile(req *types.UpdateProfileReq) (*types.
 			Birthday: rpcResp.GetUserInfo().GetBirthday(),
 		},
 	}, nil
+}
+
+func emptyUpdateProfilePayload(req *types.UpdateProfileReq) bool {
+	if req == nil {
+		return true
+	}
+	return req.Nickname == nil &&
+		req.Bio == nil &&
+		req.Avatar == nil &&
+		req.Email == nil &&
+		req.Gender == nil &&
+		req.Birthday == nil
+}
+
+func invalidUpdateProfileGender(gender *int32) bool {
+	if gender == nil {
+		return false
+	}
+	switch userpb.Gender(*gender) {
+	case userpb.Gender_GENDER_UNKNOWN, userpb.Gender_GENDER_MALE, userpb.Gender_GENDER_FEMALE:
+		return false
+	default:
+		return true
+	}
+}
+
+func invalidUpdateProfileEmail(email *string) bool {
+	if email == nil {
+		return false
+	}
+	value := strings.TrimSpace(*email)
+	if value == "" {
+		return true
+	}
+	address, err := mail.ParseAddress(value)
+	return err != nil || address.Address != value
+}
+
+func invalidUpdateProfileAvatar(avatar *string) bool {
+	if avatar == nil {
+		return false
+	}
+	value := strings.TrimSpace(*avatar)
+	if value == "" {
+		return true
+	}
+	if strings.HasPrefix(value, "/") && !strings.HasPrefix(value, "//") {
+		return false
+	}
+
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return true
+	}
+	if parsed.Host == "" {
+		return true
+	}
+	return parsed.Scheme != "http" && parsed.Scheme != "https"
+}
+
+func invalidUpdateProfileBirthday(birthday *int64) bool {
+	if birthday == nil {
+		return false
+	}
+	if *birthday <= 0 {
+		return true
+	}
+	return time.Unix(*birthday, 0).After(time.Now())
 }

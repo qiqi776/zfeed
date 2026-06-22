@@ -27,7 +27,7 @@ func NewQueryFollowersLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Qu
 }
 
 func (l *QueryFollowersLogic) QueryFollowers(req *types.QueryFollowersReq) (*types.QueryFollowersRes, error) {
-	if req == nil || req.UserId == nil || *req.UserId <= 0 || req.PageSize == nil {
+	if invalidQueryFollowersReq(req) {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if l.svcCtx == nil || l.svcCtx.FollowRpc == nil {
@@ -53,6 +53,9 @@ func (l *QueryFollowersLogic) QueryFollowers(req *types.QueryFollowersReq) (*typ
 	if err != nil {
 		return nil, err
 	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("查询粉丝列表失败")
+	}
 
 	items := make([]types.FollowerItem, 0, len(rpcResp.GetItems()))
 	for _, item := range rpcResp.GetItems() {
@@ -73,4 +76,14 @@ func (l *QueryFollowersLogic) QueryFollowers(req *types.QueryFollowersReq) (*typ
 		NextCursor: rpcResp.GetNextCursor(),
 		HasMore:    rpcResp.GetHasMore(),
 	}, nil
+}
+
+func invalidQueryFollowersReq(req *types.QueryFollowersReq) bool {
+	if req == nil || req.UserId == nil || *req.UserId <= 0 || req.PageSize == nil {
+		return true
+	}
+	if *req.PageSize == 0 || *req.PageSize > 50 {
+		return true
+	}
+	return req.Cursor != nil && *req.Cursor < 0
 }

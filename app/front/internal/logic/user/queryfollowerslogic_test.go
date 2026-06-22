@@ -2,6 +2,8 @@ package user
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -10,6 +12,7 @@ import (
 	"zfeed/app/front/internal/types"
 	followservicepb "zfeed/app/rpc/interaction/client/followservice"
 	interactionpb "zfeed/app/rpc/interaction/interaction"
+	"zfeed/pkg/errorx"
 )
 
 type stubFollowService struct {
@@ -79,6 +82,99 @@ func TestQueryFollowersCallsFollowRPC(t *testing.T) {
 	}
 	if !resp.HasMore || resp.NextCursor != 1002 {
 		t.Fatalf("unexpected pagination: %+v", resp)
+	}
+}
+
+func TestQueryFollowersRejectsPageSize(t *testing.T) {
+	tests := []struct {
+		name     string
+		pageSize uint32
+	}{
+		{name: "zero", pageSize: 0},
+		{name: "too large", pageSize: 51},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logic := NewQueryFollowersLogic(context.Background(), &svc.ServiceContext{
+				FollowRpc: &stubFollowService{
+					listFollowersFunc: func(context.Context, *followservicepb.ListFollowersReq, ...grpc.CallOption) (*followservicepb.ListFollowersRes, error) {
+						t.Fatal("invalid page size should not call FollowRpc")
+						return nil, nil
+					},
+				},
+			})
+
+			_, err := logic.QueryFollowers(&types.QueryFollowersReq{
+				UserId:   queryFollowersInt64Ptr(2001),
+				PageSize: uint32Ptr(tt.pageSize),
+			})
+			if err == nil {
+				t.Fatal("expected invalid page size to be rejected")
+			}
+			var bizErr *errorx.BizError
+			if !errors.As(err, &bizErr) || bizErr.HTTPStatus() != http.StatusBadRequest {
+				t.Fatalf("error = %v, want bad request", err)
+			}
+		})
+	}
+}
+
+func TestQueryFollowersRejectsNegativeCursor(t *testing.T) {
+	tests := []struct {
+		name   string
+		cursor int64
+	}{
+		{name: "minus one", cursor: -1},
+		{name: "minus many", cursor: -99},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logic := NewQueryFollowersLogic(context.Background(), &svc.ServiceContext{
+				FollowRpc: &stubFollowService{
+					listFollowersFunc: func(context.Context, *followservicepb.ListFollowersReq, ...grpc.CallOption) (*followservicepb.ListFollowersRes, error) {
+						t.Fatal("negative cursor should not call FollowRpc")
+						return nil, nil
+					},
+				},
+			})
+
+			_, err := logic.QueryFollowers(&types.QueryFollowersReq{
+				UserId:   queryFollowersInt64Ptr(2001),
+				Cursor:   queryFollowersInt64Ptr(tt.cursor),
+				PageSize: uint32Ptr(20),
+			})
+			if err == nil {
+				t.Fatal("expected negative cursor to be rejected")
+			}
+			var bizErr *errorx.BizError
+			if !errors.As(err, &bizErr) || bizErr.HTTPStatus() != http.StatusBadRequest {
+				t.Fatalf("error = %v, want bad request", err)
+			}
+		})
+	}
+}
+
+func TestQueryFollowersNilRPC(t *testing.T) {
+	logic := NewQueryFollowersLogic(context.Background(), &svc.ServiceContext{
+		FollowRpc: &stubFollowService{
+			listFollowersFunc: func(context.Context, *followservicepb.ListFollowersReq, ...grpc.CallOption) (*followservicepb.ListFollowersRes, error) {
+				return nil, nil
+			},
+		},
+	})
+
+	_, err := logic.QueryFollowers(&types.QueryFollowersReq{
+		UserId:   queryFollowersInt64Ptr(2001),
+		PageSize: uint32Ptr(20),
+	})
+	if err == nil {
+		t.Fatal("expected nil follow rpc response to be rejected")
+	}
+	var bizErr *errorx.BizError
+	if !errors.As(err, &bizErr) || bizErr.HTTPStatus() != http.StatusInternalServerError {
+		t.Fatalf("error = %v, want internal server error", err)
 	}
 }
 

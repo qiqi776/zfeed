@@ -163,6 +163,31 @@ func TestGetMeDegradesWhenCountRPCFails(t *testing.T) {
 	}
 }
 
+func TestGetMeDegradesWithoutCountRPC(t *testing.T) {
+	ctx := context.WithValue(context.Background(), "user_id", int64(3011))
+	logic := NewGetMeLogic(ctx, &svc.ServiceContext{
+		UserRpc: &stubUserService{
+			me: &userservice.GetMeRes{
+				UserInfo: &userservice.UserInfo{
+					UserId:   3011,
+					Nickname: "no-count-rpc",
+				},
+			},
+		},
+	})
+
+	resp, err := logic.GetMe()
+	if err != nil {
+		t.Fatalf("get me without count rpc: %v", err)
+	}
+	if resp.UserInfo.UserId != 3011 || resp.UserInfo.Nickname != "no-count-rpc" {
+		t.Fatalf("unexpected user info: %+v", resp.UserInfo)
+	}
+	if resp.FolloweeCount != 0 || resp.FollowerCount != 0 || resp.LikeReceivedCount != 0 || resp.FavoriteReceivedCount != 0 || resp.ContentCount != 0 {
+		t.Fatalf("count fields should degrade to zero without CountRpc: %+v", resp)
+	}
+}
+
 func TestGetMeDegradesWhenCountRPCTimeouts(t *testing.T) {
 	oldTimeout := defaultCountRPCTimeout
 	defaultCountRPCTimeout = 10 * time.Millisecond

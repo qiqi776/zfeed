@@ -5,6 +5,7 @@ package user
 
 import (
 	"context"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/logx"
 
@@ -30,7 +31,7 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 }
 
 func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginRes, err error) {
-	if req == nil || req.Mobile == nil || req.Password == nil {
+	if req == nil || req.Mobile == nil || req.Password == nil || strings.TrimSpace(*req.Password) == "" {
 		return nil, errorx.NewBadRequest("参数错误")
 	}
 	if !mobilex.IsValid(*req.Mobile) {
@@ -49,12 +50,15 @@ func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginRes, err error
 	if err != nil {
 		return nil, err
 	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("登录失败")
+	}
 
 	return &types.LoginRes{
-		UserId:    rpcResp.UserId,
-		Token:     rpcResp.Token,
-		ExpiredAt: rpcResp.ExpiredAt,
-		Nickname:  rpcResp.Nickname,
-		Avatar:    rpcResp.Avatar,
+		UserId:    rpcResp.GetUserId(),
+		Token:     rpcResp.GetToken(),
+		ExpiredAt: rpcResp.GetExpiredAt(),
+		Nickname:  rpcResp.GetNickname(),
+		Avatar:    rpcResp.GetAvatar(),
 	}, nil
 }

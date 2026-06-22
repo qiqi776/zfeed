@@ -19,6 +19,10 @@ func getCountRPCTimeout(svcCtx *svc.ServiceContext) time.Duration {
 }
 
 func loadUserProfileCounts(ctx context.Context, svcCtx *svc.ServiceContext, userID int64) (*count.GetUserProfileCountsRes, error) {
+	if svcCtx == nil || svcCtx.CountRpc == nil {
+		return nil, nil
+	}
+
 	countCtx, cancel := context.WithTimeout(ctx, getCountRPCTimeout(svcCtx))
 	defer cancel()
 

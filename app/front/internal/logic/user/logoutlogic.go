@@ -5,6 +5,7 @@ package user
 
 import (
 	"context"
+	"strings"
 
 	"github.com/zeromicro/go-zero/core/logx"
 
@@ -37,16 +38,19 @@ func (l *LogoutLogic) Logout() (resp *types.LogoutRes, err error) {
 
 	tokenVal := l.ctx.Value("token")
 	token, ok := tokenVal.(string)
-	if !ok || token == "" {
+	if !ok || strings.TrimSpace(token) == "" {
 		return nil, errorx.NewUnauthorized("token缺失")
 	}
 
-	_, err = l.svcCtx.UserRpc.Logout(l.ctx, &user.LogoutReq{
+	rpcResp, err := l.svcCtx.UserRpc.Logout(l.ctx, &user.LogoutReq{
 		UserId: userID,
 		Token:  token,
 	})
 	if err != nil {
 		return nil, err
+	}
+	if rpcResp == nil {
+		return nil, errorx.NewMsg("登出失败")
 	}
 
 	return &types.LogoutRes{}, nil

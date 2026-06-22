@@ -137,6 +137,30 @@ func TestQueryUserProfileDegradesWhenCountRPCFails(t *testing.T) {
 	}
 }
 
+func TestQueryUserProfileDegradesWithoutCountRPC(t *testing.T) {
+	logic := NewQueryUserProfileLogic(context.Background(), &svc.ServiceContext{
+		UserRpc: &stubUserService{
+			profile: &userservice.GetUserProfileRes{
+				UserProfile: &userservice.UserProfile{
+					UserId:   2011,
+					Nickname: "no-count-rpc",
+				},
+			},
+		},
+	})
+
+	resp, err := logic.QueryUserProfile(&types.QueryUserProfileReq{UserId: 2011})
+	if err != nil {
+		t.Fatalf("query user profile without count rpc: %v", err)
+	}
+	if resp.UserProfileInfo.UserId != 2011 || resp.UserProfileInfo.Nickname != "no-count-rpc" {
+		t.Fatalf("unexpected user profile info: %+v", resp.UserProfileInfo)
+	}
+	if resp.UserProfileCounts != (types.UserProfileCounts{}) {
+		t.Fatalf("user profile counts should degrade to zero without CountRpc, got %+v", resp.UserProfileCounts)
+	}
+}
+
 func TestQueryUserProfileDegradesWhenCountRPCTimeouts(t *testing.T) {
 	oldTimeout := defaultCountRPCTimeout
 	defaultCountRPCTimeout = 10 * time.Millisecond
@@ -209,8 +233,11 @@ type stubUserService struct {
 	update          *userservice.UpdateProfileRes
 	register        *userservice.RegisterRes
 	login           *userservice.LoginRes
+	logout          *userservice.LogoutRes
 	lastRegisterReq *userservice.RegisterReq
 	lastLoginReq    *userservice.LoginReq
+	lastLogoutReq   *userservice.LogoutReq
+	lastUpdateReq   *userservice.UpdateProfileReq
 	err             error
 }
 
@@ -219,9 +246,6 @@ func (s *stubUserService) Register(ctx context.Context, in *userservice.Register
 		return nil, s.err
 	}
 	s.lastRegisterReq = in
-	if s.register == nil {
-		return &userservice.RegisterRes{}, nil
-	}
 	return s.register, nil
 }
 
@@ -230,14 +254,15 @@ func (s *stubUserService) Login(ctx context.Context, in *userservice.LoginReq, o
 		return nil, s.err
 	}
 	s.lastLoginReq = in
-	if s.login == nil {
-		return &userservice.LoginRes{}, nil
-	}
 	return s.login, nil
 }
 
 func (s *stubUserService) Logout(ctx context.Context, in *userservice.LogoutReq, opts ...grpc.CallOption) (*userservice.LogoutRes, error) {
-	return &userservice.LogoutRes{}, nil
+	if s.err != nil {
+		return nil, s.err
+	}
+	s.lastLogoutReq = in
+	return s.logout, nil
 }
 
 func (s *stubUserService) GetMe(ctx context.Context, in *userservice.GetMeReq, opts ...grpc.CallOption) (*userservice.GetMeRes, error) {
@@ -251,9 +276,7 @@ func (s *stubUserService) UpdateProfile(ctx context.Context, in *userservice.Upd
 	if s.err != nil {
 		return nil, s.err
 	}
-	if s.update == nil {
-		return &userservice.UpdateProfileRes{}, nil
-	}
+	s.lastUpdateReq = in
 	return s.update, nil
 }
 
