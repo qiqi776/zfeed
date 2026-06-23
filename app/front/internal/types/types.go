@@ -220,6 +220,18 @@ type QueryFollowersRes struct {
 	HasMore    bool           `json:"has_more"`
 }
 
+type QueryFollowingsReq struct {
+	UserId   *int64  `json:"user_id,string,optional" validate:"required"`
+	Cursor   *int64  `json:"cursor,optional"`
+	PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=50"`
+}
+
+type QueryFollowingsRes struct {
+	Items      []FollowerItem `json:"items"`
+	NextCursor int64          `json:"next_cursor"`
+	HasMore    bool           `json:"has_more"`
+}
+
 type OssFormData struct {
 	Host             string `json:"host"`
 	Policy           string `json:"policy"`

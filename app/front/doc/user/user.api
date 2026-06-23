@@ -106,6 +106,16 @@ type (
 		NextCursor int64          `json:"next_cursor"`
 		HasMore    bool           `json:"has_more"`
 	}
+	QueryFollowingsReq {
+		UserId   *int64  `json:"user_id,string,optional" validate:"required"`
+		Cursor   *int64  `json:"cursor,optional"`
+		PageSize *uint32 `json:"page_size,optional" validate:"required,min=1,max=50"`
+	}
+	QueryFollowingsRes {
+		Items      []FollowerItem `json:"items"`
+		NextCursor int64          `json:"next_cursor"`
+		HasMore    bool           `json:"has_more"`
+	}
 )
 
 @server (
@@ -177,4 +187,10 @@ service front-api {
 	)
 	@handler QueryFollowers
 	post /user/followers (QueryFollowersReq) returns (QueryFollowersRes)
+
+	@doc (
+		description: "查询用户关注列表"
+	)
+	@handler QueryFollowings
+	post /user/followings (QueryFollowingsReq) returns (QueryFollowingsRes)
 }

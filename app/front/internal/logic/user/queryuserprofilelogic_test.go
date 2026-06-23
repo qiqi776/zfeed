@@ -238,6 +238,7 @@ type stubUserService struct {
 	lastLoginReq    *userservice.LoginReq
 	lastLogoutReq   *userservice.LogoutReq
 	lastUpdateReq   *userservice.UpdateProfileReq
+	batchUsers      *userservice.BatchGetUserRes
 	err             error
 }
 
@@ -292,6 +293,12 @@ func (s *stubUserService) GetUserProfile(ctx context.Context, in *userservice.Ge
 }
 
 func (s *stubUserService) BatchGetUser(ctx context.Context, in *userservice.BatchGetUserReq, opts ...grpc.CallOption) (*userservice.BatchGetUserRes, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.batchUsers != nil {
+		return s.batchUsers, nil
+	}
 	return &userservice.BatchGetUserRes{}, nil
 }
 

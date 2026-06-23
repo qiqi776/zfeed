@@ -112,11 +112,13 @@ fct_generate_follow_edges() {
 	fi
 	local index
 	for ((index = 0; index < edge_count; index++)); do
-		local follower_id=$((first_user_id + (index % user_count)))
-		local followee_id=$((first_user_id + ((index * 17 + 1) % user_count)))
-		if [[ "${follower_id}" -eq "${followee_id}" ]]; then
-			followee_id=$((first_user_id + ((index + 1) % user_count)))
+		local follower_index=$((index / (user_count - 1)))
+		local followee_index=$((index % (user_count - 1)))
+		if (( followee_index >= follower_index % user_count )); then
+			followee_index=$((followee_index + 1))
 		fi
+		local follower_id=$((first_user_id + (follower_index % user_count)))
+		local followee_id=$((first_user_id + followee_index))
 		printf '%d,%d\n' "${follower_id}" "${followee_id}" >>"${file}"
 	done
 }

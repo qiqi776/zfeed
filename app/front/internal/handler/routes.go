@@ -193,6 +193,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 					Path:    "/user/followers",
 					Handler: user.QueryFollowersHandler(serverCtx),
 				},
+				{
+					Method:  http.MethodPost,
+					Path:    "/user/followings",
+					Handler: user.QueryFollowingsHandler(serverCtx),
+				},
 			}...,
 		),
 		rest.WithPrefix("/v1"),
