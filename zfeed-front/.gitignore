@@ -31,6 +31,7 @@ pnpm-debug.log*
 *.tsbuildinfo
 
 # Caches
+.npm-cache/
 .eslintcache
 .stylelintcache
 .parcel-cache/
