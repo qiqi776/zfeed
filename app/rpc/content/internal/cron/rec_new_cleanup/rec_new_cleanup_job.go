@@ -11,6 +11,7 @@ import (
 
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	"zfeed/app/rpc/content/internal/svc"
+	"zfeed/pkg/redisx"
 	"zfeed/pkg/xxljob"
 )
 
@@ -82,11 +83,12 @@ func (j *RecNewCleanupJob) Run(ctx context.Context, param xxljob.TriggerParam) (
 func (j *RecNewCleanupJob) cleanupExpired(ctx context.Context, cutoff int64, batchSize int) (int, error) {
 	var removed int
 	for {
-		pairs, err := j.svc.Redis.ZrangebyscoreWithScoresAndLimitCtx(
+		pairs, err := redisx.ZRangeByScoreWithScoresAndLimitCtx(
 			ctx,
+			j.svc.Redis,
 			redisconsts.RecommendNewContentKey,
-			0,
-			cutoff,
+			"0",
+			strconv.FormatInt(cutoff, 10),
 			0,
 			batchSize,
 		)

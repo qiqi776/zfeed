@@ -18,7 +18,7 @@ if topN == nil or topN <= 0 then
     return {0}
 end
 
-local raw = redis.call('ZREVRANGE', zsetKey, 0, topN - 1, 'WITHSCORES')
+local raw = redis.call('ZRANGE', zsetKey, 0, topN - 1, 'REV', 'WITHSCORES')
 if raw == nil or #raw == 0 then
     return {0}
 end
@@ -43,4 +43,3 @@ if snapshotID ~= nil and snapshotID ~= '' then
 end
 
 return {count}
-

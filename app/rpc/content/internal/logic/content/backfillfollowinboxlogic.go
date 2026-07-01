@@ -14,6 +14,7 @@ import (
 	"zfeed/app/rpc/content/internal/svc"
 	followservice "zfeed/app/rpc/interaction/client/followservice"
 	"zfeed/pkg/errorx"
+	"zfeed/pkg/redisx"
 )
 
 const (
@@ -86,7 +87,7 @@ func (l *BackfillFollowInboxLogic) loadFolloweeLatest(followeeID int64, limit in
 		return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询发布流失败"))
 	}
 	if exists {
-		pairs, err := l.svcCtx.Redis.ZrevrangeWithScoresByFloatCtx(l.ctx, publishKey, 0, int64(limit-1))
+		pairs, err := redisx.ZRangeRevWithScoresByFloatCtx(l.ctx, l.svcCtx.Redis, publishKey, 0, int64(limit-1))
 		if err != nil {
 			return nil, errorx.Wrap(l.ctx, err, errorx.NewMsg("查询发布流失败"))
 		}

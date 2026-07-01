@@ -11,6 +11,7 @@ import (
 
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	contentconfig "zfeed/app/rpc/content/internal/config"
+	"zfeed/pkg/redisx"
 )
 
 func BuildCandidateCacheKey(userID int64, variantID string, configHash string) string {
@@ -67,7 +68,7 @@ func LoadCandidateCache(
 		return []Candidate{}, false, nil
 	}
 
-	pairs, err := rds.ZrevrangeWithScoresByFloatCtx(ctx, key, 0, int64(limit-1))
+	pairs, err := redisx.ZRangeRevWithScoresByFloatCtx(ctx, rds, key, 0, int64(limit-1))
 	if err != nil {
 		return nil, false, err
 	}

@@ -1,6 +1,6 @@
 # zfeed
 
-![Go](https://img.shields.io/badge/Go-1.26.2-00ADD8?logo=go&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.26.4-00ADD8?logo=go&logoColor=white)
 ![go-zero](https://img.shields.io/badge/go--zero-service%20framework-2f6fed)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111)
 ![Vite](https://img.shields.io/badge/Vite-7-646CFF?logo=vite&logoColor=white)
@@ -15,7 +15,7 @@
 ### 环境要求
 
 - Docker 和 Docker Compose，用于启动本地后端依赖和服务
-- Go 1.26.2+
+- Go 1.26.4+
 - Node.js 20.19+ 或 22.12+，用于运行 Vite 7 前端
 - npm，建议使用随 Node.js 安装的版本
 

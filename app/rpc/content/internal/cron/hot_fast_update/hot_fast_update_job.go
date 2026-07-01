@@ -15,6 +15,7 @@ import (
 	"zfeed/app/rpc/content/internal/repositories"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/hotrank"
+	"zfeed/pkg/redisx"
 	"zfeed/pkg/xxljob"
 )
 
@@ -126,7 +127,7 @@ func (j *HotFastUpdateJob) Run(ctx context.Context, param xxljob.TriggerParam) (
 		}
 	}
 
-	pairs, err := j.svc.Redis.ZrevrangeWithScoresByFloatCtx(ctx, redisconsts.HotFeedKey, 0, int64(p.TopN-1))
+	pairs, err := redisx.ZRangeRevWithScoresByFloatCtx(ctx, j.svc.Redis, redisconsts.HotFeedKey, 0, int64(p.TopN-1))
 	if err != nil {
 		return "", err
 	}

@@ -9,6 +9,7 @@ import (
 
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	contentconfig "zfeed/app/rpc/content/internal/config"
+	"zfeed/pkg/redisx"
 )
 
 type PublishedContent struct {
@@ -52,7 +53,7 @@ func RecallNewContent(ctx context.Context, rds *redis.Redis, limit int) ([]int64
 		return []int64{}, nil
 	}
 
-	pairs, err := rds.ZrevrangeWithScoresByFloatCtx(ctx, redisconsts.RecommendNewContentKey, 0, int64(limit-1))
+	pairs, err := redisx.ZRangeRevWithScoresByFloatCtx(ctx, rds, redisconsts.RecommendNewContentKey, 0, int64(limit-1))
 	if err != nil {
 		return nil, err
 	}

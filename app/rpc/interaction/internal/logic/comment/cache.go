@@ -13,6 +13,7 @@ import (
 	"zfeed/app/rpc/interaction/interaction"
 	rediskey "zfeed/app/rpc/interaction/internal/common/consts/redis"
 	luautils "zfeed/app/rpc/interaction/internal/common/utils/lua"
+	"zfeed/pkg/redisx"
 )
 
 const (
@@ -31,7 +32,7 @@ func readCmtCachedIndexIDs(ctx context.Context, rds *goredis.Redis, key string, 
 	}
 
 	upper := maxScore(cursor)
-	pairs, err := rds.ZrevrangebyscoreWithScoresAndLimitCtx(ctx, key, 0, upper, 0, int(pageSize)+1)
+	pairs, err := redisx.ZRangeRevByScoreWithScoresAndLimitCtx(ctx, rds, key, strconv.FormatInt(upper, 10), "0", 0, int(pageSize)+1)
 	if err != nil {
 		return nil, true, false, err
 	}

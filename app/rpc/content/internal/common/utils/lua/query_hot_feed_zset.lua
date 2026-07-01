@@ -71,7 +71,7 @@ if cursorScore ~= nil then
 end
 
 local overscan = pageSize + 32
-local raw = redis.call('ZREVRANGEBYSCORE', key, '(' .. maxScore, '-inf', 'WITHSCORES', 'LIMIT', 0, overscan)
+local raw = redis.call('ZRANGE', key, '(' .. maxScore, '-inf', 'REV', 'BYSCORE', 'WITHSCORES', 'LIMIT', 0, overscan)
 local ids = {}
 
 for i = 1, #raw, 2 do

@@ -20,6 +20,7 @@ import (
 	interactionmodel "zfeed/app/rpc/interaction/internal/model"
 	interactionsvc "zfeed/app/rpc/interaction/internal/svc"
 	"zfeed/app/rpc/interaction/internal/testutil/mysqltest"
+	"zfeed/pkg/redisx"
 )
 
 const runRealStoreEnv = "RUN_REAL_STORE"
@@ -42,9 +43,13 @@ func (a *realStoreContentServiceAdapter) BackfillFollowInbox(ctx context.Context
 	publishKey := "feed:user:publish:" + int64ToString(in.GetFolloweeId())
 	inboxKey := "feed:follow:inbox:" + int64ToString(in.GetFollowerId())
 
-	members, err := a.redisClient.ZrevrangeCtx(ctx, publishKey, 0, int64(in.GetLimit())-1)
+	pairs, err := redisx.ZRangeRevWithScoresByFloatCtx(ctx, a.redisClient, publishKey, 0, int64(in.GetLimit())-1)
 	if err != nil {
 		return nil, err
+	}
+	members := make([]string, 0, len(pairs))
+	for _, pair := range pairs {
+		members = append(members, pair.Key)
 	}
 	for _, member := range members {
 		score, convErr := strconv.ParseInt(member, 10, 64)

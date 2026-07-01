@@ -18,6 +18,7 @@ import (
 	"zfeed/app/rpc/content/internal/recommend/track"
 	"zfeed/app/rpc/content/internal/svc"
 	"zfeed/pkg/errorx"
+	"zfeed/pkg/redisx"
 )
 
 type CacheResult int
@@ -635,7 +636,7 @@ func (l *RecommendFeedLogic) recallHotCandidates(limit int) (hotRecallResult, er
 		return hotRecallResult{}, err
 	}
 
-	pairs, err := l.svcCtx.Redis.ZrevrangeWithScoresByFloatCtx(l.ctx, key, 0, int64(limit-1))
+	pairs, err := redisx.ZRangeRevWithScoresByFloatCtx(l.ctx, l.svcCtx.Redis, key, 0, int64(limit-1))
 	if err != nil {
 		return hotRecallResult{}, err
 	}

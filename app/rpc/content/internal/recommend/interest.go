@@ -8,6 +8,7 @@ import (
 
 	redisconsts "zfeed/app/rpc/content/internal/common/consts/redis"
 	contentconfig "zfeed/app/rpc/content/internal/config"
+	"zfeed/pkg/redisx"
 )
 
 func RecallInterest(
@@ -44,8 +45,9 @@ func RecallInterestCandidates(
 	tagPairs := make([]interestTagPairs, 0, len(profile))
 	var maxScore float64
 	for tag, profileWeight := range profile {
-		pairs, err := rds.ZrevrangeWithScoresByFloatCtx(
+		pairs, err := redisx.ZRangeRevWithScoresByFloatCtx(
 			ctx,
+			rds,
 			redisconsts.BuildRecommendTagIndexKey(tag),
 			0,
 			int64(cfg.Limit-1),

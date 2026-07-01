@@ -22,7 +22,7 @@ if cursor ~= nil and cursor ~= "" and cursor ~= "0" then
   maxScore = cursor
 end
 
-local entries = redis.call('ZREVRANGEBYSCORE', key, '(' .. maxScore, '-inf', 'WITHSCORES', 'LIMIT', 0, pageSize + 1)
+local entries = redis.call('ZRANGE', key, '(' .. maxScore, '-inf', 'REV', 'BYSCORE', 'WITHSCORES', 'LIMIT', 0, pageSize + 1)
 local count = math.floor(#entries / 2)
 
 local hasMore = 0
